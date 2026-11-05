@@ -1,4 +1,0 @@
-# Keep formatter behavior aligned across contributors and toolchain updates.
-edition = "2024"
-style_edition = "2024"
-newline_style = "Unix"
