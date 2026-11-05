@@ -13,6 +13,7 @@ pub mod args;
 pub mod cli;
 
 mod cache;
+mod color;
 mod commands;
 #[doc(hidden)]
 pub mod config_docs;
@@ -31,7 +32,6 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use anyhow::Result;
-use colored::Colorize;
 use shuck_config::ConfigArguments;
 
 pub use crate::cli::{Args, Command};
@@ -90,9 +90,6 @@ where
 }
 
 fn run_inner(argv: Vec<OsString>) -> ExitCode {
-    #[cfg(windows)]
-    assert!(colored::control::set_virtual_terminal(true).is_ok());
-
     if shellcheck_compat::should_activate(&argv) {
         return shellcheck_compat::run(argv);
     }
@@ -133,9 +130,18 @@ fn report_error(err: &anyhow::Error) -> ExitCode {
     }
 
     let mut stderr = std::io::stderr().lock();
-    let _ = writeln!(stderr, "{}: {err}", "shuck".red().bold());
+    let use_color = color::should_colorize();
+    let _ = writeln!(
+        stderr,
+        "{}: {err}",
+        color::paint("shuck", color::RED_BOLD, use_color)
+    );
     for cause in err.chain().skip(1) {
-        let _ = writeln!(stderr, "  {} {cause}", "Cause:".bold());
+        let _ = writeln!(
+            stderr,
+            "  {} {cause}",
+            color::paint("Cause:", color::BOLD, use_color)
+        );
     }
 
     ExitStatus::Error.into()

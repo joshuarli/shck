@@ -2,7 +2,6 @@ use std::cmp::min;
 use std::collections::BTreeMap;
 use std::io::{self, ErrorKind, Write};
 
-use colored::Colorize;
 use serde::Serialize;
 use similar::TextDiff;
 
@@ -10,6 +9,7 @@ use super::{
     CompatCliError, CompatDiagnostic, CompatFormat, CompatLevel, CompatOptions, CompatReport,
     use_color,
 };
+use crate::color::{self, BOLD, CYAN, GREEN, RED, YELLOW};
 use crate::shellcheck_compat::optional::OptionalCheck;
 use crate::shellcheck_runtime::ShellCheckDiagnostic;
 
@@ -306,25 +306,15 @@ fn render_tty(report: &CompatReport, options: &CompatOptions) -> String {
             by_line.entry(diagnostic.line).or_default().push(diagnostic);
         }
 
-        for (index, (line_no, line_diags)) in by_line.into_iter().enumerate() {
+        for (line_no, line_diags) in by_line {
             if !output.is_empty() {
                 output.push('\n');
             }
-            if index == 0 {
-                output.push_str(&format!(
-                    "{} {}\n",
-                    stylize("In", use_color, |text| text.bold()),
-                    stylize(format!("{file} line {line_no}:"), use_color, |text| text
-                        .bold())
-                ));
-            } else {
-                output.push_str(&format!(
-                    "{} {}\n",
-                    stylize("In", use_color, |text| text.bold()),
-                    stylize(format!("{file} line {line_no}:"), use_color, |text| text
-                        .bold())
-                ));
-            }
+            output.push_str(&format!(
+                "{} {}\n",
+                color::paint("In", BOLD, use_color),
+                color::paint(format!("{file} line {line_no}:"), BOLD, use_color)
+            ));
 
             let source_line = line_diags
                 .first()
@@ -342,10 +332,10 @@ fn render_tty(report: &CompatReport, options: &CompatOptions) -> String {
                 output.push_str(&format!(
                     "{}\n",
                     match diagnostic.level {
-                        CompatLevel::Error => stylize(text, use_color, |value| value.red()),
-                        CompatLevel::Warning => stylize(text, use_color, |value| value.yellow()),
-                        CompatLevel::Info => stylize(text, use_color, |value| value.green()),
-                        CompatLevel::Style => stylize(text, use_color, |value| value.cyan()),
+                        CompatLevel::Error => color::paint(text, RED, use_color),
+                        CompatLevel::Warning => color::paint(text, YELLOW, use_color),
+                        CompatLevel::Info => color::paint(text, GREEN, use_color),
+                        CompatLevel::Style => color::paint(text, CYAN, use_color),
                     }
                 ));
             }
@@ -443,19 +433,6 @@ fn xml_escape(value: &str) -> String {
         .replace('>', "&gt;")
         .replace('\"', "&quot;")
         .replace('\'', "&apos;")
-}
-
-fn stylize(
-    value: impl Into<String>,
-    use_color: bool,
-    style: impl FnOnce(colored::ColoredString) -> colored::ColoredString,
-) -> String {
-    let value = value.into();
-    if use_color {
-        style(value.normal()).to_string()
-    } else {
-        value
-    }
 }
 
 #[cfg(test)]

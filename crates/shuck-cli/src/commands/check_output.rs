@@ -7,13 +7,13 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use annotate_snippets::{AnnotationType, Renderer, Slice, Snippet, SourceAnnotation};
-use colored::{ColoredString, Colorize};
 use quick_junit::{NonSuccessKind, Report, TestCase, TestCaseStatus, TestSuite, XmlString};
 use serde::Serialize;
 use shuck_indexer::LineIndex;
 use shuck_linter::{Category, RuleMetadata, code_to_rule, rule_metadata};
 
 use crate::args::CheckOutputFormatArg;
+use crate::color::{self, BLUE_BOLD, BOLD, BOLD_UNDERLINE, CYAN, CYAN_BOLD, RED_BOLD, YELLOW_BOLD};
 
 const PARSE_ERROR_CODE: &str = "parse-error";
 const DISPLAY_TAB_WIDTH: usize = 4;
@@ -200,20 +200,12 @@ fn write_grouped_diagnostics(
             writeln!(writer)?;
         }
 
-        let header = paint(path.display().to_string(), use_color, |value| {
-            value.bold().underline()
-        });
+        let header = color::paint(path.display(), BOLD_UNDERLINE, use_color);
         writeln!(writer, "{header}:")?;
 
         for diagnostic in messages {
-            let line = paint(diagnostic.span.start.line.to_string(), use_color, |value| {
-                value.cyan()
-            });
-            let column = paint(
-                diagnostic.span.start.column.to_string(),
-                use_color,
-                |value| value.cyan(),
-            );
+            let line = color::paint(diagnostic.span.start.line, CYAN, use_color);
+            let column = color::paint(diagnostic.span.start.column, CYAN, use_color);
             writeln!(
                 writer,
                 "  {line}:{column}: {}",
@@ -461,44 +453,32 @@ fn format_full_header(diagnostic: &DisplayedDiagnostic, use_color: bool) -> Stri
     match &diagnostic.kind {
         DisplayedDiagnosticKind::ParseError => format!(
             "{}[{}]: {}",
-            paint("error".to_owned(), use_color, |value| value.red().bold()),
-            paint(PARSE_ERROR_CODE.to_owned(), use_color, |value| value
-                .red()
-                .bold()),
+            color::paint("error", RED_BOLD, use_color),
+            color::paint(PARSE_ERROR_CODE, RED_BOLD, use_color),
             diagnostic.message
         ),
         DisplayedDiagnosticKind::Lint { code, severity } => format!(
             "{}[{}]: {}",
             format_severity(severity, use_color),
-            paint(code.clone(), use_color, |value| value.cyan().bold()),
+            color::paint(code, CYAN_BOLD, use_color),
             diagnostic.message
         ),
     }
 }
 
 fn format_concise_diagnostic(diagnostic: &DisplayedDiagnostic, use_color: bool) -> String {
-    let path = paint(diagnostic.path.display().to_string(), use_color, |value| {
-        value.bold()
-    });
-    let line = paint(diagnostic.span.start.line.to_string(), use_color, |value| {
-        value.cyan()
-    });
-    let column = paint(
-        diagnostic.span.start.column.to_string(),
-        use_color,
-        |value| value.cyan(),
-    );
+    let path = color::paint(diagnostic.path.display(), BOLD, use_color);
+    let line = color::paint(diagnostic.span.start.line, CYAN, use_color);
+    let column = color::paint(diagnostic.span.start.column, CYAN, use_color);
 
     match &diagnostic.kind {
         DisplayedDiagnosticKind::ParseError => {
-            let label = paint("parse error".to_owned(), use_color, |value| {
-                value.red().bold()
-            });
+            let label = color::paint("parse error", RED_BOLD, use_color);
             format!("{path}:{line}:{column}: {label} {}", diagnostic.message)
         }
         DisplayedDiagnosticKind::Lint { code, severity } => {
             let severity = format_severity(severity, use_color);
-            let code = paint(code.clone(), use_color, |value| value.cyan().bold());
+            let code = color::paint(code, CYAN_BOLD, use_color);
             format!(
                 "{path}:{line}:{column}: {severity}[{code}] {}",
                 diagnostic.message
@@ -510,38 +490,25 @@ fn format_concise_diagnostic(diagnostic: &DisplayedDiagnostic, use_color: bool) 
 fn format_diagnostic_body(diagnostic: &DisplayedDiagnostic, use_color: bool) -> String {
     match &diagnostic.kind {
         DisplayedDiagnosticKind::ParseError => {
-            let label = paint("parse error".to_owned(), use_color, |value| {
-                value.red().bold()
-            });
+            let label = color::paint("parse error", RED_BOLD, use_color);
             format!("{label} {}", diagnostic.message)
         }
         DisplayedDiagnosticKind::Lint { code, severity } => {
             let severity = format_severity(severity, use_color);
-            let code = paint(code.clone(), use_color, |value| value.cyan().bold());
+            let code = color::paint(code, CYAN_BOLD, use_color);
             format!("{severity}[{code}] {}", diagnostic.message)
         }
     }
 }
 
 fn format_severity(severity: &str, use_color: bool) -> String {
-    paint(severity.to_owned(), use_color, |value| match severity {
-        "error" => value.red().bold(),
-        "warning" => value.yellow().bold(),
-        "info" | "hint" => value.blue().bold(),
-        _ => value.bold(),
-    })
-}
-
-fn paint(
-    value: String,
-    use_color: bool,
-    style: impl FnOnce(ColoredString) -> ColoredString,
-) -> String {
-    if use_color {
-        style(value.normal()).to_string()
-    } else {
-        value
-    }
+    let style = match severity {
+        "error" => RED_BOLD,
+        "warning" => YELLOW_BOLD,
+        "info" | "hint" => BLUE_BOLD,
+        _ => BOLD,
+    };
+    color::paint(severity, style, use_color)
 }
 
 fn annotation_type(diagnostic: &DisplayedDiagnostic) -> AnnotationType {

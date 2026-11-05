@@ -122,8 +122,12 @@ where
 
     if let Some(first) = args_iter.next() {
         let first_str = first.to_string_lossy();
-        if !first_str.starts_with('-') && (first_str == "shuck" || first_str.ends_with("/shuck") || first_str.ends_with("\\shuck")) {
-        } else {
+        let is_subcommand = matches!(
+            first_str.as_ref(),
+            "check" | "run" | "install" | "shell" | "format" | "clean"
+        );
+        let is_option = first_str.starts_with('-');
+        if is_subcommand || is_option {
             let mut prepended = vec![first];
             prepended.extend(args_iter);
             args_iter = prepended.into_iter();
@@ -344,8 +348,8 @@ pub fn execute(args: Args) -> anyhow::Result<ExitStatus> {
         command,
     } = args;
 
-    if let Some(color_override) = colored_override(color, std::env::var_os("FORCE_COLOR")) {
-        colored::control::set_override(color_override);
+    if let Some(color_override) = color_override(color, std::env::var_os("FORCE_COLOR")) {
+        crate::color::set_override(color_override);
     }
 
     match command {
@@ -358,7 +362,7 @@ pub fn execute(args: Args) -> anyhow::Result<ExitStatus> {
     }
 }
 
-fn colored_override(
+fn color_override(
     color: Option<TerminalColor>,
     env_force_color: Option<OsString>,
 ) -> Option<bool> {

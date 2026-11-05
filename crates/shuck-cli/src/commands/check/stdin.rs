@@ -242,7 +242,7 @@ fn emit_stdin_report(
             &mut stderr,
             &report.diagnostics,
             args.output_format,
-            colored::control::SHOULD_COLORIZE.should_colorize(),
+            crate::color::should_colorize(),
         )?;
         let fixes_applied = report.fixes_applied;
         if fixes_applied > 0 && is_human_readable(args.output_format) {
@@ -258,7 +258,7 @@ fn emit_stdin_report(
             &mut stdout,
             &report.diagnostics,
             args.output_format,
-            colored::control::SHOULD_COLORIZE.should_colorize(),
+            crate::color::should_colorize(),
         )?;
     }
     Ok(())

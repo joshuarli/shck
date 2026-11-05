@@ -32,7 +32,7 @@ pub(super) fn print_diagnostics(
         &mut stdout,
         diagnostics,
         output_format,
-        colored::control::SHOULD_COLORIZE.should_colorize(),
+        crate::color::should_colorize(),
     )?;
     Ok(())
 }
@@ -241,7 +241,7 @@ mod tests {
 
     #[test]
     fn report_output_includes_ansi_styles_when_enabled() {
-        colored::control::set_override(true);
+        crate::color::set_override(true);
 
         let report = CheckReport {
             diagnostics: vec![DisplayedDiagnostic {
@@ -276,7 +276,7 @@ mod tests {
         assert!(output.contains("warning"));
         assert!(output.contains("C014"));
 
-        colored::control::unset_override();
+        crate::color::unset_override();
     }
 
     #[test]

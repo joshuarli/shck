@@ -152,7 +152,9 @@ fn clear_screen() -> Result<()> {
     if !should_clear_screen(io::stdout().is_terminal()) {
         return Ok(());
     }
-    clearscreen::clear()?;
+    let mut stdout = io::stdout().lock();
+    write!(stdout, "\x1B[2J\x1B[1;1H")?;
+    stdout.flush()?;
     Ok(())
 }
 

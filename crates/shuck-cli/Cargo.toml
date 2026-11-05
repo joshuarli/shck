@@ -23,8 +23,6 @@ path = "src/main.rs"
 [dependencies]
 annotate-snippets = { workspace = true }
 anyhow = { workspace = true }
-clearscreen = { workspace = true }
-colored = { workspace = true }
 etcetera = { workspace = true }
 lexopt = { workspace = true }
 notify = { workspace = true }
