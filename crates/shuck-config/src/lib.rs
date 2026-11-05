@@ -16,8 +16,6 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use anyhow::{Context, Result, anyhow};
-use clap::builder::{TypedValueParser, ValueParserFactory};
-use clap::error::{ContextKind, ContextValue, ErrorKind};
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use serde::Deserialize;
 pub use shuck_formatter::FormatSettingsPatch;
@@ -1536,12 +1534,33 @@ pub struct ConfigArguments {
     overrides: ShuckConfig,
 }
 
+/// Error produced while parsing or resolving command-line configuration arguments.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ConfigCliError {
+    message: String,
+}
+
+impl ConfigCliError {
+    /// Return the error message.
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+}
+
+impl std::fmt::Display for ConfigCliError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl std::error::Error for ConfigCliError {}
+
 impl ConfigArguments {
     /// Parse `--config` occurrences and `--isolated` into config-loading arguments.
     pub fn from_cli(
         config_options: Vec<SingleConfigArgument>,
         isolated: bool,
-    ) -> std::result::Result<Self, clap::Error> {
+    ) -> std::result::Result<Self, ConfigCliError> {
         let mut config_file: Option<PathBuf> = None;
         let mut overrides = ShuckConfig::default();
 
@@ -1552,35 +1571,22 @@ impl ConfigArguments {
                 }
                 SingleConfigArgument::FilePath(path) => {
                     if isolated {
-                        return Err(clap::Error::raw(
-                            ErrorKind::ArgumentConflict,
-                            format!(
-                                "\
-The argument `--config={}` cannot be used with `--isolated`
-
-  tip: You cannot specify a configuration file and also specify `--isolated`,
-       as `--isolated` causes shuck to ignore all configuration files.
-       For more information, try `--help`.
-",
+                        return Err(ConfigCliError {
+                            message: format!(
+                                "The argument `--config={}` cannot be used with `--isolated`\n\n  tip: You cannot specify a configuration file and also specify `--isolated`,\n       as `--isolated` causes shuck to ignore all configuration files.\n       For more information, try `--help`.\n",
                                 path.display()
                             ),
-                        ));
+                        });
                     }
 
                     if let Some(existing) = &config_file {
-                        return Err(clap::Error::raw(
-                            ErrorKind::ArgumentConflict,
-                            format!(
-                                "\
-You cannot specify more than one configuration file on the command line.
-
-  tip: remove either `--config={}` or `--config={}`.
-       For more information, try `--help`.
-",
+                        return Err(ConfigCliError {
+                            message: format!(
+                                "You cannot specify more than one configuration file on the command line.\n\n  tip: remove either `--config={}` or `--config={}`.\n       For more information, try `--help`.\n",
                                 existing.display(),
                                 path.display()
                             ),
-                        ));
+                        });
                     }
 
                     config_file = Some(path);
@@ -1604,6 +1610,11 @@ You cannot specify more than one configuration file on the command line.
     pub fn explicit_config_file(&self) -> Option<&Path> {
         self.config_file.as_deref()
     }
+
+    /// Return inline configuration overrides, if any.
+    pub fn overrides(&self) -> &ShuckConfig {
+        &self.overrides
+    }
 }
 
 /// A single `--config` command-line value.
@@ -1615,40 +1626,24 @@ pub enum SingleConfigArgument {
     SettingsOverride(Box<ShuckConfig>),
 }
 
-/// Clap value parser for [`SingleConfigArgument`].
-#[derive(Clone)]
-pub struct ConfigArgumentParser;
-
-impl ValueParserFactory for SingleConfigArgument {
-    type Parser = ConfigArgumentParser;
-
-    fn value_parser() -> Self::Parser {
-        ConfigArgumentParser
-    }
-}
-
-impl TypedValueParser for ConfigArgumentParser {
-    type Value = SingleConfigArgument;
-
-    fn parse_ref(
-        &self,
-        cmd: &clap::Command,
-        arg: Option<&clap::Arg>,
-        value: &OsStr,
-    ) -> std::result::Result<Self::Value, clap::Error> {
+impl SingleConfigArgument {
+    /// Parse a command-line `--config` argument.
+    pub fn parse(value: &OsStr) -> std::result::Result<Self, ConfigCliError> {
         let path = PathBuf::from(value);
         if path.is_file() {
             return Ok(SingleConfigArgument::FilePath(path));
         }
 
-        let Some(value) = value.to_str() else {
-            return Err(clap::Error::new(ErrorKind::InvalidUtf8));
+        let Some(value_str) = value.to_str() else {
+            return Err(ConfigCliError {
+                message: "argument '--config' contains invalid UTF-8 data".to_owned(),
+            });
         };
 
-        parse_config_override(value)
+        parse_config_override(value_str)
             .map(Box::new)
             .map(SingleConfigArgument::SettingsOverride)
-            .map_err(|detail| invalid_config_argument(cmd, arg, value, &detail))
+            .map_err(|detail| invalid_config_argument(value_str, &detail))
     }
 }
 
@@ -2393,24 +2388,10 @@ fn validate_c161_rule_options_override(value: &toml::Value) -> std::result::Resu
 }
 
 fn invalid_config_argument(
-    cmd: &clap::Command,
-    arg: Option<&clap::Arg>,
     value: &str,
     detail: &str,
-) -> clap::Error {
+) -> ConfigCliError {
     use std::fmt::Write as _;
-
-    let mut error = clap::Error::new(ErrorKind::ValueValidation).with_cmd(cmd);
-    if let Some(arg) = arg {
-        error.insert(
-            ContextKind::InvalidArg,
-            ContextValue::String(arg.to_string()),
-        );
-    }
-    error.insert(
-        ContextKind::InvalidValue,
-        ContextValue::String(value.to_owned()),
-    );
 
     let mut tip = "\
 A `--config` flag must either be a path to a `.toml` configuration file
@@ -2432,11 +2413,11 @@ A `--config` flag must either be a path to a `.toml` configuration file
         let _ = write!(&mut tip, "\n\n{detail}");
     }
 
-    error.insert(
-        ContextKind::Suggested,
-        ContextValue::StyledStrs(vec![tip.into()]),
-    );
-    error
+    ConfigCliError {
+        message: format!(
+            "invalid value '{value}' for '--config <CONFIG_OPTION>'\n\n  tip: {tip}"
+        ),
+    }
 }
 
 /// Parse a config-file indentation style value.

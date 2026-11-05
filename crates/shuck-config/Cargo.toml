@@ -10,7 +10,6 @@ description = "Configuration loading, project-root discovery, and settings resol
 
 [dependencies]
 anyhow = { workspace = true }
-clap = { workspace = true }
 etcetera = { workspace = true }
 globset = { workspace = true }
 serde = { workspace = true }

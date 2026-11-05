@@ -9,6 +9,8 @@
 
 /// Command-line argument types and parsing helpers for the `shuck` executable.
 pub mod args;
+#[doc(hidden)]
+pub mod cli;
 
 mod cache;
 mod commands;
@@ -23,15 +25,22 @@ pub mod shellcheck_compat;
 pub mod shellcheck_runtime;
 mod stdin;
 
+use std::ffi::OsString;
+use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use anyhow::Result;
+use colored::Colorize;
 use shuck_config::ConfigArguments;
 
-use crate::args::{Args, Command, FormatCommand, TerminalColor};
+pub use crate::cli::{Args, Command};
+use crate::cli::format::FormatCommand;
 
-/// Exit status returned by [`run`].
+/// Native stack for every thread that parses, analyzes, or formats scripts.
+const ANALYSIS_THREAD_STACK_SIZE: usize = 64 * 1024 * 1024;
+
+/// Exit status returned by commands.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ExitStatus {
     /// The command completed successfully without reporting failures.
@@ -55,27 +64,91 @@ impl From<ExitStatus> for ExitCode {
     }
 }
 
-/// Run a parsed `shuck` command and return the resulting process status.
-pub fn run(args: Args) -> Result<ExitStatus> {
-    let Args {
-        cache_dir,
-        config,
-        color,
-        command,
-    } = args;
+/// Run `shuck` with the provided command-line arguments and return the resulting exit code.
+pub fn run<I, T>(args: I) -> ExitCode
+where
+    I: IntoIterator<Item = T>,
+    T: Into<OsString>,
+{
+    let all_args: Vec<OsString> = args.into_iter().map(Into::into).collect();
 
-    if let Some(color_override) = colored_override(color, std::env::var_os("FORCE_COLOR")) {
-        colored::control::set_override(color_override);
+    let _ = rayon::ThreadPoolBuilder::new()
+        .stack_size(ANALYSIS_THREAD_STACK_SIZE)
+        .build_global();
+
+    let worker_args = all_args.clone();
+    let worker = std::thread::Builder::new()
+        .name("shuck-main".to_owned())
+        .stack_size(ANALYSIS_THREAD_STACK_SIZE)
+        .spawn(move || run_inner(worker_args));
+    match worker {
+        Ok(handle) => handle
+            .join()
+            .unwrap_or_else(|panic| std::panic::resume_unwind(panic)),
+        Err(_) => run_inner(all_args),
+    }
+}
+
+fn run_inner(argv: Vec<OsString>) -> ExitCode {
+    #[cfg(windows)]
+    assert!(colored::control::set_virtual_terminal(true).is_ok());
+
+    if shellcheck_compat::should_activate(&argv) {
+        return shellcheck_compat::run(argv);
     }
 
-    match command {
-        Command::Check(command) => commands::check::check(*command, &config, cache_dir.as_deref()),
-        Command::Run(command) => commands::runtime::run(command, &config),
-        Command::Install(command) => commands::runtime::install(command),
-        Command::Shell(command) => commands::runtime::shell(command, &config),
-        Command::Format(command) => format(command, &config, cache_dir.as_deref()),
-        Command::Clean(command) => commands::clean::clean(command, &config, cache_dir.as_deref()),
+    let parsed = match cli::parse(argv) {
+        Ok(parsed) => parsed,
+        Err(err) => {
+            let mut stderr = std::io::stderr().lock();
+            let _ = writeln!(stderr, "{err}");
+            return ExitCode::from(err.exit_code());
+        }
+    };
+
+    match parsed {
+        cli::ParsedCli::Help(text) => {
+            print!("{text}");
+            ExitCode::from(0)
+        }
+        cli::ParsedCli::Version(text) => {
+            print!("{text}");
+            ExitCode::from(0)
+        }
+        cli::ParsedCli::Run(args) => match cli::execute(*args) {
+            Ok(ExitStatus::Code(code)) => exit_with_child_status(code),
+            Ok(status) => status.into(),
+            Err(err) => report_error(&err),
+        },
     }
+}
+
+fn report_error(err: &anyhow::Error) -> ExitCode {
+    for cause in err.chain() {
+        if let Some(ioerr) = cause.downcast_ref::<std::io::Error>()
+            && ioerr.kind() == std::io::ErrorKind::BrokenPipe
+        {
+            return ExitCode::from(0);
+        }
+    }
+
+    let mut stderr = std::io::stderr().lock();
+    let _ = writeln!(stderr, "{}: {err}", "shuck".red().bold());
+    for cause in err.chain().skip(1) {
+        let _ = writeln!(stderr, "  {} {cause}", "Cause:".bold());
+    }
+
+    ExitStatus::Error.into()
+}
+
+#[cfg(windows)]
+fn exit_with_child_status(code: i32) -> ExitCode {
+    std::process::exit(code);
+}
+
+#[cfg(not(windows))]
+fn exit_with_child_status(code: i32) -> ExitCode {
+    ExitCode::from(u8::try_from(code).unwrap_or(1))
 }
 
 #[doc(hidden)]
@@ -87,7 +160,7 @@ pub fn benchmark_check_paths(
     commands::check::benchmark_check_paths(cwd, paths, output_format)
 }
 
-fn format(
+pub(crate) fn format(
     mut args: FormatCommand,
     config_arguments: &ConfigArguments,
     cache_dir: Option<&Path>,
@@ -119,40 +192,5 @@ fn resolve_default_files(files: Vec<PathBuf>, is_stdin: bool) -> Vec<PathBuf> {
         }
     } else {
         files
-    }
-}
-
-fn colored_override(
-    color: Option<TerminalColor>,
-    env_force_color: Option<std::ffi::OsString>,
-) -> Option<bool> {
-    match color {
-        Some(TerminalColor::Always) => Some(true),
-        Some(TerminalColor::Never) => Some(false),
-        Some(TerminalColor::Auto) | None => {
-            env_force_color.map(|force_color| !force_color.is_empty())
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn force_color_env_is_respected() {
-        assert_eq!(colored_override(None, Some("1".into())), Some(true));
-    }
-
-    #[test]
-    fn cli_color_overrides_force_color_env() {
-        assert_eq!(
-            colored_override(Some(TerminalColor::Never), Some("1".into())),
-            Some(false)
-        );
-        assert_eq!(
-            colored_override(Some(TerminalColor::Always), None),
-            Some(true)
-        );
     }
 }
