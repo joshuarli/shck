@@ -5,4 +5,3 @@ pub(crate) mod format;
 pub(crate) mod format_stdin;
 pub(crate) mod project_runner;
 pub(crate) mod runtime;
-pub(crate) mod server;
