@@ -200,10 +200,7 @@ mod tests {
     use std::sync::mpsc::{TryRecvError, channel};
 
     use notify::event::{CreateKind, EventAttributes, ModifyKind, RemoveKind, RenameMode};
-    use shuck_extract::{
-        EmbeddedFormat, EmbeddedScript, ExtractedDialect, HostLineStart, ImplicitShellFlags,
-    };
-    use shuck_linter::{
+        use shuck_linter::{
         Category, LinterSettings, Rule, RuleSelector, RuleSet, ShellCheckCodeMap, ShellDialect,
     };
     use shuck_parser::parser::Parser;
@@ -221,8 +218,7 @@ mod tests {
     };
     use crate::commands::check::cache::CachedDisplayedDiagnosticKind;
     use crate::commands::check::display::display_lint_diagnostics;
-    use crate::commands::check::embedded::remap_embedded_position;
-    use crate::commands::check::run::run_check_with_cwd;
+        use crate::commands::check::run::run_check_with_cwd;
     use crate::commands::check::settings::{
         CompiledPerFileShellList, PerFileShell, parse_rule_selectors,
     };

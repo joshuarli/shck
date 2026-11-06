@@ -13,7 +13,6 @@ anyhow = { workspace = true }
 globset = { workspace = true }
 ignore = { workspace = true }
 shuck-config = { workspace = true }
-shuck-extract = { workspace = true }
 shuck-linter = { workspace = true }
 shuck-parser = { workspace = true }
 

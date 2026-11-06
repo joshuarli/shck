@@ -2,7 +2,7 @@
 
 A fast shell script linter, formatter, and language server, written in Rust.
 
-Shuck parses, analyzes, formats, and powers editor feedback for shell scripts. It catches common bugs, style issues, security hazards, performance traps, and portability problems; formats shell sources with configurable layout rules; and ships a first-party Language Server Protocol (LSP) server for editor diagnostics, fixes, navigation, symbols, hover, completion, and formatting. It also lints shell embedded in supported non-shell files such as GitHub Actions workflows. A caching layer keeps incremental runs fast.
+Shuck parses, analyzes, formats, and powers editor feedback for shell scripts. It catches common bugs, style issues, security hazards, performance traps, and portability problems; formats shell sources with configurable layout rules; and ships a first-party Language Server Protocol (LSP) server for editor diagnostics, fixes, navigation, symbols, hover, completion, and formatting. A caching layer keeps incremental runs fast.
 
 ## Features
 
@@ -12,7 +12,6 @@ Shuck parses, analyzes, formats, and powers editor feedback for shell scripts. I
 - Shell formatting with write, check, diff, stdin, and configuration-file modes
 - Multi-dialect support: bash, sh/POSIX, dash, ksh, and mksh
 - Automatic file discovery via extensions and shebang detection
-- Embedded shell extraction for GitHub Actions workflows and composite actions
 - First-party Language Server Protocol server for editor diagnostics, code actions, navigation, symbols, hover, completion, and formatting
 - WebAssembly npm package for bundled Node.js extensions and browser-hosted editors
 - ShellCheck suppression compatibility (`# shellcheck disable=SC2086`)
@@ -79,7 +78,7 @@ Shuck's main workflows are split across subcommands:
 
 | Workflow | Command |
 |----------|---------|
-| Lint files, directories, and supported embedded shell | `shuck check` |
+| Lint files and directories | `shuck check` |
 | Format shell files | `shuck format` |
 | Run the editor language server over stdio | `shuck server` |
 | Run a script with a managed shell interpreter | `shuck run` |
@@ -95,12 +94,6 @@ shuck check script.sh src/
 
 # Check the current directory
 shuck check .
-
-# Check GitHub Actions workflow `run:` blocks
-shuck check .github/workflows/ci.yml
-
-# Check a composite action
-shuck check action.yml
 
 # Read from stdin
 echo 'echo $foo' | shuck check -
@@ -369,15 +362,6 @@ set. Set `SHUCK_CONFIG_HOME` to point at a different directory for the global
 config. A project config always takes precedence over the global one, and
 `--config <file>` or `--isolated` bypass global config entirely.
 
-Use the `[check]` section to control embedded-script extraction:
-
-```toml
-[check]
-# Lint supported embedded shell scripts in non-shell files such as
-# GitHub Actions workflows and composite actions.
-# Default: true
-embedded = true
-
 [per-file-shell]
 # Override shell dialect inference for matching files in check, format, and LSP.
 "scripts/bash/**" = "bash"
@@ -421,13 +405,6 @@ When given a directory, shuck recursively discovers standalone shell scripts by:
 
 1. **Extension**: `.sh`, `.bash`, `.ksh`, `.dash`, `.mksh`, `.bats`
 2. **Shebang**: files starting with `#!/bin/bash`, `#!/usr/bin/env sh`, etc.
-
-Shuck also discovers embedded shell in supported non-shell files:
-
-1. **GitHub Actions workflows**: `.github/workflows/*.yml` and `.github/workflows/*.yaml`
-2. **Composite actions**: `action.yml` and `action.yaml`
-
-For GitHub Actions files, shuck lints `run:` blocks independently, remaps diagnostics back to the host YAML file, and includes the step path (for example `jobs.test.steps[0].run`) in the message. Steps that target unsupported shells such as PowerShell or `cmd` are skipped.
 
 The following directories are skipped by default: `.git`, `.hg`, `.svn`, `.jj`, `.bzr`, `.cache`, `node_modules`, `vendor`, `.shuck_cache`.
 

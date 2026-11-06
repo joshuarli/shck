@@ -94,7 +94,6 @@ mod tests {
             reference
                 .contains("[[lint.contracts.custom]]\n[lint.contracts.custom.consumes]\nnames =")
         );
-        assert!(reference.contains("#### `embedded`"));
         assert!(reference.contains("#### `indent-style`"));
     }
 }

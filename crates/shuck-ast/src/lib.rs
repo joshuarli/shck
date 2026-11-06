@@ -16,7 +16,6 @@ mod arena;
 mod ast;
 #[doc(hidden)]
 mod command_resolution;
-mod github_actions;
 #[doc(hidden)]
 mod name;
 pub mod raw_shell;
@@ -30,7 +29,6 @@ pub use arena::{IdRange, Idx, ListArena};
 pub use ast::*;
 #[doc(hidden)]
 pub use command_resolution::*;
-pub use github_actions::*;
 /// Identifier names used throughout the shell AST.
 pub use name::Name;
 /// Source positions, spans, and text range utilities.

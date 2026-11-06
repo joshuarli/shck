@@ -138,16 +138,16 @@ mod tests {
         let cmd = parse_from([
             "shell",
             "-s",
-            "zsh",
+            "bash",
             "-V",
-            "5.9",
+            "5.2",
             "--system",
             "-v",
         ])
         .unwrap();
 
-        assert_eq!(cmd.shell, Some(ManagedShellArg::Zsh));
-        assert_eq!(cmd.shell_version.as_deref(), Some("5.9"));
+        assert_eq!(cmd.shell, Some(ManagedShellArg::Bash));
+        assert_eq!(cmd.shell_version.as_deref(), Some("5.2"));
         assert!(cmd.system);
         assert!(cmd.verbose);
     }

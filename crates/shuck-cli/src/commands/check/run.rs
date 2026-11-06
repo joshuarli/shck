@@ -59,19 +59,13 @@ pub(super) fn run_check_with_cwd(
         },
         |_, files, settings| Ok(CheckCacheSettings::new(settings, files)),
     )?;
-    let mut runs = prepared.runs;
+    let runs = prepared.runs;
     let shellcheck_map = ShellCheckCodeMap::default();
 
     let mut report = CheckReport {
         file_errors: prepared.file_errors,
         ..CheckReport::default()
     };
-
-    for run in &mut runs {
-        if !run.settings.embedded_enabled {
-            run.files.retain(|file| file.kind == FileKind::Shell);
-        }
-    }
 
     // Paths already linted (directly discovered inputs, plus lint=true directive
     // targets as they are processed), so no file is linted twice.
@@ -406,10 +400,7 @@ mod tests {
     use std::sync::mpsc::{TryRecvError, channel};
 
     use notify::event::{CreateKind, EventAttributes, ModifyKind, RemoveKind, RenameMode};
-    use shuck_extract::{
-        EmbeddedFormat, EmbeddedScript, ExtractedDialect, HostLineStart, ImplicitShellFlags,
-    };
-    use shuck_linter::{
+        use shuck_linter::{
         Category, LinterSettings, Rule, RuleSelector, RuleSet, ShellCheckCodeMap, ShellDialect,
     };
     use shuck_parser::parser::Parser;
@@ -427,8 +418,7 @@ mod tests {
     };
     use crate::commands::check::cache::CachedDisplayedDiagnosticKind;
     use crate::commands::check::display::display_lint_diagnostics;
-    use crate::commands::check::embedded::remap_embedded_position;
-    use crate::commands::check::run::run_check_with_cwd;
+        use crate::commands::check::run::run_check_with_cwd;
     use crate::commands::check::settings::{
         CompiledPerFileShellList, PerFileShell, parse_rule_selectors,
     };

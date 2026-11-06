@@ -13,7 +13,6 @@ mod add_ignore;
 mod analyze;
 mod cache;
 mod display;
-mod embedded;
 mod run;
 mod settings;
 mod stdin;

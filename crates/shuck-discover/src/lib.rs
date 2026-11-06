@@ -11,7 +11,6 @@ use globset::{Glob, GlobSet, GlobSetBuilder};
 use ignore::gitignore::{Gitignore, GitignoreBuilder};
 use ignore::{DirEntry, ParallelVisitor, WalkBuilder, WalkState};
 use shuck_config::{resolve_project_root_for_file, resolve_project_root_for_input};
-use shuck_extract::{is_embedded_host, is_extractable};
 use shuck_linter::ShellDialect;
 
 pub const DEFAULT_IGNORED_DIR_NAMES: &[&str] = &[
@@ -36,7 +35,7 @@ const NON_SHELL_EXTENSIONS: &[&str] = &[
     "html", "ipynb", "java", "jl", "js", "json", "jsonc", "jsx", "kt", "kts", "lisp", "lua",
     "markdown", "md", "mjs", "ml", "mts", "nim", "nu", "php", "pl", "pm", "ps1", "psm1", "py",
     "pyi", "pyw", "r", "rb", "rs", "rst", "scala", "scss", "sed", "swift", "tcl", "toml", "ts",
-    "tsx", "vim", "xml", "zig"];
+    "tsx", "vim", "xml", "yaml", "yml", "zig"];
 
 /// Shebang interpreters that positively identify a non-shell language. Version
 /// suffixes such as `python3.12` are stripped before matching.
@@ -161,7 +160,6 @@ impl DiscoveryState {
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 pub enum FileKind {
     Shell,
-    Embedded,
 }
 
 #[derive(Debug)]
@@ -179,8 +177,6 @@ pub struct DiscoveryOptions {
     pub max_entries: Option<usize>,
     /// Optional shared cancellation signal checked during directory walks.
     pub cancellation: Option<DiscoveryCancellationToken>,
-    /// Whether embedded host documents may be returned.
-    pub include_embedded: bool,
     /// Exact directory subtrees to prune from recursive discovery.
     pub excluded_subtrees: Vec<PathBuf>,
 }
@@ -214,7 +210,6 @@ impl Default for DiscoveryOptions {
             max_files: None,
             max_entries: None,
             cancellation: None,
-            include_embedded: true,
             excluded_subtrees: Vec::new(),
         }
     }
@@ -367,9 +362,6 @@ fn collect_input(
                 return Ok(());
             }
         };
-        if kind == FileKind::Embedded && !options.include_embedded {
-            return Ok(());
-        }
         if options.force_exclude {
             if exclude_matcher.matches(input, cwd) {
                 return Ok(());
@@ -467,9 +459,6 @@ fn collect_directory(
                 continue;
             }
         };
-        if kind == FileKind::Embedded && !options.include_embedded {
-            continue;
-        }
 
         if let Err(err) = add_file(
             path,
@@ -924,12 +913,6 @@ pub fn classify_explicit_input(path: &Path, source_prefix: &[u8]) -> ExplicitInp
     {
         return ExplicitInputKind::Process(FileKind::Shell);
     }
-    if is_extractable(path) {
-        return ExplicitInputKind::Process(FileKind::Embedded);
-    }
-    if is_embedded_host(path) {
-        return ExplicitInputKind::Skip("no supported embedded shell scripts in this file type");
-    }
     if has_non_shell_extension(path) || has_non_shell_shebang(source_prefix) {
         return ExplicitInputKind::Skip("not a shell script");
     }
@@ -968,9 +951,6 @@ fn discovered_file_kind(path: &Path) -> std::result::Result<Option<FileKind>, St
     }
     if source_prefix_is_shell(&read_shebang_prefix(path)?) {
         return Ok(Some(FileKind::Shell));
-    }
-    if is_extractable(path) {
-        return Ok(Some(FileKind::Embedded));
     }
     Ok(None)
 }
@@ -1133,32 +1113,35 @@ mod tests {
     }
 
     #[test]
-    fn explicit_plain_yaml_is_not_treated_as_shell() {
+    fn explicit_yaml_is_skipped() {
         let tempdir = tempdir().unwrap();
         let plain_yaml = tempdir.path().join("config.yaml");
         let workflows = tempdir.path().join(".github/workflows");
         let workflow = workflows.join("ci.yml");
         fs::create_dir_all(&workflows).unwrap();
-        fs::write(&plain_yaml, "key: value\n").unwrap();
+        fs::write(&plain_yaml, "key: value
+").unwrap();
         fs::write(
             &workflow,
-            "on: push\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps: []\n",
+            "on: push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo hi
+",
         )
         .unwrap();
 
-        let files = discover_files(
+        let result = discover_files_with_status(
             &[plain_yaml, workflow],
             tempdir.path(),
             &DiscoveryOptions::default(),
         )
         .unwrap();
 
-        assert_eq!(files.len(), 1);
-        assert_eq!(
-            files[0].display_path,
-            PathBuf::from(".github/workflows/ci.yml")
-        );
-        assert_eq!(files[0].kind, FileKind::Embedded);
+        assert!(result.files.is_empty());
+        assert_eq!(result.skipped.len(), 2);
     }
 
     #[test]
@@ -1218,13 +1201,19 @@ mod tests {
     }
 
     #[test]
-    fn discovers_github_actions_workflows_as_embedded_files() {
+    fn does_not_discover_yaml_as_shell() {
         let tempdir = tempdir().unwrap();
         let workflows = tempdir.path().join(".github/workflows");
         fs::create_dir_all(&workflows).unwrap();
         fs::write(
             workflows.join("ci.yml"),
-            "on: push\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps: []\n",
+            "on: push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo hi
+",
         )
         .unwrap();
 
@@ -1235,12 +1224,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(files.len(), 1);
-        assert_eq!(
-            files[0].display_path,
-            PathBuf::from(".github/workflows/ci.yml")
-        );
-        assert_eq!(files[0].kind, FileKind::Embedded);
+        assert!(files.is_empty());
     }
 
     #[test]
@@ -1327,29 +1311,6 @@ mod tests {
     }
 
     #[test]
-    fn discovery_can_omit_embedded_hosts_before_the_limit() {
-        let tempdir = tempdir().unwrap();
-        let workflows = tempdir.path().join(".github/workflows");
-        fs::create_dir_all(&workflows).unwrap();
-        fs::write(workflows.join("ci.yml"), "on: push\njobs: {}\n").unwrap();
-        fs::write(tempdir.path().join("script.sh"), "echo ok\n").unwrap();
-
-        let files = discover_files(
-            &[tempdir.path().to_path_buf()],
-            tempdir.path(),
-            &DiscoveryOptions {
-                max_files: Some(1),
-                include_embedded: false,
-                ..DiscoveryOptions::default()
-            },
-        )
-        .unwrap();
-
-        assert_eq!(files.len(), 1);
-        assert_eq!(files[0].kind, FileKind::Shell);
-    }
-
-    #[test]
     fn bounded_discovery_prunes_nested_workspace_subtrees() {
         let tempdir = tempdir().unwrap();
         let nested = tempdir.path().join("a-nested");
@@ -1421,11 +1382,10 @@ mod tests {
 
     #[test]
     fn classify_explicit_input_uses_path_and_contents() {
-        let workflow = Path::new(".github/workflows/ci.yml");
-        assert_eq!(
-            classify_explicit_input(workflow, b"on: push\n"),
-            ExplicitInputKind::Process(FileKind::Embedded)
-        );
+        assert!(matches!(
+            classify_explicit_input(Path::new(".github/workflows/ci.yml"), b"on: push\n"),
+            ExplicitInputKind::Skip(_)
+        ));
         assert!(matches!(
             classify_explicit_input(Path::new("config.yaml"), b"a: b\n"),
             ExplicitInputKind::Skip(_)

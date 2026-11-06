@@ -34,7 +34,6 @@ shuck-ast = { workspace = true }
 shuck-cache = { workspace = true }
 shuck-config = { workspace = true }
 shuck-discover = { workspace = true }
-shuck-extract = { workspace = true }
 shuck-formatter = { workspace = true }
 shuck-indexer = { workspace = true }
 shuck-linter = { workspace = true }

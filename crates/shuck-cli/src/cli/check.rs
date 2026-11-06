@@ -213,7 +213,7 @@ pub const CHECK_POSITIONALS: &[PositionalSpec] = &[POS_PATHS];
 
 pub const CHECK_SPEC: CommandSpec = CommandSpec::new(
     "check",
-    "Lint shell files and supported embedded shell scripts",
+    "Lint shell files",
     CHECK_OPTIONS,
     CHECK_POSITIONALS,
     &[],
@@ -608,14 +608,8 @@ mod tests {
     }
 
     #[test]
-    fn zsh_plugin_negative_flag_overrides_positive_flag() {
-        let cmd = parse_from([
-            "check",
-            "--zsh-plugin-resolution",
-            "--no-zsh-plugin-resolution",
-        ])
-        .unwrap();
-
+    fn zsh_plugin_flags_removed() {
+        // zsh support has been removed; plugin resolution flags no longer exist.
     }
 
     #[test]

@@ -38,5 +38,5 @@ logical path used for shell inference and policy context, and is never read from
 the filesystem.
 
 The package exposes source linting and formatting. Project discovery,
-configuration-file loading, embedded shell extraction, source-file resolution,
+configuration-file loading, source-file resolution,
 and the stdio language server remain features of the native Shuck CLI.

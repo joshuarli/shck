@@ -30,7 +30,6 @@ pub(super) struct EffectiveCheckSettings {
     ambient_contracts: EffectiveAmbientContractSettings,
     source_paths: Vec<String>,
     lint_sources: bool,
-    embedded_enabled: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -91,8 +90,7 @@ impl EffectiveCheckSettings {
         ambient_contracts: &ResolvedAmbientContracts,
         source_paths: Vec<String>,
         lint_sources: bool,
-        embedded_enabled: bool,
-    ) -> Self {
+        ) -> Self {
         let mut enabled_rules = enabled_rules
             .iter()
             .map(|rule| rule.code().to_owned())
@@ -132,7 +130,6 @@ impl EffectiveCheckSettings {
             ambient_contracts: EffectiveAmbientContractSettings::new(ambient_contracts),
                         source_paths,
             lint_sources,
-            embedded_enabled,
         }
     }
 }
@@ -147,7 +144,6 @@ impl CacheKey for EffectiveCheckSettings {
         self.ambient_contracts.cache_key(state);
         self.source_paths.cache_key(state);
         self.lint_sources.cache_key(state);
-        self.embedded_enabled.cache_key(state);
     }
 }
 
@@ -272,7 +268,6 @@ pub(super) struct ResolvedCheckSettings {
     /// Whether `lint=true` source directives lint the resolved target.
     pub(super) lint_sources: bool,
     pub(super) effective: EffectiveCheckSettings,
-    pub(super) embedded_enabled: bool,
 }
 
 impl CacheKey for ResolvedCheckSettings {
@@ -302,7 +297,6 @@ pub(super) fn resolve_project_check_settings(
         resolved.linter.ambient_contracts.as_ref(),
         resolved.source_paths.clone(),
         resolved.lint_sources,
-        resolved.embedded,
     );
 
     Ok(ResolvedCheckSettings {
@@ -312,7 +306,6 @@ pub(super) fn resolve_project_check_settings(
         source_paths: resolved.source_paths,
         lint_sources: resolved.lint_sources,
         effective,
-        embedded_enabled: resolved.embedded,
     })
 }
 
@@ -370,10 +363,7 @@ mod tests {
     use std::sync::mpsc::{TryRecvError, channel};
 
     use notify::event::{CreateKind, EventAttributes, ModifyKind, RemoveKind, RenameMode};
-    use shuck_extract::{
-        EmbeddedFormat, EmbeddedScript, ExtractedDialect, HostLineStart, ImplicitShellFlags,
-    };
-    use shuck_linter::{
+        use shuck_linter::{
         AmbientContractActivation, AmbientContractConfig, AmbientContractEffects,
         AmbientContractSpec, Category, LinterSettings, NamedGroup, Rule, RuleSelector, RuleSet,
         ShellCheckCodeMap, ShellDialect,
@@ -394,8 +384,7 @@ mod tests {
     };
     use crate::commands::check::cache::CachedDisplayedDiagnosticKind;
     use crate::commands::check::display::display_lint_diagnostics;
-    use crate::commands::check::embedded::remap_embedded_position;
-    use crate::commands::check::run::run_check_with_cwd;
+        use crate::commands::check::run::run_check_with_cwd;
     use crate::commands::check::settings::{
         CompiledPerFileShellList, PerFileShell, parse_rule_selectors,
     };

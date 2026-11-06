@@ -32,7 +32,7 @@ const GLOBAL_CONFIG_DIR_ENV: &str = "SHUCK_CONFIG_HOME";
 /// Error shown when users try to set formatter dialect in a config file.
 pub const CONFIG_DIALECT_UNSUPPORTED_ERROR: &str = "`[format].dialect` is not supported; use `[per-file-shell]` for project mappings or `--dialect` for a per-run override";
 const CONFIG_OVERRIDE_ROOT_KEYS: &[&str] = &["check", "format", "lint", "per-file-shell", "run"];
-const CONFIG_OVERRIDE_CHECK_KEYS: &[&str] = &["embedded"];
+const CONFIG_OVERRIDE_CHECK_KEYS: &[&str] = &[];
 const CONFIG_OVERRIDE_FORMAT_KEYS: &[&str] = &[
     "dialect",
     "exclude",
@@ -120,10 +120,7 @@ pub struct ShuckConfig {
 /// Configuration for file-level checking behavior.
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
-pub struct CheckConfig {
-    /// Whether to lint embedded shell snippets in supported host files.
-    pub embedded: Option<bool>,
-}
+pub struct CheckConfig {}
 
 /// Configuration for shell formatting behavior.
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
@@ -795,13 +792,7 @@ const CONFIGURATION_METADATA: [ConfigSectionMetadata; 5] = [
     ConfigSectionMetadata {
         key: "check",
         docs: "File-level analysis behavior for `shuck check`.",
-        fields: &[ConfigFieldMetadata {
-            key: "embedded",
-            docs: "Lint supported embedded shell scripts in non-shell files, including GitHub Actions workflow `run` blocks and composite action steps.",
-            default: "true",
-            value_type: "bool",
-            example: "embedded = false",
-        }],
+        fields: &[],
         sections: &[],
     },
     ConfigSectionMetadata {
@@ -1699,9 +1690,7 @@ impl ShuckConfig {
 
 impl CheckConfig {
     fn apply_overrides(&mut self, overrides: CheckConfig) {
-        if overrides.embedded.is_some() {
-            self.embedded = overrides.embedded;
-        }
+
     }
 }
 
@@ -2471,9 +2460,8 @@ mod tests {
     }
 
     #[test]
-    fn inline_config_overrides_validate_supported_check_keys() {
-        let config = parse_config_override("check.embedded = false").unwrap();
-        assert_eq!(config.check.embedded, Some(false));
+    fn inline_config_overrides_accept_empty_check_table() {
+        let _config = parse_config_override("check = {}").unwrap();
     }
 
     #[test]

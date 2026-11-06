@@ -55,12 +55,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2a4385e2e34eb35d6b3efe798b9eb88096925d87726c0798709bf56d9ed84af3"
 
 [[package]]
-name = "arraydeque"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d902e3d592a523def97af8f317b08ce16b7ab854c1985a0c671e6f15cebc236"
-
-[[package]]
 name = "assert_cmd"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -457,15 +451,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34aa73646ffb006b8f5147f3dc182bd4bcb190227ce861fc4a4844bf8e3cb2c0"
 
 [[package]]
-name = "encoding_rs"
-version = "0.8.35"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75030f3c4f45dafd7586dd6780965a8c7e8e285a5ecb86713e63a79c5b2766f3"
-dependencies = [
- "cfg-if",
-]
-
-[[package]]
 name = "equivalent"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -567,17 +552,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e629b9b98ef3dd8afe6ca2bd0f89306cec16d43d907889945bc5d6687f2f13c7"
 
 [[package]]
-name = "github-actions-expressions"
-version = "1.30.0-rc1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ff45dd95f6df84a4dea60ced554d5b7de0d6f702696c2b4654670a10780dc8b"
-dependencies = [
- "serde_json",
- "subfeature",
- "thiserror",
-]
-
-[[package]]
 name = "globset"
 version = "0.4.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -615,15 +589,6 @@ name = "hashbrown"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4f467dd6dccf739c208452f8014c75c18bb8301b050ad1cfb27153803edb0f51"
-
-[[package]]
-name = "hashlink"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7382cf6263419f2d8df38c55d7da83da5c18aef87fc7a7fc1fb1e344edfe14c1"
-dependencies = [
- "hashbrown 0.15.5",
-]
 
 [[package]]
 name = "heck"
@@ -1040,15 +1005,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6790f58c7ff633d8771f42965289203411a5e5c68388703c06e14f24770b41e"
 
 [[package]]
-name = "ordered-float"
-version = "5.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7d950ca161dc355eaf28f82b11345ed76c6e1f6eb1f4f4479e0323b9e2fbd0e"
-dependencies = [
- "num-traits",
-]
-
-[[package]]
 name = "parking_lot"
 version = "0.12.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1362,29 +1318,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "saphyr"
-version = "0.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3767dfe8889ebb55a21409df2b6f36e66abfbe1eb92d64ff76ae799d3f91016"
-dependencies = [
- "arraydeque",
- "encoding_rs",
- "hashlink",
- "ordered-float",
- "saphyr-parser",
-]
-
-[[package]]
-name = "saphyr-parser"
-version = "0.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fb771b59f6b1985d1406325ec28f97cfb14256abcec4fdfb37b36a1766d6af7"
-dependencies = [
- "arraydeque",
- "hashlink",
-]
-
-[[package]]
 name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1549,7 +1482,6 @@ dependencies = [
  "shuck-cache",
  "shuck-config",
  "shuck-discover",
- "shuck-extract",
  "shuck-formatter",
  "shuck-indexer",
  "shuck-linter",
@@ -1589,21 +1521,9 @@ dependencies = [
  "globset",
  "ignore",
  "shuck-config",
- "shuck-extract",
  "shuck-linter",
  "shuck-parser",
  "tempfile",
-]
-
-[[package]]
-name = "shuck-extract"
-version = "0.2.8"
-dependencies = [
- "anyhow",
- "github-actions-expressions",
- "saphyr",
- "saphyr-parser",
- "shuck-ast",
 ]
 
 [[package]]
@@ -1739,17 +1659,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2a8f8038e7e7969abb3f1b7c2a811225e9296da208539e0f79c5251d6cac0025"
 dependencies = [
  "vte",
-]
-
-[[package]]
-name = "subfeature"
-version = "1.30.0-rc1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d802024ba43958242d4e1f35ace368ba44522b6084342203d3a9f1a4dc516894"
-dependencies = [
- "memchr",
- "regex",
- "serde",
 ]
 
 [[package]]

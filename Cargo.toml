@@ -33,7 +33,6 @@ shuck-parser = { path = "crates/shuck-parser", version = "0.2.8" }
 shuck-run = { path = "crates/shuck-run", version = "0.2.8" }
 shuck-semantic = { path = "crates/shuck-semantic", version = "0.2.8" }
 shuck-cli = { path = "crates/shuck-cli", version = "0.2.8" }
-shuck-extract = { path = "crates/shuck-extract", version = "0.2.8" }
 
 # Error handling
 thiserror = "2"
@@ -61,9 +60,6 @@ notify = "8.0.0"
 # Serialization
 serde_json = "1"
 serde_yaml = "0.9"
-saphyr = "0.0.6"
-saphyr-parser = "0.0.6"
-github-actions-expressions = "=1.30.0-rc1"
 similar = "2"
 toml = "0.8"
 quick-junit = "0.6.1"

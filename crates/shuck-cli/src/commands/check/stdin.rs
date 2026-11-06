@@ -15,7 +15,6 @@ use super::analyze::{
     collect_lint_diagnostics, fixes_introduce_parse_error, warn_fixes_introduce_parse_error,
 };
 use super::display::{display_lint_diagnostics_for_file, display_parse_error};
-use super::embedded::analyze_embedded_source;
 use super::settings::resolve_project_check_settings;
 use crate::ExitStatus;
 use crate::args::{CheckCommand, CheckOutputFormatArg};
@@ -92,28 +91,6 @@ pub(super) fn check_stdin(
     };
     match kind {
         ExplicitInputKind::Process(FileKind::Shell) => {}
-        ExplicitInputKind::Process(FileKind::Embedded) => {
-            let diagnostics = if settings.embedded_enabled {
-                let (diagnostics, parse_failed) = analyze_embedded_source(
-                    &file,
-                    source.clone(),
-                    &base_linter_settings,
-                    &shellcheck_map,
-                    include_source,
-                );
-                CheckReport {
-                    diagnostics,
-                    parse_failed,
-                    ..CheckReport::default()
-                }
-            } else {
-                CheckReport::default()
-            };
-            // Embedded snippets are never fixed in place; `--fix` echoes the
-            // host document unchanged.
-            emit_stdin_report(args, &diagnostics, applicability.is_some(), &source)?;
-            return Ok(diagnostics.exit_status(args.exit_zero, args.exit_non_zero_on_fix));
-        }
         ExplicitInputKind::Skip(reason) => {
             eprintln!(
                 "warning: skipping {}: {reason}",

@@ -109,7 +109,6 @@ nix --extra-experimental-features 'nix-command flakes' develop --command shellch
 - **`crates/shuck-linter`** — Rule registry, checker dispatch, suppressions, generated rule metadata, fix application, and linter-owned facts built over parser, indexer, and semantic output.
 - **`crates/shuck-semantic`** — Semantic model for bindings, references, scopes, declarations, source closure, call graph, CFG, and dataflow.
 - **`crates/shuck-indexer`** — Positional and structural indexes over parsed scripts, including lines, comments, syntactic regions, heredocs, and continuation lines.
-- **`crates/shuck-extract`** — Embedded shell extraction for supported host files such as GitHub Actions workflows and composite actions.
 - **`crates/shuck-config`** — Configuration loading (`.shuck.toml` / `shuck.toml`), project-root discovery, and CLI override handling.
 - **`crates/shuck-discover`** — Workspace file discovery: walks input paths, applies exclusions and gitignore rules, and detects shell scripts by extension or shebang.
 - **`crates/shuck-run`** — Managed shell interpreter resolution, version selection, and installation behind `shuck run`, `shuck install`, and `shuck shell`.

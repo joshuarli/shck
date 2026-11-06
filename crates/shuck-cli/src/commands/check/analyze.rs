@@ -14,7 +14,6 @@ use shuck_parser::{
 
 use super::cache::CheckCacheData;
 use super::display::{display_lint_diagnostics, display_parse_error};
-use super::embedded::analyze_embedded_file;
 use super::settings::CompiledPerFileShellList;
 use crate::commands::check_output::DisplayedDiagnostic;
 use crate::commands::project_runner::PendingProjectFile;
@@ -62,12 +61,6 @@ pub(super) fn analyze_file(
             include_source,
             fix_applicability,
             fixable_rules,
-        ),
-        FileKind::Embedded => analyze_embedded_file(
-            pending,
-            base_linter_settings,
-            shellcheck_map,
-            include_source,
         ),
     }
 }
@@ -308,10 +301,7 @@ mod tests {
     use std::sync::mpsc::{TryRecvError, channel};
 
     use notify::event::{CreateKind, EventAttributes, ModifyKind, RemoveKind, RenameMode};
-    use shuck_extract::{
-        EmbeddedFormat, EmbeddedScript, ExtractedDialect, HostLineStart, ImplicitShellFlags,
-    };
-    use shuck_linter::{
+        use shuck_linter::{
         Category, LinterSettings, Rule, RuleSelector, RuleSet, ShellCheckCodeMap, ShellDialect,
     };
     use shuck_parser::parser::Parser;
@@ -329,8 +319,7 @@ mod tests {
     };
     use crate::commands::check::cache::CachedDisplayedDiagnosticKind;
     use crate::commands::check::display::display_lint_diagnostics;
-    use crate::commands::check::embedded::remap_embedded_position;
-    use crate::commands::check::run::run_check_with_cwd;
+        use crate::commands::check::run::run_check_with_cwd;
     use crate::commands::check::settings::{
         CompiledPerFileShellList, PerFileShell, parse_rule_selectors,
     };

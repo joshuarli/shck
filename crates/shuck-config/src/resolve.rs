@@ -137,8 +137,6 @@ pub struct ResolvedLintSettings {
     pub source_paths: Vec<String>,
     /// Whether `lint=true` source directives lint the resolved target.
     pub lint_sources: bool,
-    /// Whether embedded shell snippets in host files are linted.
-    pub embedded: bool,
 }
 
 impl Default for ResolvedLintSettings {
@@ -152,7 +150,6 @@ impl Default for ResolvedLintSettings {
             compiled_per_file_shell: Arc::default(),
             source_paths: Vec::new(),
             lint_sources: true,
-            embedded: true,
         }
     }
 }
@@ -349,7 +346,6 @@ impl<'a> SettingsResolver<'a> {
             compiled_per_file_shell: Arc::new(compiled_per_file_shell),
             source_paths: merged.lint.source_paths.clone().unwrap_or_default(),
             lint_sources: merged.lint.lint_sources.unwrap_or(true),
-            embedded: merged.check.embedded.unwrap_or(true),
         })
     }
 
