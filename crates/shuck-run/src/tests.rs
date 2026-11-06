@@ -6,7 +6,8 @@ use std::process::Command;
 
 use deser_value::{Map, Value, value};
 use sha2::{Digest, Sha256};
-use url::Url;
+
+use crate::url::Url;
 
 use super::*;
 use crate::environment::current_platform;

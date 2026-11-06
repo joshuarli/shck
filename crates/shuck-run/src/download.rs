@@ -4,7 +4,8 @@ use std::process::{Command, Stdio};
 use std::time::Duration;
 
 use anyhow::{Context, Result, anyhow, bail};
-use url::Url;
+
+use crate::url::Url;
 
 /// Connection budget for a single remote fetch.
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
@@ -92,7 +93,7 @@ pub(crate) fn fetch_url_to_path(
         command.arg("--silent").arg("--show-error");
         command.stderr(Stdio::piped());
     }
-    command.arg("--").arg(url.as_str());
+    command.arg("--").arg(url.to_string());
 
     let output = command.output().context("run curl")?;
     if !output.status.success() {
@@ -117,7 +118,7 @@ fn file_url_path(url: &Url) -> Result<Option<PathBuf>> {
 
 #[cfg(test)]
 mod tests {
-    use url::Url;
+    use crate::url::Url;
 
     use super::validate_fetch_url;
 

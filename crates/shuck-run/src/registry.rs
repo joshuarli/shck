@@ -7,9 +7,9 @@ use anyhow::{Context, Result, anyhow, bail};
 use deser::Deserialize;
 use sha2::{Digest, Sha256};
 use tempfile::NamedTempFile;
-use url::Url;
 
 use crate::download::{FetchBudget, fetch_url_to_path, validate_fetch_url};
+use crate::url::Url;
 use crate::{AvailableShell, Environment, Shell, Version, VersionConstraint};
 
 const REGISTRY_MAX_AGE: Duration = Duration::from_secs(24 * 60 * 60);
@@ -476,7 +476,7 @@ fn resolve_artifact(
 }
 
 fn registry_cache_key(url: &Url) -> String {
-    let digest = Sha256::digest(url.as_str().as_bytes());
+    let digest = Sha256::digest(url.to_string().as_bytes());
     digest[..16]
         .iter()
         .map(|byte| format!("{byte:02x}"))

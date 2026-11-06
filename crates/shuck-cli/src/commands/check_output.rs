@@ -11,6 +11,7 @@ use deser::Serialize;
 use quick_junit::{NonSuccessKind, Report, TestCase, TestCaseStatus, TestSuite, XmlString};
 use shuck_indexer::LineIndex;
 use shuck_linter::{Category, RuleMetadata, code_to_rule, rule_metadata};
+use shuck_run::url::Url;
 
 use crate::args::CheckOutputFormatArg;
 use crate::color::{self, BLUE_BOLD, BOLD, BOLD_UNDERLINE, CYAN, CYAN_BOLD, RED_BOLD, YELLOW_BOLD};
@@ -115,11 +116,11 @@ impl DisplayedDiagnostic {
     }
 
     fn absolute_uri(&self) -> io::Result<String> {
-        url::Url::from_file_path(&self.absolute_path)
+        Url::from_file_path(&self.absolute_path)
             .map(|url| url.to_string())
-            .map_err(|()| {
+            .map_err(|err| {
                 io::Error::other(format!(
-                    "failed to convert path to file URI: {}",
+                    "failed to convert path to file URI: {}: {err}",
                     self.absolute_path.display()
                 ))
             })

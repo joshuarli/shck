@@ -10,6 +10,7 @@ mod registry;
 mod resolve;
 mod system;
 mod types;
+pub mod url;
 
 #[cfg(all(test, unix))]
 mod tests;

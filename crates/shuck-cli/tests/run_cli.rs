@@ -9,8 +9,8 @@ use assert_cmd::Command;
 use deser_value::{Map, value};
 use predicates::prelude::*;
 use sha2::{Digest, Sha256};
+use shuck_run::url::Url;
 use tempfile::tempdir;
-use url::Url;
 
 fn configure_runtime_env(cmd: &mut Command, root: &Path, registry_path: &Path) {
     cmd.env("SHUCK_SHELLS_DIR", root.join("shells"));

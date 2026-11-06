@@ -65,7 +65,6 @@ notify = "8.0.0"
 # Serialization
 similar = "2"
 quick-junit = "0.6.1"
-url = "2.5.0"
 
 # Testing
 tempfile = "3"
