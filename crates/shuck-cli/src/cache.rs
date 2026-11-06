@@ -18,16 +18,10 @@ pub(crate) fn resolve_cache_root(cwd: &Path, override_path: Option<&Path>) -> Re
     default_cache_root()
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 fn default_cache_root() -> Result<PathBuf> {
     let strategy = etcetera::base_strategy::choose_base_strategy()
         .context("resolve the OS cache directory for shuck")?;
     Ok(strategy.cache_dir().join("shuck"))
-}
-
-#[cfg(target_arch = "wasm32")]
-fn default_cache_root() -> Result<PathBuf> {
-    anyhow::bail!("cache directory discovery is not supported on wasm32")
 }
 
 /// Directory under the cache root that holds this release's cache files.

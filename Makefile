@@ -1,9 +1,6 @@
-.PHONY: build test build-wasm test-wasm run check hawk check-scripts setup-hooks setup-large-corpus ensure-cache test-large-corpus large-corpus-report large-corpus-report-from-log large-corpus-report-open test-oracle-shfmt test-oracle-shfmt-fixtures test-oracle-shfmt-benchmark test-oracle-shfmt-large-corpus update-oracle-shfmt-large-corpus-allowlist test-oracle-shellcheck-cli fuzz-setup fuzz-list fuzz-smoke fuzz-run fuzz-cli bench bench-save bench-compare bench-parser bench-arithmetic bench-lexer bench-semantic bench-linter bench-formatter bench-lsp bench-large-corpus-hotspots bench-macro bench-macro-single bench-macro-format bench-macro-format-summary bench-macro-format-single bench-macro-site-local bench-repo-corpus profile-parser profile-parser-view profile-arithmetic profile-arithmetic-view profile-formatter profile-formatter-view profile-linter profile-linter-view profile-cli profile-cli-view profile-large-corpus profile-large-corpus-view flame-parser flame-arithmetic flame-formatter flame-linter flame-cli harden-release check-release-security
+.PHONY: build test run check hawk check-scripts setup-hooks setup-large-corpus ensure-cache test-large-corpus large-corpus-report large-corpus-report-from-log large-corpus-report-open test-oracle-shfmt test-oracle-shfmt-fixtures test-oracle-shfmt-benchmark test-oracle-shfmt-large-corpus update-oracle-shfmt-large-corpus-allowlist test-oracle-shellcheck-cli fuzz-setup fuzz-list fuzz-smoke fuzz-run fuzz-cli bench bench-save bench-compare bench-parser bench-arithmetic bench-lexer bench-semantic bench-linter bench-formatter bench-lsp bench-large-corpus-hotspots bench-macro bench-macro-single bench-macro-format bench-macro-format-summary bench-macro-format-single bench-macro-site-local bench-repo-corpus profile-parser profile-parser-view profile-arithmetic profile-arithmetic-view profile-formatter profile-formatter-view profile-linter profile-linter-view profile-cli profile-cli-view profile-large-corpus profile-large-corpus-view flame-parser flame-arithmetic flame-formatter flame-linter flame-cli harden-release check-release-security
 
 ARGS ?= --help
-WASM_PACK ?= wasm-pack
-WASM_NPM_DIR ?= target/npm/shuck-wasm
-WASM_TEST_DIR ?= target/wasm-test/shuck-wasm
 BENCH_FILE ?=
 NIX_DEVELOP ?= nix --extra-experimental-features 'nix-command flakes' develop --command
 HAWK_RUST_VERSION ?= 1.97.0
@@ -44,14 +41,6 @@ build:
 
 test:
 	cargo test
-
-build-wasm:
-	$(WASM_PACK) build crates/shuck-wasm --target bundler --out-dir ../../$(WASM_NPM_DIR) --out-name shuck
-
-test-wasm:
-	cargo test -p shuck-wasm
-	$(WASM_PACK) build crates/shuck-wasm --target nodejs --out-dir ../../$(WASM_TEST_DIR) --out-name shuck
-	node scripts/ci/smoke-wasm-package.mjs $(WASM_TEST_DIR)
 
 setup-large-corpus:
 	./scripts/corpus-download.sh
@@ -334,6 +323,5 @@ hawk:
 		PATH="$$hawk_toolchain_bin:$$PATH" cargo hawk check \
 			--manifest-path Cargo.toml \
 			--target-dir $(HAWK_TARGET_DIR) \
-			--exclude-crate shuck-wasm \
 			-A warnings \
 			-D hawk::dead_public

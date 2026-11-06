@@ -1950,21 +1950,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "shuck-wasm"
-version = "0.2.8"
-dependencies = [
- "deser",
- "deser-json",
- "js-sys",
- "shuck-ast",
- "shuck-formatter",
- "shuck-indexer",
- "shuck-linter",
- "shuck-parser",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "simdutf8"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"

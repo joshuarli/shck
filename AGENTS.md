@@ -105,14 +105,13 @@ nix --extra-experimental-features 'nix-command flakes' develop --command shellch
 ### Workspace crates
 
 - **`crates/shuck-cli`** — CLI binary. Discovers files, resolves config, coordinates caching, parses shell sources, runs lint/format commands, applies fixes, and renders reports. Project roots are resolved by walking up to find `.shuck.toml` or `shuck.toml`.
-- **`crates/shuck-config`** — `.shuck.toml` shapes, config loading, and project-root discovery. Its `resolve` module (`SettingsResolver`) turns a loaded config plus override layers into `LinterSettings`, fixable rules, per-file shells, and formatter options. shuck-wasm cannot depend on this crate (it does not build for wasm32), so it reuses the lower-level helpers (`shuck_linter::apply_rule_selector_layer`, `ShellFormatOptions::with_patch`).
+- **`crates/shuck-config`** — `.shuck.toml` shapes, config loading, and project-root discovery. Its `resolve` module (`SettingsResolver`) turns a loaded config plus override layers into `LinterSettings`, fixable rules, per-file shells, and formatter options over the lower-level helpers (`shuck_linter::apply_rule_selector_layer`, `ShellFormatOptions::with_patch`).
 - **`crates/shuck-linter`** — Rule registry, checker dispatch, suppressions, generated rule metadata, fix application, and linter-owned facts built over parser, indexer, and semantic output.
 - **`crates/shuck-semantic`** — Semantic model for bindings, references, scopes, declarations, source closure, call graph, CFG, and dataflow.
 - **`crates/shuck-indexer`** — Positional and structural indexes over parsed scripts, including lines, comments, syntactic regions, heredocs, and continuation lines.
 - **`crates/shuck-config`** — Configuration loading (`.shuck.toml` / `shuck.toml`), project-root discovery, and CLI override handling.
 - **`crates/shuck-discover`** — Workspace file discovery: walks input paths, applies exclusions and gitignore rules, and detects shell scripts by extension or shebang.
 - **`crates/shuck-run`** — Managed shell interpreter resolution, version selection, and installation behind `shuck run`, `shuck install`, and `shuck shell`.
-- **`crates/shuck-wasm`** — WebAssembly bindings for source-only linting and formatting (built with `make build-wasm`, tested with `make test-wasm`).
 - **`crates/shuck-benchmark`** — Benchmark fixtures and harnesses (Criterion and macrobenchmarks, profiling helpers); see the `bench-*` and `profile-*` Makefile targets.
 - **`crates/shuck-cache`** — File-level caching with SHA-256 keyed `PackageCache<T>`. Stores results in a shared cache root (from `--cache-dir`, `SHUCK_CACHE_DIR`, or the OS cache directory such as `~/Library/Caches/shuck` / `$XDG_CACHE_HOME/shuck`) using bincode serialization. Entries are keyed by file mtime+permissions and auto-pruned after 30 days.
 - **`crates/shuck-parser`** — The shell parser library. Provides source-backed lexing, dialect/profile-aware parsing, AST construction, recovery diagnostics, and syntax facts.

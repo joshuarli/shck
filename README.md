@@ -13,7 +13,6 @@ Shuck parses, analyzes, formats, and powers editor feedback for shell scripts. I
 - Multi-dialect support: bash, sh/POSIX, dash, ksh, and mksh
 - Automatic file discovery via extensions and shebang detection
 - First-party Language Server Protocol server for editor diagnostics, code actions, navigation, symbols, hover, completion, and formatting
-- WebAssembly npm package for bundled Node.js extensions and browser-hosted editors
 - ShellCheck suppression compatibility (`# shellcheck disable=SC2086`)
 
 ## Installation
@@ -32,18 +31,6 @@ pip install shuck-cli
 
 The PyPI package is named `shuck-cli`, but it still installs the `shuck`
 command.
-
-### npm / WebAssembly
-
-```sh
-npm install shuck-wasm
-```
-
-`shuck-wasm` exposes source linting and formatting to wasm-aware bundlers, so
-Node.js editor extensions and browser-hosted editors can use Shuck without a
-separately installed executable. See the
-[`shuck-wasm` package documentation](crates/shuck-wasm/README.md) for its
-TypeScript API and runtime boundaries.
 
 ### From source
 

@@ -4,9 +4,8 @@
 //! The CLI and the language server both resolve settings through
 //! [`SettingsResolver`] so a given `.shuck.toml` yields the same rule set,
 //! rule options, contracts, per-file ignores, and per-file shells in every
-//! front end. The WebAssembly bindings cannot depend on this crate, so they
-//! reuse the same lower-level building blocks instead
-//! ([`shuck_linter::apply_rule_selector_layer`],
+//! front end. Resolution builds on the same lower-level helpers the linter and
+//! formatter expose ([`shuck_linter::apply_rule_selector_layer`],
 //! [`ShellFormatOptions::with_patch`], and
 //! [`FormatDialect::for_shell_name`]).
 
