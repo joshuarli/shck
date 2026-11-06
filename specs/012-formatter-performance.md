@@ -333,7 +333,7 @@ Phase 1 already landed. The remaining work should land as separate, benchmarked 
 
 Each PR should:
 
-- include before/after Criterion numbers,
+- include before/after benchmark numbers,
 - include before/after macro wall times on at least `nvm.sh` and `all`,
 - avoid unrelated parity changes,
 - keep new test coverage focused on the touched behavior.

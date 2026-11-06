@@ -1,5 +1,8 @@
-use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
-use shuck_benchmark::{benchmark_cases, configure_benchmark_allocator, parse_fixture};
+use rustybench::counter::{BytesCount, ItemsCount};
+use rustybench::{Bencher, black_box};
+use shuck_benchmark::{
+    benchmark_case, benchmark_case_names, configure_benchmark_allocator, parse_fixture,
+};
 use shuck_indexer::Indexer;
 use shuck_semantic::{ScopeKind, SemanticModel};
 use std::collections::HashSet;
@@ -72,50 +75,39 @@ fn run_scope_lookups(input: &PreparedScopeLookupInput) -> usize {
     black_box(score)
 }
 
-fn bench_semantic(c: &mut Criterion) {
-    let mut group = c.benchmark_group("semantic");
-
-    for case in benchmark_cases() {
-        group.sample_size(case.speed.sample_size());
-        group.throughput(Throughput::Bytes(case.total_bytes()));
-        group.bench_with_input(BenchmarkId::from_parameter(case.name), &case, |b, case| {
-            b.iter(|| {
-                let semantic_size: usize = case
-                    .files
-                    .iter()
-                    .map(|file| build_semantic(file.source))
-                    .sum();
-                black_box(semantic_size);
-            });
+#[rustybench::bench(args = benchmark_case_names())]
+fn semantic(bencher: Bencher, case_name: &str) {
+    let case = benchmark_case(case_name);
+    bencher
+        .counter(BytesCount::from(case.total_bytes()))
+        .bench_local(|| {
+            let semantic_size: usize = case
+                .files
+                .iter()
+                .map(|file| build_semantic(file.source))
+                .sum();
+            black_box(semantic_size)
         });
-    }
-
-    group.finish();
 }
 
-fn bench_semantic_scope_at(c: &mut Criterion) {
-    let mut group = c.benchmark_group("semantic_scope_at");
+#[rustybench::bench(args = benchmark_case_names())]
+fn semantic_scope_at(bencher: Bencher, case_name: &str) {
+    let case = benchmark_case(case_name);
+    let inputs = case
+        .files
+        .iter()
+        .map(|file| prepare_scope_lookup_input(file.source))
+        .collect::<Vec<_>>();
+    let total_lookups: u64 = inputs.iter().map(|input| input.offsets.len() as u64).sum();
 
-    for case in benchmark_cases() {
-        let inputs = case
-            .files
-            .iter()
-            .map(|file| prepare_scope_lookup_input(file.source))
-            .collect::<Vec<_>>();
-        let total_lookups = inputs.iter().map(|input| input.offsets.len() as u64).sum();
-
-        group.sample_size(case.speed.sample_size());
-        group.throughput(Throughput::Elements(total_lookups));
-        group.bench_function(BenchmarkId::from_parameter(case.name), move |b| {
-            b.iter(|| {
-                let score: usize = inputs.iter().map(run_scope_lookups).sum();
-                black_box(score);
-            });
+    bencher
+        .counter(ItemsCount::from(total_lookups))
+        .bench_local(|| {
+            let score: usize = inputs.iter().map(run_scope_lookups).sum();
+            black_box(score)
         });
-    }
-
-    group.finish();
 }
 
-criterion_group!(benches, bench_semantic, bench_semantic_scope_at);
-criterion_main!(benches);
+fn main() {
+    rustybench::main();
+}

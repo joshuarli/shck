@@ -9,7 +9,7 @@ fn main() {
     let Some(case) = cases.iter().find(|case| case.name == case_name) else {
         eprintln!("unknown benchmark case `{case_name}`");
         eprintln!("available cases:");
-        for case in &cases {
+        for case in cases {
             eprintln!("  {}", case.name);
         }
         process::exit(2);

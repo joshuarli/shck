@@ -1,10 +1,17 @@
-use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
+use rustybench::counter::BytesCount;
+use rustybench::{Bencher, black_box};
 use shuck_benchmark::configure_benchmark_allocator;
 use shuck_parser::parser::Parser;
 
 configure_benchmark_allocator!();
 
-const SAMPLE_SIZE: usize = 50;
+const ARITHMETIC_CASE_NAMES: &[&str] = &[
+    "double-paren-command",
+    "arithmetic-expansion",
+    "subscripts-and-slices",
+    "arithmetic-for",
+    "shell-word-operands",
+];
 
 #[derive(Debug, Clone)]
 struct ArithmeticCase {
@@ -71,22 +78,18 @@ fn parse_source(source: &str) -> usize {
     black_box(output.file.body.len())
 }
 
-fn bench_arithmetic(c: &mut Criterion) {
-    let mut group = c.benchmark_group("arithmetic");
+#[rustybench::bench(args = ARITHMETIC_CASE_NAMES, sample_count = 50)]
+fn arithmetic(bencher: Bencher, case_name: &str) {
+    let case = arithmetic_cases()
+        .into_iter()
+        .find(|case| case.name == case_name)
+        .expect("benchmark case should exist");
 
-    for case in arithmetic_cases() {
-        group.sample_size(SAMPLE_SIZE);
-        group.throughput(Throughput::Bytes(case.total_bytes()));
-        group.bench_with_input(BenchmarkId::from_parameter(case.name), &case, |b, case| {
-            b.iter(|| {
-                let command_count = parse_source(&case.source);
-                black_box(command_count);
-            });
-        });
-    }
-
-    group.finish();
+    bencher
+        .counter(BytesCount::from(case.total_bytes()))
+        .bench_local(|| parse_source(black_box(case.source.as_str())));
 }
 
-criterion_group!(benches, bench_arithmetic);
-criterion_main!(benches);
+fn main() {
+    rustybench::main();
+}

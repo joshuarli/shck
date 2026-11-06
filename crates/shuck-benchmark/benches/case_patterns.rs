@@ -1,4 +1,4 @@
-use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+use rustybench::{Bencher, black_box};
 use shuck_benchmark::configure_benchmark_allocator;
 use shuck_linter::BenchmarkCasePatternMatcher as Matcher;
 
@@ -169,64 +169,45 @@ const PAIRS: &[PatternPair] = &[
     },
 ];
 
-fn build_matchers() -> Vec<(&'static str, Matcher, Matcher)> {
+fn pair(name: &str) -> &'static PatternPair {
     PAIRS
         .iter()
-        .map(|pair| {
-            let left = Matcher::from_glob(pair.left)
-                .unwrap_or_else(|| panic!("not statically analyzable: {}", pair.left));
-            let right = Matcher::from_glob(pair.right)
-                .unwrap_or_else(|| panic!("not statically analyzable: {}", pair.right));
-            (pair.name, left, right)
-        })
-        .collect()
+        .find(|pair| pair.name == name)
+        .expect("benchmark pair should exist")
 }
 
-fn bench_subsumes(c: &mut Criterion) {
-    let mut group = c.benchmark_group("case_pattern_subsumes");
-    for (name, left, right) in build_matchers() {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(name),
-            &(left, right),
-            |b, (l, r)| {
-                b.iter(|| {
-                    let a = black_box(l).subsumes(black_box(r));
-                    let b = black_box(r).subsumes(black_box(l));
-                    black_box(a) || black_box(b)
-                });
-            },
-        );
-    }
-    group.finish();
+fn matcher(glob: &str) -> Matcher {
+    Matcher::from_glob(glob).unwrap_or_else(|| panic!("not statically analyzable: {glob}"))
 }
 
-fn bench_intersects(c: &mut Criterion) {
-    let mut group = c.benchmark_group("case_pattern_intersects");
-    for (name, left, right) in build_matchers() {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(name),
-            &(left, right),
-            |b, (l, r)| {
-                b.iter(|| black_box(black_box(l).intersects(black_box(r))));
-            },
-        );
-    }
-    group.finish();
+#[rustybench::bench(args = PAIRS.iter().map(|pair| pair.name))]
+fn subsumes(bencher: Bencher, pair_name: &str) {
+    let pair = pair(pair_name);
+    let left = matcher(pair.left);
+    let right = matcher(pair.right);
+
+    bencher.bench_local(|| {
+        let a = black_box(&left).subsumes(black_box(&right));
+        let b = black_box(&right).subsumes(black_box(&left));
+        black_box(a) || black_box(b)
+    });
 }
 
-fn bench_from_glob(c: &mut Criterion) {
-    let mut group = c.benchmark_group("case_pattern_from_glob");
-    for pair in PAIRS {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(pair.name),
-            pair.left,
-            |b, glob| {
-                b.iter(|| black_box(Matcher::from_glob(black_box(glob))));
-            },
-        );
-    }
-    group.finish();
+#[rustybench::bench(args = PAIRS.iter().map(|pair| pair.name))]
+fn intersects(bencher: Bencher, pair_name: &str) {
+    let pair = pair(pair_name);
+    let left = matcher(pair.left);
+    let right = matcher(pair.right);
+
+    bencher.bench_local(|| black_box(black_box(&left).intersects(black_box(&right))));
 }
 
-criterion_group!(benches, bench_subsumes, bench_intersects, bench_from_glob);
-criterion_main!(benches);
+#[rustybench::bench(args = PAIRS.iter().map(|pair| pair.name))]
+fn from_glob(bencher: Bencher, pair_name: &str) {
+    let glob = pair(pair_name).left;
+    bencher.bench_local(|| black_box(Matcher::from_glob(black_box(glob))));
+}
+
+fn main() {
+    rustybench::main();
+}

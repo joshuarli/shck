@@ -304,7 +304,7 @@ Rejected because it spreads indentation, comments, and fallback decisions across
 - **Comment preservation**: inline and own-line comments survive formatting and appear at the correct positions. Minify mode drops them (`minify_drops_comments`).
 - **Simplify safety**: each rewrite is independently tested and verified idempotent.
 - **Oracle suite**: opt-in tests (`SHUCK_RUN_SHFMT_ORACLE=1`) compare formatter output against a reference formatter across targeted fixtures and the benchmark corpus, producing unified diffs on mismatch.
-- **Benchmarks**: Criterion benchmarks in `shuck-benchmark` measure both `format_source()` (full pipeline) and `format_file_ast()` (already-parsed) throughput, plus comment indexing overhead.
+- **Benchmarks**: rustybench benchmarks in `shuck-benchmark` measure both `format_source()` (full pipeline) and `format_file_ast()` (already-parsed) throughput, plus comment indexing overhead.
 
 ```bash
 # Run formatter tests

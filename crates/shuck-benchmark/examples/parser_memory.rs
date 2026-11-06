@@ -182,7 +182,7 @@ fn parse_source(source: &str) -> ParseResult {
 
 fn single_case_report(case_name: &str) -> Option<CaseReport> {
     let cases = benchmark_cases();
-    let case = cases.into_iter().find(|case| case.name == case_name)?;
+    let case = cases.iter().find(|case| case.name == case_name)?;
 
     if case.files.len() == 1 {
         let file = case.files[0];
@@ -255,8 +255,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
         vec![report]
     } else {
-        benchmark_cases()
-            .into_iter()
+        benchmark_cases().iter()
             .filter_map(|case| single_case_report(case.name))
             .collect::<Vec<_>>()
     };

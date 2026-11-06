@@ -26,9 +26,9 @@ dhat = { version = "0.3", optional = true }
 tikv-jemallocator = "0.6"
 
 [dev-dependencies]
-criterion = { version = "0.5", features = ["html_reports"] }
 deser = { workspace = true }
 deser-json = { workspace = true }
+rustybench = "0.4"
 shuck-cli = { workspace = true }
 shuck-indexer = { workspace = true }
 shuck-semantic = { workspace = true }

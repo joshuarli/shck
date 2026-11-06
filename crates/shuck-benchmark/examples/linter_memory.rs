@@ -270,7 +270,7 @@ fn sum_measured(values: impl IntoIterator<Item = (Frame, usize)>) -> (Frame, usi
 
 fn single_case_report(case_name: &str) -> Option<CaseReport> {
     let cases = benchmark_cases();
-    let case = cases.into_iter().find(|case| case.name == case_name)?;
+    let case = cases.iter().find(|case| case.name == case_name)?;
     let inputs = case
         .files
         .iter()
@@ -341,8 +341,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
         vec![report]
     } else {
-        benchmark_cases()
-            .into_iter()
+        benchmark_cases().iter()
             .filter_map(|case| single_case_report(case.name))
             .collect::<Vec<_>>()
     };

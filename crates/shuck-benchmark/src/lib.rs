@@ -10,30 +10,6 @@ use shuck_parser::parser::{ParseResult, Parser};
 #[cfg(feature = "parser-benchmarking")]
 use shuck_parser::parser::{ParseStatus, ParserBenchmarkCounters};
 
-/// Categorize fixtures by expected runtime so Criterion can spend
-/// more time where it is useful without making the slowest cases drag.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TestCaseSpeed {
-    /// Small fixtures that can use Criterion's default-style sample count.
-    Fast,
-    /// Medium fixtures that need fewer iterations.
-    Normal,
-    /// Large fixtures that should use the minimum supported sample count.
-    Slow,
-}
-
-impl TestCaseSpeed {
-    /// Return the Criterion sample size associated with this speed bucket.
-    pub fn sample_size(self) -> usize {
-        match self {
-            Self::Fast => 100,
-            Self::Normal => 20,
-            // Criterion enforces a minimum sample size of 10.
-            Self::Slow => 10,
-        }
-    }
-}
-
 /// Benchmark fixture source bundled with this crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TestFile {
@@ -41,8 +17,6 @@ pub struct TestFile {
     pub name: &'static str,
     /// Shell source text for the fixture.
     pub source: &'static str,
-    /// Runtime bucket for this fixture.
-    pub speed: TestCaseSpeed,
 }
 
 /// Benchmark case made up of one or more bundled test files.
@@ -52,8 +26,6 @@ pub struct TestCase {
     pub name: &'static str,
     /// Fixture files included in this benchmark case.
     pub files: &'static [TestFile],
-    /// Runtime bucket for the aggregate case.
-    pub speed: TestCaseSpeed,
 }
 
 impl TestCase {
@@ -86,54 +58,63 @@ pub static TEST_FILES: LazyLock<Vec<TestFile>> = LazyLock::new(|| {
         TestFile {
             name: "fzf-install",
             source: fixture_source(include_bytes!("../resources/files/fzf-install.sh")),
-            speed: TestCaseSpeed::Fast,
         },
         TestFile {
             name: "homebrew-install",
             source: fixture_source(include_bytes!("../resources/files/homebrew-install.sh")),
-            speed: TestCaseSpeed::Fast,
         },
         TestFile {
             name: "ruby-build",
             source: fixture_source(include_bytes!("../resources/files/ruby-build.sh")),
-            speed: TestCaseSpeed::Normal,
         },
         TestFile {
             name: "pyenv-python-build",
             source: fixture_source(include_bytes!("../resources/files/pyenv-python-build.sh")),
-            speed: TestCaseSpeed::Normal,
         },
         TestFile {
             name: "nvm",
             source: fixture_source(include_bytes!("../resources/files/nvm.sh")),
-            speed: TestCaseSpeed::Slow,
         },
         TestFile {
             name: "bashtop",
             source: fixture_source(include_bytes!("../resources/files/bashtop.sh")),
-            speed: TestCaseSpeed::Slow,
         },
     ]
 });
 
-/// Returns single-file and aggregate benchmark cases derived from `TEST_FILES`.
-pub fn benchmark_cases() -> Vec<TestCase> {
+static BENCHMARK_CASES: LazyLock<Vec<TestCase>> = LazyLock::new(|| {
     let mut cases = TEST_FILES
         .iter()
         .map(|file| TestCase {
             name: file.name,
             files: std::slice::from_ref(file),
-            speed: file.speed,
         })
         .collect::<Vec<_>>();
 
     cases.push(TestCase {
         name: "all",
         files: TEST_FILES.as_slice(),
-        speed: TestCaseSpeed::Slow,
     });
 
     cases
+});
+
+/// Returns single-file and aggregate benchmark cases derived from `TEST_FILES`.
+pub fn benchmark_cases() -> &'static [TestCase] {
+    &BENCHMARK_CASES
+}
+
+/// Returns the case names accepted by [`benchmark_case`].
+pub fn benchmark_case_names() -> Vec<&'static str> {
+    benchmark_cases().iter().map(|case| case.name).collect()
+}
+
+/// Returns the benchmark case with the given name.
+pub fn benchmark_case(name: &str) -> &'static TestCase {
+    benchmark_cases()
+        .iter()
+        .find(|case| case.name == name)
+        .unwrap_or_else(|| panic!("unknown benchmark case `{name}`"))
 }
 
 /// Returns the benchmark resources directory within this crate.

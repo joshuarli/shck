@@ -4,7 +4,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 
-use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
+use rustybench::counter::BytesCount;
+use rustybench::{Bencher, black_box};
 use shuck_benchmark::configure_benchmark_allocator;
 use shuck_linter::{
     AnalysisRequest, LinterSettings, Rule, RuleSet, ShellCheckCodeMap, ShellDialect,
@@ -24,7 +25,6 @@ static LARGE_CORPUS_FIXTURES: OnceLock<Result<Arc<LoadedLargeCorpusFixtures>, St
 
 #[derive(Debug, Clone)]
 struct LargeCorpusFixture {
-    label: &'static str,
     path: PathBuf,
     cache_rel_path: PathBuf,
     shell: String,
@@ -117,12 +117,10 @@ fn load_large_corpus_hotspot_fixtures() -> Result<Arc<LoadedLargeCorpusFixtures>
     let airgeddon = Arc::new(load_large_corpus_fixture(
         &scripts_dir,
         AIRGEDDON_FIXTURE_NAME,
-        "airgeddon",
     )?);
     let language_strings = Arc::new(load_large_corpus_fixture(
         &scripts_dir,
         LANGUAGE_STRINGS_FIXTURE_NAME,
-        "language_strings",
     )?);
     let resolver = Arc::new(LargeCorpusPathResolver::new(&[
         Arc::clone(&airgeddon),
@@ -181,7 +179,6 @@ fn corpus_dir_looks_valid(root: &Path) -> bool {
 fn load_large_corpus_fixture(
     scripts_dir: &Path,
     file_name: &str,
-    label: &'static str,
 ) -> Result<LargeCorpusFixture, String> {
     let path = scripts_dir.join(file_name);
     let source = fs::read_to_string(&path)
@@ -189,7 +186,6 @@ fn load_large_corpus_fixture(
     let shell = resolve_large_corpus_shell(&path, source.as_bytes());
 
     Ok(LargeCorpusFixture {
-        label,
         cache_rel_path: PathBuf::from(file_name),
         path,
         shell,
@@ -345,140 +341,97 @@ fn resolve_large_corpus_repo_relative_candidate_cache_rel_path(
         .then(|| PathBuf::from(format!("{owner}__{repo}__{}", flattened.join("__"))))
 }
 
-fn bench_large_corpus_linter(c: &mut Criterion) {
-    let Ok(fixtures) = large_corpus_fixtures() else {
-        let Err(message) = large_corpus_fixtures() else {
-            unreachable!();
-        };
-        eprintln!("skipping large corpus hotspot benches: {message}");
-        return;
-    };
+const LARGE_CORPUS_LABELS: &[&str] = &["airgeddon", "language_strings"];
+const RULE_SPLITS: &[&str] = &["c100_only", "without_c100"];
+const SOURCE_CLOSURE_SPLITS: &[&str] = &["with_source_closure", "without_source_closure"];
 
-    let mut group = c.benchmark_group("large_corpus_linter");
-    group.sample_size(10);
-
-    for fixture in [&fixtures.airgeddon, &fixtures.language_strings] {
-        group.throughput(Throughput::Bytes(fixture.bytes()));
-        group.bench_with_input(
-            BenchmarkId::from_parameter(fixture.label),
-            fixture,
-            |b, fixture| {
-                let resolver = fixtures.resolver.clone();
-                b.iter(|| {
-                    lint_large_corpus_fixture(
-                        fixture,
-                        Some(resolver.as_ref() as &(dyn SourcePathResolver + Send + Sync)),
-                    )
-                });
-            },
-        );
+fn fixture_by_label<'a>(
+    fixtures: &'a LoadedLargeCorpusFixtures,
+    label: &str,
+) -> &'a Arc<LargeCorpusFixture> {
+    match label {
+        "airgeddon" => &fixtures.airgeddon,
+        "language_strings" => &fixtures.language_strings,
+        _ => panic!("unknown large corpus fixture `{label}`"),
     }
-
-    group.finish();
 }
 
-fn bench_large_corpus_linter_rule_splits(c: &mut Criterion) {
-    let Ok(fixtures) = large_corpus_fixtures() else {
-        let Err(message) = large_corpus_fixtures() else {
-            unreachable!();
-        };
-        eprintln!("skipping large corpus hotspot benches: {message}");
-        return;
-    };
+fn large_corpus_unavailable() -> bool {
+    large_corpus_fixtures().is_err()
+}
 
+#[rustybench::bench(
+    args = LARGE_CORPUS_LABELS,
+    sample_count = 10,
+    ignore = large_corpus_unavailable()
+)]
+fn large_corpus_linter(bencher: Bencher, label: &str) {
+    let fixtures = large_corpus_fixtures().expect("large corpus fixtures should load");
+    let fixture = fixture_by_label(fixtures, label);
+    let resolver = fixtures.resolver.clone();
+
+    bencher
+        .counter(BytesCount::from(fixture.bytes()))
+        .bench_local(|| {
+            lint_large_corpus_fixture(
+                fixture,
+                Some(resolver.as_ref() as &(dyn SourcePathResolver + Send + Sync)),
+            )
+        });
+}
+
+#[rustybench::bench(
+    args = RULE_SPLITS,
+    sample_count = 10,
+    ignore = large_corpus_unavailable()
+)]
+fn large_corpus_linter_rule_splits(bencher: Bencher, split: &str) {
+    let fixtures = large_corpus_fixtures().expect("large corpus fixtures should load");
     let fixture = &fixtures.airgeddon;
-    let mut group = c.benchmark_group("large_corpus_linter_rule_splits");
-    group.sample_size(10);
-    group.throughput(Throughput::Bytes(fixture.bytes()));
-
-    group.bench_with_input(
-        BenchmarkId::from_parameter("airgeddon/c100_only"),
-        fixture,
-        |b, fixture| {
-            let resolver = fixtures.resolver.clone();
-            let settings = large_corpus_c100_only_settings();
-            b.iter(|| {
-                lint_large_corpus_fixture_with_settings(
-                    fixture,
-                    Some(resolver.as_ref() as &(dyn SourcePathResolver + Send + Sync)),
-                    settings.clone(),
-                )
-            });
-        },
-    );
-
-    group.bench_with_input(
-        BenchmarkId::from_parameter("airgeddon/without_c100"),
-        fixture,
-        |b, fixture| {
-            let resolver = fixtures.resolver.clone();
-            let settings = large_corpus_without_c100_settings();
-            b.iter(|| {
-                lint_large_corpus_fixture_with_settings(
-                    fixture,
-                    Some(resolver.as_ref() as &(dyn SourcePathResolver + Send + Sync)),
-                    settings.clone(),
-                )
-            });
-        },
-    );
-
-    group.finish();
-}
-
-fn bench_large_corpus_linter_source_closure_splits(c: &mut Criterion) {
-    let Ok(fixtures) = large_corpus_fixtures() else {
-        let Err(message) = large_corpus_fixtures() else {
-            unreachable!();
-        };
-        eprintln!("skipping large corpus hotspot benches: {message}");
-        return;
+    let settings = match split {
+        "c100_only" => large_corpus_c100_only_settings(),
+        "without_c100" => large_corpus_without_c100_settings(),
+        _ => panic!("unknown rule split `{split}`"),
     };
+    let resolver = fixtures.resolver.clone();
 
-    let fixture = &fixtures.airgeddon;
-    let mut group = c.benchmark_group("large_corpus_linter_source_closure_splits");
-    group.sample_size(10);
-    group.throughput(Throughput::Bytes(fixture.bytes()));
-
-    group.bench_with_input(
-        BenchmarkId::from_parameter("airgeddon/with_source_closure"),
-        fixture,
-        |b, fixture| {
-            let resolver = fixtures.resolver.clone();
-            let settings = large_corpus_default_settings(fixture);
-            b.iter(|| {
-                lint_large_corpus_fixture_with_settings(
-                    fixture,
-                    Some(resolver.as_ref() as &(dyn SourcePathResolver + Send + Sync)),
-                    settings.clone(),
-                )
-            });
-        },
-    );
-
-    group.bench_with_input(
-        BenchmarkId::from_parameter("airgeddon/without_source_closure"),
-        fixture,
-        |b, fixture| {
-            let resolver = fixtures.resolver.clone();
-            let settings = large_corpus_without_source_closure_settings(fixture);
-            b.iter(|| {
-                lint_large_corpus_fixture_with_settings(
-                    fixture,
-                    Some(resolver.as_ref() as &(dyn SourcePathResolver + Send + Sync)),
-                    settings.clone(),
-                )
-            });
-        },
-    );
-
-    group.finish();
+    bencher
+        .counter(BytesCount::from(fixture.bytes()))
+        .bench_local(|| {
+            lint_large_corpus_fixture_with_settings(
+                fixture,
+                Some(resolver.as_ref() as &(dyn SourcePathResolver + Send + Sync)),
+                settings.clone(),
+            )
+        });
 }
 
-criterion_group!(
-    benches,
-    bench_large_corpus_linter,
-    bench_large_corpus_linter_rule_splits,
-    bench_large_corpus_linter_source_closure_splits
-);
-criterion_main!(benches);
+#[rustybench::bench(
+    args = SOURCE_CLOSURE_SPLITS,
+    sample_count = 10,
+    ignore = large_corpus_unavailable()
+)]
+fn large_corpus_linter_source_closure_splits(bencher: Bencher, split: &str) {
+    let fixtures = large_corpus_fixtures().expect("large corpus fixtures should load");
+    let fixture = &fixtures.airgeddon;
+    let settings = match split {
+        "with_source_closure" => large_corpus_default_settings(fixture),
+        "without_source_closure" => large_corpus_without_source_closure_settings(fixture),
+        _ => panic!("unknown source closure split `{split}`"),
+    };
+    let resolver = fixtures.resolver.clone();
+
+    bencher
+        .counter(BytesCount::from(fixture.bytes()))
+        .bench_local(|| {
+            lint_large_corpus_fixture_with_settings(
+                fixture,
+                Some(resolver.as_ref() as &(dyn SourcePathResolver + Send + Sync)),
+                settings.clone(),
+            )
+        });
+}
+
+fn main() {
+    rustybench::main();
+}

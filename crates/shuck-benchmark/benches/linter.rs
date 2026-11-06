@@ -1,7 +1,9 @@
-use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
-use std::time::Duration;
-
-use shuck_benchmark::{benchmark_cases, configure_benchmark_allocator, parse_fixture};
+use rustybench::counter::BytesCount;
+use rustybench::{Bencher, black_box};
+use shuck_benchmark::{
+    TestCase, TestFile, benchmark_case, benchmark_case_names, configure_benchmark_allocator,
+    parse_fixture,
+};
 use shuck_indexer::Indexer;
 use shuck_linter::{
     AnalysisRequest, LinterFacts, LinterSemanticArtifacts, LinterSettings, RuleSet,
@@ -10,6 +12,49 @@ use shuck_linter::{
 use shuck_parser::parser::ParseResult;
 
 configure_benchmark_allocator!();
+
+struct PreparedLinterInputs {
+    files: &'static [TestFile],
+    outputs: &'static [ParseResult],
+    indexers: &'static [Indexer],
+    semantics: &'static [LinterSemanticArtifacts<'static>],
+}
+
+fn prepare_linter_inputs(case: &'static TestCase) -> PreparedLinterInputs {
+    let outputs = Box::leak(
+        case.files
+            .iter()
+            .map(|file| parse_fixture(file.source))
+            .collect::<Vec<_>>()
+            .into_boxed_slice(),
+    );
+    let indexers = Box::leak(
+        case.files
+            .iter()
+            .zip(outputs.iter())
+            .map(|(file, output)| Indexer::new(file.source, output))
+            .collect::<Vec<_>>()
+            .into_boxed_slice(),
+    );
+    let semantics = Box::leak(
+        case.files
+            .iter()
+            .zip(outputs.iter())
+            .zip(indexers.iter())
+            .map(|((file, output), indexer)| {
+                LinterSemanticArtifacts::build(&output.file, file.source, indexer)
+            })
+            .collect::<Vec<_>>()
+            .into_boxed_slice(),
+    );
+
+    PreparedLinterInputs {
+        files: case.files,
+        outputs,
+        indexers,
+        semantics,
+    }
+}
 
 fn build_linter_facts(
     source: &str,
@@ -44,81 +89,46 @@ fn lint_source(
     black_box(diagnostics.len())
 }
 
-fn bench_linter_facts(c: &mut Criterion) {
-    let mut group = c.benchmark_group("linter_facts");
+#[rustybench::bench(args = benchmark_case_names())]
+fn linter_facts(bencher: Bencher, case_name: &str) {
+    let case = benchmark_case(case_name);
+    let inputs = prepare_linter_inputs(case);
 
-    for case in benchmark_cases() {
-        group.sample_size(case.speed.sample_size());
-        group.throughput(Throughput::Bytes(case.total_bytes()));
-        group.bench_with_input(BenchmarkId::from_parameter(case.name), &case, |b, case| {
-            b.iter_custom(|iters| {
-                let mut total = Duration::ZERO;
-                for _ in 0..iters {
-                    let outputs = case
-                        .files
-                        .iter()
-                        .map(|file| parse_fixture(file.source))
-                        .collect::<Vec<_>>();
-                    let indexers = case
-                        .files
-                        .iter()
-                        .zip(outputs.iter())
-                        .map(|(file, output)| Indexer::new(file.source, output))
-                        .collect::<Vec<_>>();
-                    let semantics = case
-                        .files
-                        .iter()
-                        .zip(outputs.iter())
-                        .zip(indexers.iter())
-                        .map(|((file, output), indexer)| {
-                            LinterSemanticArtifacts::build(&output.file, file.source, indexer)
-                        })
-                        .collect::<Vec<_>>();
-
-                    let start = std::time::Instant::now();
-                    let facts_size = case
-                        .files
-                        .iter()
-                        .zip(outputs.iter())
-                        .zip(indexers.iter())
-                        .zip(semantics.iter())
-                        .map(|(((file, output), indexer), semantic)| {
-                            build_linter_facts(file.source, output, indexer, semantic)
-                        })
-                        .sum::<usize>();
-                    black_box(facts_size);
-                    total += start.elapsed();
-                }
-                total
-            });
+    bencher
+        .counter(BytesCount::from(case.total_bytes()))
+        .bench_local(|| {
+            let facts_size = inputs
+                .files
+                .iter()
+                .zip(inputs.outputs.iter())
+                .zip(inputs.indexers.iter())
+                .zip(inputs.semantics.iter())
+                .map(|(((file, output), indexer), semantic)| {
+                    build_linter_facts(file.source, output, indexer, semantic)
+                })
+                .sum::<usize>();
+            black_box(facts_size)
         });
-    }
-
-    group.finish();
 }
 
-fn bench_linter(c: &mut Criterion) {
-    let mut group = c.benchmark_group("linter");
+#[rustybench::bench(args = benchmark_case_names())]
+fn linter(bencher: Bencher, case_name: &str) {
+    let case = benchmark_case(case_name);
     let settings = LinterSettings::for_rules(RuleSet::all().iter());
     let shellcheck_map = ShellCheckCodeMap::default();
 
-    for case in benchmark_cases() {
-        group.sample_size(case.speed.sample_size());
-        group.throughput(Throughput::Bytes(case.total_bytes()));
-        group.bench_with_input(BenchmarkId::from_parameter(case.name), &case, |b, case| {
-            b.iter(|| {
-                let diagnostic_count: usize = case
-                    .files
-                    .iter()
-                    .map(|file| lint_source(file.source, &settings, &shellcheck_map))
-                    .sum();
-                black_box(diagnostic_count);
-            });
+    bencher
+        .counter(BytesCount::from(case.total_bytes()))
+        .bench_local(|| {
+            let diagnostic_count: usize = case
+                .files
+                .iter()
+                .map(|file| lint_source(file.source, &settings, &shellcheck_map))
+                .sum();
+            black_box(diagnostic_count)
         });
-    }
-
-    group.finish();
 }
 
-criterion_group!(benches, bench_linter_facts, bench_linter);
-criterion_main!(benches);
+fn main() {
+    rustybench::main();
+}

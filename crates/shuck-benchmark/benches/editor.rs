@@ -1,7 +1,8 @@
-use criterion::{
-    BatchSize, BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main,
+use rustybench::counter::ItemsCount;
+use rustybench::{Bencher, black_box};
+use shuck_benchmark::{
+    TestFile, benchmark_case, benchmark_case_names, configure_benchmark_allocator, parse_fixture,
 };
-use shuck_benchmark::{TestFile, benchmark_cases, configure_benchmark_allocator, parse_fixture};
 use shuck_indexer::Indexer;
 use shuck_semantic::{EditorCompletionOptions, EditorDocumentSymbol, SemanticModel};
 
@@ -225,134 +226,102 @@ fn completion_probe_count(inputs: &[PreparedEditorInput]) -> u64 {
         .max(1)
 }
 
-fn bench_editor_document_symbols(c: &mut Criterion) {
-    let mut group = c.benchmark_group("editor_document_symbols");
-
-    for case in benchmark_cases() {
-        let inputs = case
-            .files
-            .iter()
-            .map(|file| prepare_editor_input(file.source))
-            .collect::<Vec<_>>();
-        let total_bindings = inputs
-            .iter()
-            .map(|input| input.binding_count)
-            .sum::<u64>()
-            .max(1);
-
-        group.sample_size(case.speed.sample_size());
-        group.throughput(Throughput::Elements(total_bindings));
-        group.bench_function(BenchmarkId::from_parameter(case.name), move |b| {
-            b.iter(|| {
-                let symbol_count: usize = inputs.iter().map(build_document_symbols).sum();
-                black_box(symbol_count);
-            });
-        });
-    }
-
-    group.finish();
+fn binding_count(inputs: &[PreparedEditorInput]) -> u64 {
+    inputs
+        .iter()
+        .map(|input| input.binding_count)
+        .sum::<u64>()
+        .max(1)
 }
 
-fn bench_editor_hover(c: &mut Criterion) {
-    let mut cold_group = c.benchmark_group("editor_hover_cold");
-    for case in benchmark_cases() {
-        let probe_count = hover_probe_count(&prepare_editor_inputs(case.files));
-        cold_group.sample_size(case.speed.sample_size());
-        cold_group.throughput(Throughput::Elements(probe_count));
-        cold_group.bench_function(BenchmarkId::from_parameter(case.name), move |b| {
-            b.iter_batched(
-                || prepare_editor_inputs(case.files),
-                |inputs| run_hover_queries_for_inputs(&inputs),
-                BatchSize::SmallInput,
-            );
-        });
-    }
-    cold_group.finish();
+#[rustybench::bench(args = benchmark_case_names())]
+fn editor_document_symbols(bencher: Bencher, case_name: &str) {
+    let case = benchmark_case(case_name);
+    let inputs = prepare_editor_inputs(case.files);
 
-    let mut warm_group = c.benchmark_group("editor_hover_warm");
-    for case in benchmark_cases() {
-        let inputs = prepare_editor_inputs(case.files);
-        let probe_count = hover_probe_count(&inputs);
-        for input in &inputs {
-            let _ = run_hover_queries(input);
-        }
-
-        warm_group.sample_size(case.speed.sample_size());
-        warm_group.throughput(Throughput::Elements(probe_count));
-        warm_group.bench_function(BenchmarkId::from_parameter(case.name), move |b| {
-            b.iter(|| run_hover_queries_for_inputs(&inputs));
+    bencher
+        .counter(ItemsCount::from(binding_count(&inputs)))
+        .bench_local(|| {
+            let symbol_count: usize = inputs.iter().map(build_document_symbols).sum();
+            black_box(symbol_count)
         });
-    }
-    warm_group.finish();
 }
 
-fn bench_editor_completion(c: &mut Criterion) {
-    let mut group = c.benchmark_group("editor_completion");
-    for case in benchmark_cases() {
-        let inputs = prepare_editor_inputs(case.files);
-        group.sample_size(case.speed.sample_size());
-        group.throughput(Throughput::Elements(completion_probe_count(&inputs)));
-        group.bench_function(BenchmarkId::from_parameter(case.name), move |b| {
-            b.iter(|| run_completion_queries_for_inputs(&inputs));
-        });
-    }
-    group.finish();
+#[rustybench::bench(args = benchmark_case_names())]
+fn editor_hover_cold(bencher: Bencher, case_name: &str) {
+    let case = benchmark_case(case_name);
+    let probe_count = hover_probe_count(&prepare_editor_inputs(case.files));
+
+    bencher
+        .counter(ItemsCount::from(probe_count))
+        .with_inputs(|| prepare_editor_inputs(case.files))
+        .bench_local_values(|inputs| run_hover_queries_for_inputs(&inputs));
 }
 
-fn bench_editor_navigation(c: &mut Criterion) {
-    let mut definition_group = c.benchmark_group("editor_definition");
-    for case in benchmark_cases() {
-        let inputs = prepare_editor_inputs(case.files);
-        definition_group.sample_size(case.speed.sample_size());
-        definition_group.throughput(Throughput::Elements(hover_probe_count(&inputs)));
-        definition_group.bench_function(BenchmarkId::from_parameter(case.name), move |b| {
-            b.iter(|| run_definition_queries_for_inputs(&inputs));
-        });
+#[rustybench::bench(args = benchmark_case_names())]
+fn editor_hover_warm(bencher: Bencher, case_name: &str) {
+    let case = benchmark_case(case_name);
+    let inputs = prepare_editor_inputs(case.files);
+    let probe_count = hover_probe_count(&inputs);
+    for input in &inputs {
+        let _ = run_hover_queries(input);
     }
-    definition_group.finish();
 
-    let mut references_group = c.benchmark_group("editor_references");
-    for case in benchmark_cases() {
-        let inputs = prepare_editor_inputs(case.files);
-        references_group.sample_size(case.speed.sample_size());
-        references_group.throughput(Throughput::Elements(hover_probe_count(&inputs)));
-        references_group.bench_function(BenchmarkId::from_parameter(case.name), move |b| {
-            b.iter(|| run_references_queries_for_inputs(&inputs));
-        });
-    }
-    references_group.finish();
-
-    let mut highlight_group = c.benchmark_group("editor_document_highlight");
-    for case in benchmark_cases() {
-        let inputs = prepare_editor_inputs(case.files);
-        highlight_group.sample_size(case.speed.sample_size());
-        highlight_group.throughput(Throughput::Elements(hover_probe_count(&inputs)));
-        highlight_group.bench_function(BenchmarkId::from_parameter(case.name), move |b| {
-            b.iter(|| run_document_highlight_queries_for_inputs(&inputs));
-        });
-    }
-    highlight_group.finish();
+    bencher
+        .counter(ItemsCount::from(probe_count))
+        .bench_local(|| run_hover_queries_for_inputs(&inputs));
 }
 
-fn bench_editor_rename(c: &mut Criterion) {
-    let mut group = c.benchmark_group("editor_rename");
-    for case in benchmark_cases() {
-        let inputs = prepare_editor_inputs(case.files);
-        group.sample_size(case.speed.sample_size());
-        group.throughput(Throughput::Elements(hover_probe_count(&inputs)));
-        group.bench_function(BenchmarkId::from_parameter(case.name), move |b| {
-            b.iter(|| run_rename_queries_for_inputs(&inputs));
-        });
-    }
-    group.finish();
+#[rustybench::bench(args = benchmark_case_names())]
+fn editor_completion(bencher: Bencher, case_name: &str) {
+    let case = benchmark_case(case_name);
+    let inputs = prepare_editor_inputs(case.files);
+
+    bencher
+        .counter(ItemsCount::from(completion_probe_count(&inputs)))
+        .bench_local(|| run_completion_queries_for_inputs(&inputs));
 }
 
-criterion_group!(
-    benches,
-    bench_editor_document_symbols,
-    bench_editor_hover,
-    bench_editor_completion,
-    bench_editor_navigation,
-    bench_editor_rename
-);
-criterion_main!(benches);
+#[rustybench::bench(args = benchmark_case_names())]
+fn editor_definition(bencher: Bencher, case_name: &str) {
+    let case = benchmark_case(case_name);
+    let inputs = prepare_editor_inputs(case.files);
+
+    bencher
+        .counter(ItemsCount::from(hover_probe_count(&inputs)))
+        .bench_local(|| run_definition_queries_for_inputs(&inputs));
+}
+
+#[rustybench::bench(args = benchmark_case_names())]
+fn editor_references(bencher: Bencher, case_name: &str) {
+    let case = benchmark_case(case_name);
+    let inputs = prepare_editor_inputs(case.files);
+
+    bencher
+        .counter(ItemsCount::from(hover_probe_count(&inputs)))
+        .bench_local(|| run_references_queries_for_inputs(&inputs));
+}
+
+#[rustybench::bench(args = benchmark_case_names())]
+fn editor_document_highlight(bencher: Bencher, case_name: &str) {
+    let case = benchmark_case(case_name);
+    let inputs = prepare_editor_inputs(case.files);
+
+    bencher
+        .counter(ItemsCount::from(hover_probe_count(&inputs)))
+        .bench_local(|| run_document_highlight_queries_for_inputs(&inputs));
+}
+
+#[rustybench::bench(args = benchmark_case_names())]
+fn editor_rename(bencher: Bencher, case_name: &str) {
+    let case = benchmark_case(case_name);
+    let inputs = prepare_editor_inputs(case.files);
+
+    bencher
+        .counter(ItemsCount::from(hover_probe_count(&inputs)))
+        .bench_local(|| run_rename_queries_for_inputs(&inputs));
+}
+
+fn main() {
+    rustybench::main();
+}

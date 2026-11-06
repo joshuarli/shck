@@ -6,7 +6,7 @@ Proposed
 
 ## Summary
 
-A benchmarking setup for shuck that measures parse, semantic, and lint throughput on real-world shell scripts and compares end-to-end CLI performance against shellcheck. The design follows ruff's two-tier approach: **Criterion.rs micro-benchmarks** in a dedicated `shuck-benchmark` crate for measuring individual components (lexer, parser, semantic analysis, linter), and **hyperfine macro-benchmarks** via shell scripts for CLI-vs-shellcheck wall-time comparison. Both tiers operate on the same 5 vendored benchmark fixtures used by the Go frontend (`shuck`), copied directly from `shuck/testdata/benchmarks/`.
+A benchmarking setup for shuck that measures parse, semantic, and lint throughput on real-world shell scripts and compares end-to-end CLI performance against shellcheck. The design follows ruff's two-tier approach: **rustybench micro-benchmarks** in a dedicated `shuck-benchmark` crate for measuring individual components (lexer, parser, semantic analysis, linter), and **hyperfine macro-benchmarks** via shell scripts for CLI-vs-shellcheck wall-time comparison. Both tiers operate on the same 5 vendored benchmark fixtures used by the Go frontend (`shuck`), copied directly from `shuck/testdata/benchmarks/`.
 
 ## Motivation
 
@@ -14,9 +14,9 @@ The CHECKLIST.md item 12.3 calls for "benchmark cases for parse throughput and m
 
 - **Detect regressions** — A parser refactor could halve throughput and we wouldn't notice until users report it.
 - **Quantify our advantage** — Shuck's value proposition includes speed. We need numbers to back this up, comparing against shellcheck on the same scripts.
-- **Guide optimization** — Profiling without repeatable benchmarks is guesswork. Criterion's statistical analysis and baseline comparison give us actionable data.
+- **Guide optimization** — Profiling without repeatable benchmarks is guesswork. Rustybench's sample statistics and baseline comparison give us actionable data.
 
-Ruff's benchmark infrastructure (dedicated `ruff_benchmark` crate, Criterion for micro-benchmarks, hyperfine for macro-benchmarks) is battle-tested and maps cleanly to our problem. We adapt it for shell scripts rather than Python files.
+Ruff's benchmark infrastructure (dedicated `ruff_benchmark` crate, micro-benchmarks for individual components, hyperfine for macro-benchmarks) is battle-tested and maps cleanly to our problem. We adapt it for shell scripts rather than Python files.
 
 ## Design
 
@@ -36,7 +36,7 @@ Each fixture is pinned to a specific upstream commit and includes its license fi
 
 Total: 10,671 lines, 325,662 bytes.
 
-The Go frontend also runs an "all" benchmark case that passes all 5 files in a single invocation. We replicate this in both the Criterion and hyperfine benchmarks.
+The Go frontend also runs an "all" benchmark case that passes all 5 files in a single invocation. We replicate this in both the micro- and hyperfine benchmarks.
 
 ### Crate: `shuck-benchmark`
 
@@ -46,11 +46,11 @@ A new workspace member crate, following ruff's `ruff_benchmark` structure:
 crates/shuck-benchmark/
 ├── Cargo.toml
 ├── benches/
-│   ├── lexer.rs          # Criterion: lex throughput per file
-│   ├── parser.rs         # Criterion: parse throughput per file
-│   ├── semantic.rs       # Criterion: semantic-model throughput per file
-│   ├── unused_assignment.rs # Criterion: exact variable-dataflow throughput per file
-│   └── linter.rs         # Criterion: full lint pipeline per file
+│   ├── lexer.rs          # rustybench: lex throughput per file
+│   ├── parser.rs         # rustybench: parse throughput per file
+│   ├── semantic.rs       # rustybench: semantic-model throughput per file
+│   ├── unused_assignment.rs # rustybench: exact variable-dataflow throughput per file
+│   └── linter.rs         # rustybench: full lint pipeline per file
 ├── src/
 │   └── lib.rs            # TestCase, TestFile, load helpers
 └── resources/
@@ -85,7 +85,7 @@ publish = false
 shuck-parser = { path = "../shuck-parser" }
 
 [dev-dependencies]
-criterion = { version = "0.5", features = ["html_reports"] }
+rustybench = "0.4"
 
 [[bench]]
 name = "lexer"
@@ -108,18 +108,18 @@ name = "linter"
 harness = false
 ```
 
-`unused_assignment.rs` is the dedicated Criterion harness for exact variable-dataflow work. It keeps the isolated `unused_assignment` and `uninitialized_reference` groups and also provides a combined `variable_dataflow_combined` group that measures the real shared-cache access pattern on one `SemanticAnalysis`.
+`unused_assignment.rs` is the dedicated rustybench harness for exact variable-dataflow work. It keeps the isolated `unused_assignment` and `uninitialized_reference` groups and also provides a combined `variable_dataflow_combined` group that measures the real shared-cache access pattern on one `SemanticAnalysis`.
 
-Before/after exact-dataflow comparisons should use explicit Criterion baseline commands against that bench target:
+Before/after exact-dataflow comparisons use explicit rustybench baseline files:
 
 ```bash
-env CARGO_TARGET_DIR="$SCRATCH/target" \
-  cargo bench -p shuck-benchmark --bench unused_assignment \
-  -- --save-baseline=exact-dataflow-before --noplot
+rustybench baseline --root . --baseline target/exact-dataflow-before.json \
+  -- cargo bench -p shuck-benchmark --bench unused_assignment
 
-env CARGO_TARGET_DIR="$SCRATCH/target" \
-  cargo bench -p shuck-benchmark --bench unused_assignment \
-  -- --baseline=exact-dataflow-before --noplot
+rustybench baseline --root . --baseline target/exact-dataflow-after.json \
+  --quiet -- cargo bench -p shuck-benchmark --bench unused_assignment
+
+rustybench diff target/exact-dataflow-before.json target/exact-dataflow-after.json
 ```
 
 #### src/lib.rs — Test Case Infrastructure
@@ -130,59 +130,30 @@ use std::path::{Path, PathBuf};
 pub struct TestFile {
     pub name: &'static str,
     pub source: &'static str,
-    pub speed: TestCaseSpeed,
 }
 
-/// Categorize files by expected benchmark duration to tune
-/// Criterion sample sizes.
-pub enum TestCaseSpeed {
-    /// < 1ms expected — use default sample size
-    Fast,
-    /// 1–50ms expected — reduce sample size
-    Normal,
-    /// > 50ms expected — minimal sample size
-    Slow,
-}
-
-impl TestCaseSpeed {
-    pub fn sample_size(&self) -> usize {
-        match self {
-            Self::Fast => 100,
-            Self::Normal => 20,
-            Self::Slow => 5,
-        }
-    }
+pub struct TestCase {
+    pub name: &'static str,
+    pub files: &'static [TestFile],
 }
 
 /// All vendored benchmark files — same set as the Go frontend's
 /// testdata/benchmarks/manifest.json, ordered smallest to largest.
-pub static TEST_FILES: &[TestFile] = &[
-    TestFile {
-        name: "fzf-install",
-        source: include_str!("../resources/files/fzf-install.sh"),
-        speed: TestCaseSpeed::Fast,
-    },
-    TestFile {
-        name: "homebrew-install",
-        source: include_str!("../resources/files/homebrew-install.sh"),
-        speed: TestCaseSpeed::Fast,
-    },
-    TestFile {
-        name: "ruby-build",
-        source: include_str!("../resources/files/ruby-build.sh"),
-        speed: TestCaseSpeed::Normal,
-    },
-    TestFile {
-        name: "pyenv-python-build",
-        source: include_str!("../resources/files/pyenv-python-build.sh"),
-        speed: TestCaseSpeed::Normal,
-    },
-    TestFile {
-        name: "nvm",
-        source: include_str!("../resources/files/nvm.sh"),
-        speed: TestCaseSpeed::Slow,
-    },
-];
+pub static TEST_FILES: LazyLock<Vec<TestFile>> = LazyLock::new(|| {
+    vec![
+        TestFile {
+            name: "fzf-install",
+            source: fixture_source(include_bytes!("../resources/files/fzf-install.sh")),
+        },
+        // ...
+    ]
+});
+
+/// Single-file cases plus the aggregate `all` case.
+pub fn benchmark_cases() -> &'static [TestCase];
+
+/// Case names passed to `#[rustybench::bench(args = ...)]`.
+pub fn benchmark_case_names() -> Vec<&'static str>;
 
 pub fn resources_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("resources")
@@ -192,30 +163,29 @@ pub fn resources_dir() -> PathBuf {
 #### benches/parser.rs — Parser Micro-Benchmark
 
 ```rust
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use shuck_benchmark::{TestFile, TEST_FILES};
-use shuck_syntax::parse;
+use rustybench::counter::BytesCount;
+use rustybench::{Bencher, black_box};
+use shuck_benchmark::{benchmark_case, benchmark_case_names, parse_fixture};
 
-fn bench_parse(c: &mut Criterion) {
-    let mut group = c.benchmark_group("parser");
+#[rustybench::bench(args = benchmark_case_names())]
+fn parse(bencher: Bencher, case_name: &str) {
+    let case = benchmark_case(case_name);
 
-    for file in TEST_FILES {
-        group.sample_size(file.speed.sample_size());
-        group.throughput(Throughput::Bytes(file.source.len() as u64));
-        group.bench_with_input(
-            BenchmarkId::new("parse", file.name),
-            &file.source,
-            |b, source| {
-                b.iter(|| parse(source));
-            },
-        );
-    }
-
-    group.finish();
+    bencher
+        .counter(BytesCount::from(case.total_bytes()))
+        .bench_local(|| {
+            let body_len: usize = case
+                .files
+                .iter()
+                .map(|file| parse_fixture(file.source).file.body.len())
+                .sum();
+            black_box(body_len)
+        });
 }
 
-criterion_group!(benches, bench_parse);
-criterion_main!(benches);
+fn main() {
+    rustybench::main();
+}
 ```
 
 The lexer, semantic, and linter benches follow the same structure, benchmarking `Lexer::new(source).collect::<Vec<_>>()`, `SemanticModel::build(...)`, and the full `AnalysisRequest::from_parse_result(...).lint()` pipeline respectively.
@@ -321,10 +291,11 @@ bench:
 	cargo bench -p shuck-benchmark
 
 bench-save:
-	cargo bench -p shuck-benchmark -- --save-baseline=main
+	rustybench baseline --root . --baseline target/bench-baseline.json -- cargo bench -p shuck-benchmark
 
 bench-compare:
-	cargo bench -p shuck-benchmark -- --baseline=main
+	rustybench baseline --root . --baseline target/bench-candidate.json --quiet -- cargo bench -p shuck-benchmark
+	rustybench diff target/bench-baseline.json target/bench-candidate.json
 
 bench-parser:
 	cargo bench -p shuck-benchmark --bench parser
@@ -356,10 +327,10 @@ This enables `cargo flamegraph` and `samply` on benchmark binaries without losin
 
 | Tier | Tool | What | Metric |
 |------|------|------|--------|
-| Micro | Criterion | Lex each fixture | throughput (bytes/s), time (mean ± σ) |
-| Micro | Criterion | Parse each fixture | throughput (bytes/s), time (mean ± σ) |
-| Micro | Criterion | Build semantics for each fixture | throughput (bytes/s), time (mean ± σ) |
-| Micro | Criterion | Lint each fixture | throughput (bytes/s), time (mean ± σ) |
+| Micro | rustybench | Lex each fixture | throughput (bytes/s), median time |
+| Micro | rustybench | Parse each fixture | throughput (bytes/s), median time |
+| Micro | rustybench | Build semantics for each fixture | throughput (bytes/s), median time |
+| Micro | rustybench | Lint each fixture | throughput (bytes/s), median time |
 | Macro | Hyperfine | `shuck check` per fixture | wall time (mean ± σ), vs shellcheck |
 | Macro | Hyperfine | `shuck check` all fixtures | wall time (mean ± σ), vs shellcheck |
 
@@ -371,23 +342,23 @@ This enables `cargo flamegraph` and `samply` on benchmark binaries without losin
 
 ## Alternatives Considered
 
-### Alternative A: Criterion Only (No Hyperfine)
+### Alternative A: Micro-Benchmarks Only (No Hyperfine)
 
-Run all benchmarks through Criterion, including CLI-level measurements.
+Run all benchmarks through rustybench, including CLI-level measurements.
 
-**Rejected because:** Criterion measures library-level function calls, not CLI startup, file discovery, argument parsing, and I/O. Hyperfine captures the full user-facing experience and directly compares against shellcheck's CLI — the comparison users care about. The two tools measure different things and complement each other.
+**Rejected because:** rustybench measures library-level function calls, not CLI startup, file discovery, argument parsing, and I/O. Hyperfine captures the full user-facing experience and directly compares against shellcheck's CLI — the comparison users care about. The two tools measure different things and complement each other.
 
-### Alternative B: Hyperfine Only (No Criterion)
+### Alternative B: Hyperfine Only (No Micro-Benchmarks)
 
 Use only CLI-level benchmarks for simplicity.
 
-**Rejected because:** CLI benchmarks conflate I/O, argument parsing, file discovery, and actual analysis. When a regression appears in hyperfine, you need Criterion-level data to know whether the lexer, parser, or linter is responsible. Ruff's experience shows that micro-benchmarks catch regressions that macro-benchmarks miss due to noise.
+**Rejected because:** CLI benchmarks conflate I/O, argument parsing, file discovery, and actual analysis. When a regression appears in hyperfine, you need micro-benchmark data to know whether the lexer, parser, or linter is responsible. Ruff's experience shows that micro-benchmarks catch regressions that macro-benchmarks miss due to noise.
 
-### Alternative C: Divan Instead of Criterion
+### Alternative C: Divan Instead of Rustybench
 
 Use the `divan` crate (simpler API, less boilerplate) for micro-benchmarks.
 
-**Rejected because:** Criterion has broader ecosystem support, established baseline comparison workflows (`--save-baseline`/`--baseline`), HTML report generation, and better documentation. Divan is newer and doesn't yet support baseline comparison, which is the primary use case for catching regressions. If Codspeed CI integration is added later, criterion has a `codspeed-criterion-compat` drop-in.
+**Rejected because:** Rustybench provides the sample runner, JSON reports, baseline collection, baseline diff, and budget checks this repository uses, and its `#[rustybench::bench]` attributes keep case registration declarative. Divan does not provide the same baseline workflow.
 
 ### Alternative D: Use the Large Corpus (129 Repos) for Benchmarks
 
@@ -399,10 +370,10 @@ Use the `scripts/corpus-download.sh` output instead of the Go frontend's 5 fixtu
 
 Once implemented, verify with:
 
-- **Micro-benchmarks run:** `cargo bench -p shuck-benchmark --bench parser` completes and produces Criterion output in `target/criterion/`.
-- **All vendored files load:** Each `TestFile` in `TEST_FILES` has non-empty source (the `include_str!` calls compile).
-- **Throughput reported:** Criterion output includes `throughput: X.XX MiB/s` for each benchmark.
-- **Baseline comparison works:** Run `cargo bench -p shuck-benchmark -- --save-baseline=main`, make a change, then `cargo bench -p shuck-benchmark -- --baseline=main` shows a comparison.
+- **Micro-benchmarks run:** `cargo bench -p shuck-benchmark --bench parser` completes and reports per-case timings.
+- **All vendored files load:** Each `TestFile` in `TEST_FILES` has non-empty source (the `include_bytes!` calls compile).
+- **Throughput reported:** Rustybench output includes a throughput column for each benchmark.
+- **Baseline comparison works:** Run `make bench-save`, make a change, then `make bench-compare` shows a per-benchmark diff.
 - **Macro-benchmarks run:** `./scripts/benchmarks/run.sh` produces `bench-*.json` files with timing data for shuck and shellcheck.
 - **Per-file and all-files:** The macro-benchmark output includes both individual fixture results and the combined "all" benchmark.
 - **Single-file comparison:** `./scripts/benchmarks/run_single.sh crates/shuck-benchmark/resources/files/nvm.sh` produces hyperfine output comparing shuck vs shellcheck.

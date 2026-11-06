@@ -1,5 +1,8 @@
-use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
-use shuck_benchmark::{benchmark_cases, configure_benchmark_allocator, parse_fixture};
+use rustybench::counter::BytesCount;
+use rustybench::{Bencher, black_box};
+use shuck_benchmark::{
+    benchmark_case, benchmark_case_names, configure_benchmark_allocator, parse_fixture,
+};
 use shuck_indexer::Indexer;
 use shuck_parser::parser::ParseResult;
 
@@ -24,28 +27,23 @@ fn build_indexer(input: &PreparedInput) -> usize {
     )
 }
 
-fn bench_indexer(c: &mut Criterion) {
-    let mut group = c.benchmark_group("indexer");
+#[rustybench::bench(args = benchmark_case_names())]
+fn index(bencher: Bencher, case_name: &str) {
+    let case = benchmark_case(case_name);
+    let inputs = case
+        .files
+        .iter()
+        .map(|file| prepare_input(file.source))
+        .collect::<Vec<_>>();
 
-    for case in benchmark_cases() {
-        group.sample_size(case.speed.sample_size());
-        group.throughput(Throughput::Bytes(case.total_bytes()));
-        group.bench_with_input(BenchmarkId::from_parameter(case.name), &case, |b, case| {
-            let inputs = case
-                .files
-                .iter()
-                .map(|file| prepare_input(file.source))
-                .collect::<Vec<_>>();
-
-            b.iter(|| {
-                let indexed_size: usize = inputs.iter().map(build_indexer).sum();
-                black_box(indexed_size);
-            });
+    bencher
+        .counter(BytesCount::from(case.total_bytes()))
+        .bench_local(|| {
+            let indexed_size: usize = inputs.iter().map(build_indexer).sum();
+            black_box(indexed_size)
         });
-    }
-
-    group.finish();
 }
 
-criterion_group!(benches, bench_indexer);
-criterion_main!(benches);
+fn main() {
+    rustybench::main();
+}

@@ -1,7 +1,10 @@
-.PHONY: build test run check hawk check-scripts setup-hooks setup-large-corpus ensure-cache test-large-corpus large-corpus-report large-corpus-report-from-log large-corpus-report-open test-oracle-shfmt test-oracle-shfmt-fixtures test-oracle-shfmt-benchmark test-oracle-shfmt-large-corpus update-oracle-shfmt-large-corpus-allowlist test-oracle-shellcheck-cli fuzz-setup fuzz-list fuzz-smoke fuzz-run fuzz-cli bench bench-save bench-compare bench-parser bench-arithmetic bench-lexer bench-semantic bench-linter bench-formatter bench-lsp bench-large-corpus-hotspots bench-macro bench-macro-single bench-macro-format bench-macro-format-summary bench-macro-format-single bench-macro-site-local bench-repo-corpus profile-parser profile-parser-view profile-arithmetic profile-arithmetic-view profile-formatter profile-formatter-view profile-linter profile-linter-view profile-cli profile-cli-view profile-large-corpus profile-large-corpus-view flame-parser flame-arithmetic flame-formatter flame-linter flame-cli harden-release check-release-security
+.PHONY: build test run check hawk check-scripts setup-hooks setup-large-corpus ensure-cache test-large-corpus large-corpus-report large-corpus-report-from-log large-corpus-report-open test-oracle-shfmt test-oracle-shfmt-fixtures test-oracle-shfmt-benchmark test-oracle-shfmt-large-corpus update-oracle-shfmt-large-corpus-allowlist test-oracle-shellcheck-cli fuzz-setup fuzz-list fuzz-smoke fuzz-run fuzz-cli bench bench-save bench-compare bench-parser bench-arithmetic bench-lexer bench-semantic bench-linter bench-formatter bench-large-corpus-hotspots bench-macro bench-macro-single bench-macro-format bench-macro-format-summary bench-macro-format-single bench-macro-site-local bench-repo-corpus profile-parser profile-parser-view profile-arithmetic profile-arithmetic-view profile-formatter profile-formatter-view profile-linter profile-linter-view profile-cli profile-cli-view profile-large-corpus profile-large-corpus-view flame-parser flame-arithmetic flame-formatter flame-linter flame-cli harden-release check-release-security
 
 ARGS ?= --help
 BENCH_FILE ?=
+BENCH_RUNNER ?= rustybench
+BENCH_BASELINE ?= target/bench-baseline.json
+BENCH_CANDIDATE ?= target/bench-candidate.json
 NIX_DEVELOP ?= nix --extra-experimental-features 'nix-command flakes' develop --command
 HAWK_RUST_VERSION ?= 1.97.0
 HAWK_TARGET_DIR ?= target/cargo-hawk
@@ -169,10 +172,13 @@ bench:
 	cargo bench -p shuck-benchmark
 
 bench-save:
-	python3 scripts/benchmarks/run_criterion.py --repo-root . --save-baseline main
+	@command -v $(BENCH_RUNNER) >/dev/null || { echo "install the benchmark runner with: cargo install rustybench"; exit 1; }
+	$(BENCH_RUNNER) baseline --root . --baseline $(BENCH_BASELINE) -- cargo bench -p shuck-benchmark
 
 bench-compare:
-	python3 scripts/benchmarks/run_criterion.py --repo-root . --baseline main
+	@command -v $(BENCH_RUNNER) >/dev/null || { echo "install the benchmark runner with: cargo install rustybench"; exit 1; }
+	$(BENCH_RUNNER) baseline --root . --baseline $(BENCH_CANDIDATE) --quiet -- cargo bench -p shuck-benchmark
+	$(BENCH_RUNNER) diff $(BENCH_BASELINE) $(BENCH_CANDIDATE)
 
 bench-memory-save:
 	python3 scripts/benchmarks/run_parser_memory.py --repo-root . --save-baseline main --release
@@ -197,9 +203,6 @@ bench-linter:
 
 bench-formatter:
 	cargo bench -p shuck-benchmark --bench formatter
-
-bench-lsp:
-	cargo bench -p shuck-benchmark --bench lsp
 
 bench-large-corpus-hotspots: ensure-cache
 	cargo bench -p shuck-benchmark --features large-corpus-hotspots --bench large_corpus_hotspots

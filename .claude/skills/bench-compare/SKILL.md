@@ -2,7 +2,7 @@
 name: bench-compare
 description: >
   Compare benchmark performance between two git worktrees (or the current
-  worktree vs main). Runs Criterion microbenchmarks and hyperfine macrobenchmarks,
+  worktree vs main). Runs rustybench microbenchmarks and hyperfine macrobenchmarks,
   extracts deltas, and drills down into regressions. Use this skill whenever the
   user asks to compare benchmarks, check for performance regressions, benchmark
   their branch against main, run a perf comparison, or says things like "bench
@@ -15,7 +15,7 @@ description: >
 
 Compare shuck's benchmark performance between two worktrees (typically the current
 feature worktree and the main worktree). Produces a delta report covering both
-Criterion microbenchmarks (lexer, parser, semantic, linter) and hyperfine
+rustybench microbenchmarks (lexer, parser, semantic, linter) and hyperfine
 macrobenchmarks (wall-clock comparison against ShellCheck).
 
 ## Before you start
@@ -30,11 +30,11 @@ This gives you:
 - **Main worktree** — the first entry, typically `/Users/.../shuck`
 - **Current worktree** — the one you're running in (may be the same as main)
 
-If both are the same directory, you'll need to stash or commit changes and use
-`--save-baseline` / `--baseline` on the same tree. But the typical case is two
+If both are the same directory, you'll need to stash or commit changes and write
+two baseline files from the same tree. But the typical case is two
 separate worktrees.
 
-Also check what benchmark targets exist — the registered Criterion benches may
+Also check what benchmark targets exist — the registered benches may
 change over time:
 
 ```bash
@@ -43,9 +43,9 @@ grep -A1 '^\[\[bench\]\]' crates/shuck-benchmark/Cargo.toml | grep '^name'
 
 ## Step 1: Create a shared scratch directory
 
-Both worktrees must write Criterion artifacts to the same `target/criterion/`
-directory for baseline comparison to work. Create a temp directory and point
-`CARGO_TARGET_DIR` at it.
+Baselines are explicit JSON files, so both worktrees only need a shared scratch
+location. Point `CARGO_TARGET_DIR` at the scratch tree so the two worktrees reuse
+one build cache.
 
 ```bash
 SCRATCH=$(mktemp -d "${TMPDIR:-/tmp}/shuck-bench-compare.XXXXXX")
@@ -59,40 +59,35 @@ Also create subdirectories for macrobenchmark exports:
 mkdir -p "$SCRATCH/main-macro" "$SCRATCH/current-macro"
 ```
 
-## Step 2: Run Criterion baseline on main
+## Step 2: Run the rustybench baseline on main
 
-`cd` into the main worktree and run Criterion with `--save-baseline=main`.
-
-**Important:** Do NOT use bare `cargo bench -p shuck-benchmark -- --save-baseline=main`.
-That trips over the crate lib harness and fails. You must enumerate each bench target
-explicitly with `--bench`:
+Install the runner once with `cargo install rustybench`, then `cd` into the main
+worktree and collect a baseline. `cargo bench -p shuck-benchmark` runs every
+registered bench target.
 
 ```bash
 cd /path/to/main/worktree
 env CARGO_TARGET_DIR="$SCRATCH/target" \
-  cargo bench -p shuck-benchmark \
-    --bench lexer --bench lexer_hot_path --bench parser --bench semantic --bench linter \
-    -- --save-baseline=main --noplot \
-  > "$SCRATCH/main-criterion.log" 2>&1
+  rustybench baseline --root . --baseline "$SCRATCH/main-bench.json" \
+  -- cargo bench -p shuck-benchmark \
+  > "$SCRATCH/main-bench.log" 2>&1
 ```
 
-Monitor progress by tailing the log. This typically takes 3-8 minutes depending on
-the machine.
+Monitor progress by tailing the log.
 
-If additional bench targets exist (check Cargo.toml), add them to the `--bench` list.
+## Step 3: Run the current worktree and diff
 
-## Step 3: Run Criterion comparison on current worktree
-
-`cd` into the current worktree and run Criterion with `--baseline=main` (note: not
-`--save-baseline`). This compares against the baseline saved in Step 2.
+`cd` into the current worktree, collect a second baseline, and diff the two files.
 
 ```bash
 cd /path/to/current/worktree
 env CARGO_TARGET_DIR="$SCRATCH/target" \
-  cargo bench -p shuck-benchmark \
-    --bench lexer --bench lexer_hot_path --bench parser --bench semantic --bench linter \
-    -- --baseline=main --noplot \
-  > "$SCRATCH/current-criterion.log" 2>&1
+  rustybench baseline --root . --baseline "$SCRATCH/current-bench.json" \
+  -- cargo bench -p shuck-benchmark \
+  > "$SCRATCH/current-bench.log" 2>&1
+
+rustybench diff "$SCRATCH/main-bench.json" "$SCRATCH/current-bench.json" \
+  > "$SCRATCH/micro-diff.txt"
 ```
 
 ## Step 4: Run macrobenchmarks on both worktrees
@@ -124,44 +119,17 @@ Replace `{side}` with `main` or `current` as appropriate.
 
 ## Step 5: Extract and report deltas
 
-### Criterion deltas
+### Microbenchmark deltas
 
-Criterion stores change estimates at:
-`$CARGO_TARGET_DIR/criterion/{group}/{case}/change/estimates.json`
+`rustybench diff` prints the comparison table for the two baseline files:
 
-Extract them with a Python script:
-
-```python
-import json, pathlib
-
-ROOT = pathlib.Path("$SCRATCH")
-crit = ROOT / "target" / "criterion"
-rows = []
-
-for group in sorted(p for p in crit.iterdir() if p.is_dir()):
-    for case in sorted(p for p in group.iterdir() if p.is_dir()):
-        try:
-            base = json.loads((case / "main" / "estimates.json").read_text())["mean"]["point_estimate"]
-            new = json.loads((case / "new" / "estimates.json").read_text())["mean"]["point_estimate"]
-            change = json.loads((case / "change" / "estimates.json").read_text())["mean"]["point_estimate"] * 100
-        except FileNotFoundError:
-            continue
-        rows.append((group.name, case.name, base, new, change))
-
-print("=== Criterion Summary (group-level) ===")
-for group, case, base, new, change in rows:
-    if case == "all":
-        sign = "+" if change > 0 else ""
-        print(f"  {group:30s}  {base:12.0f} → {new:12.0f} ns  ({sign}{change:.2f}%)")
-
-print("\n=== Top Regressions ===")
-for group, case, base, new, change in sorted(rows, key=lambda r: r[4], reverse=True)[:10]:
-    print(f"  {group}/{case:20s}  {change:+.2f}%")
-
-print("\n=== Top Improvements ===")
-for group, case, base, new, change in sorted(rows, key=lambda r: r[4])[:10]:
-    print(f"  {group}/{case:20s}  {change:+.2f}%")
+```bash
+rustybench diff "$SCRATCH/main-bench.json" "$SCRATCH/current-bench.json"
 ```
+
+Benchmark names follow the bench target, function, and case, for example
+`parser::parse::all`. Use the diff output directly; no artifact scraping is
+needed.
 
 ### Macrobenchmark deltas
 
@@ -182,21 +150,21 @@ for p in sorted((ROOT / "main-macro").glob("bench-*.json")):
 ## Step 6: Interpret the results
 
 Present a summary table to the user covering:
-- Each Criterion benchmark group with % change
+- Each rustybench benchmark group with % change
 - Each macrobenchmark fixture with % change
-- Highlight anything above +3% as a potential regression (Criterion has noise, so
+- Highlight anything above +3% as a potential regression (microbenchmarks have noise, so
   small changes are usually not meaningful)
 
 If no regressions are found, report that and stop.
 
 ## Step 7: Drill down into regressions
 
-If a significant regression is found (>3% in Criterion or >5% in macrobenchmarks),
+If a significant regression is found (>3% in microbenchmarks or >5% in macrobenchmarks),
 investigate the root cause:
 
 ### 7a. Identify which component regressed
 
-The Criterion benchmarks isolate stages: lexer, parser, semantic, linter. If only
+The rustybench benchmarks isolate stages: lexer, parser, semantic, linter. If only
 `linter` regressed but `parser` and `semantic` are flat, the regression is in the
 linting pipeline (checker, suppression, directives).
 
@@ -242,18 +210,15 @@ Remove any temporary breakdown harness files after the investigation.
 
 ## Gotchas
 
-- **Explicit --bench flags**: Always enumerate bench targets individually
-  (`--bench lexer --bench parser ...`). The bare `cargo bench -p shuck-benchmark`
-  form trips over the crate lib harness when passing Criterion flags like
-  `--save-baseline`.
+- **Install the runner**: `rustybench baseline`, `diff`, and `check` come from the
+  `rustybench` binary (`cargo install rustybench`), not from `cargo bench`.
 
 - **Macrobenchmarks need nix**: `hyperfine` and `shellcheck` are only available
   inside `nix develop`. Always run macro setup and benchmarks through
   `nix --extra-experimental-features 'nix-command flakes' develop --command ...`.
 
-- **Shared CARGO_TARGET_DIR**: Both worktrees must use the same target directory
-  for Criterion baseline comparison to work. This is the whole reason for the
-  scratch directory.
+- **Explicit baseline paths**: pass `--baseline` with a scratch path. Without it,
+  rustybench derives a host-keyed file name under `benches/`.
 
 - **Suppression-heavy fixtures**: `ruby-build.sh` and `nvm.sh` have many
   `shellcheck disable=` comments. Regressions in the directive/suppression parsing
@@ -262,6 +227,6 @@ Remove any temporary breakdown harness files after the investigation.
 - **zsh glob errors**: When clearing `.cache/bench-*.json`, use
   `rm -f ... 2>/dev/null || true` because zsh complains when no files match a glob.
 
-- **Benchmark noise**: Criterion microbenchmarks on a laptop can have 2-3% noise.
+- **Benchmark noise**: rustybench medians on a laptop can have 2-3% noise.
   Don't chase regressions under 3% unless they're consistent across all fixtures.
   Macrobenchmarks (hyperfine) are more stable since they measure full CLI invocations.

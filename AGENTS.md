@@ -112,7 +112,7 @@ nix --extra-experimental-features 'nix-command flakes' develop --command shellch
 - **`crates/shuck-config`** — Configuration loading (`.shuck.toml` / `shuck.toml`), project-root discovery, and CLI override handling.
 - **`crates/shuck-discover`** — Workspace file discovery: walks input paths, applies exclusions and gitignore rules, and detects shell scripts by extension or shebang.
 - **`crates/shuck-run`** — Managed shell interpreter resolution, version selection, and installation behind `shuck run`, `shuck install`, and `shuck shell`.
-- **`crates/shuck-benchmark`** — Benchmark fixtures and harnesses (Criterion and macrobenchmarks, profiling helpers); see the `bench-*` and `profile-*` Makefile targets.
+- **`crates/shuck-benchmark`** — Benchmark fixtures and harnesses (rustybench microbenchmarks and hyperfine macrobenchmarks, profiling helpers); see the `bench-*` and `profile-*` Makefile targets.
 - **`crates/shuck-cache`** — File-level caching with SHA-256 keyed `PackageCache<T>`. Stores results in a shared cache root (from `--cache-dir`, `SHUCK_CACHE_DIR`, or the OS cache directory such as `~/Library/Caches/shuck` / `$XDG_CACHE_HOME/shuck`) using bincode serialization. Entries are keyed by file mtime+permissions and auto-pruned after 30 days.
 - **`crates/shuck-parser`** — The shell parser library. Provides source-backed lexing, dialect/profile-aware parsing, AST construction, recovery diagnostics, and syntax facts.
 - **`crates/shuck-ast`** — Shared AST node types, tokens, identifiers, and source span utilities.

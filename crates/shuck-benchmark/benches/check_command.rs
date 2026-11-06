@@ -1,9 +1,12 @@
 use std::fs;
 use std::path::PathBuf;
 
-use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
+use rustybench::counter::BytesCount;
+use rustybench::{Bencher, black_box};
 use shuck::args::CheckOutputFormatArg;
-use shuck_benchmark::{benchmark_cases, configure_benchmark_allocator};
+use shuck_benchmark::{
+    TestCase, benchmark_case, benchmark_case_names, configure_benchmark_allocator,
+};
 use tempfile::TempDir;
 
 configure_benchmark_allocator!();
@@ -14,7 +17,7 @@ struct PreparedCheckCase {
     paths: Vec<PathBuf>,
 }
 
-fn prepare_check_case(case: shuck_benchmark::TestCase) -> PreparedCheckCase {
+fn prepare_check_case(case: &TestCase) -> PreparedCheckCase {
     let tempdir = match tempfile::tempdir() {
         Ok(tempdir) => tempdir,
         Err(err) => panic!("benchmark tempdir should exist: {err}"),
@@ -37,45 +40,34 @@ fn prepare_check_case(case: shuck_benchmark::TestCase) -> PreparedCheckCase {
     }
 }
 
-fn bench_check_command(c: &mut Criterion) {
-    let cases = benchmark_cases();
+fn bench_check_case(bencher: Bencher, case_name: &str, output_format: CheckOutputFormatArg) {
+    let case = benchmark_case(case_name);
+    let prepared = prepare_check_case(case);
 
-    for output_format in [CheckOutputFormatArg::Concise, CheckOutputFormatArg::Full] {
-        let group_name = match output_format {
-            CheckOutputFormatArg::Concise => "check_command_concise",
-            CheckOutputFormatArg::Full => "check_command_full",
-            _ => unreachable!("bench only covers concise and full output"),
-        };
-        let mut group = c.benchmark_group(group_name);
-
-        for case in &cases {
-            group.sample_size(case.speed.sample_size());
-            group.throughput(Throughput::Bytes(case.total_bytes()));
-            let prepared = prepare_check_case(*case);
-
-            group.bench_with_input(
-                BenchmarkId::from_parameter(case.name),
-                &prepared,
-                |b, input| {
-                    b.iter(|| {
-                        black_box(
-                            match shuck::benchmark_check_paths(
-                                &input.cwd,
-                                &input.paths,
-                                output_format,
-                            ) {
-                                Ok(result) => result,
-                                Err(err) => panic!("check benchmark should succeed: {err}"),
-                            },
-                        )
-                    });
-                },
-            );
-        }
-
-        group.finish();
-    }
+    bencher
+        .counter(BytesCount::from(case.total_bytes()))
+        .bench_local(|| {
+            black_box(match shuck::benchmark_check_paths(
+                &prepared.cwd,
+                &prepared.paths,
+                output_format,
+            ) {
+                Ok(result) => result,
+                Err(err) => panic!("check benchmark should succeed: {err}"),
+            })
+        });
 }
 
-criterion_group!(benches, bench_check_command);
-criterion_main!(benches);
+#[rustybench::bench(args = benchmark_case_names())]
+fn check_command_concise(bencher: Bencher, case_name: &str) {
+    bench_check_case(bencher, case_name, CheckOutputFormatArg::Concise);
+}
+
+#[rustybench::bench(args = benchmark_case_names())]
+fn check_command_full(bencher: Bencher, case_name: &str) {
+    bench_check_case(bencher, case_name, CheckOutputFormatArg::Full);
+}
+
+fn main() {
+    rustybench::main();
+}
