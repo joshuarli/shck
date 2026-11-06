@@ -1,6 +1,7 @@
-.PHONY: build test run check hawk check-scripts setup-hooks setup-large-corpus ensure-cache test-large-corpus large-corpus-report large-corpus-report-from-log large-corpus-report-open test-oracle-shfmt test-oracle-shfmt-fixtures test-oracle-shfmt-benchmark test-oracle-shfmt-large-corpus update-oracle-shfmt-large-corpus-allowlist test-oracle-shellcheck-cli fuzz-setup fuzz-list fuzz-smoke fuzz-run fuzz-cli bench bench-save bench-compare bench-parser bench-arithmetic bench-lexer bench-semantic bench-linter bench-formatter bench-large-corpus-hotspots bench-macro bench-macro-single bench-macro-format bench-macro-format-summary bench-macro-format-single bench-macro-site-local bench-repo-corpus profile-parser profile-parser-view profile-arithmetic profile-arithmetic-view profile-formatter profile-formatter-view profile-linter profile-linter-view profile-cli profile-cli-view profile-large-corpus profile-large-corpus-view flame-parser flame-arithmetic flame-formatter flame-linter flame-cli harden-release check-release-security
+.PHONY: build test release verify-release run check hawk check-scripts setup-hooks setup-large-corpus ensure-cache test-large-corpus large-corpus-report large-corpus-report-from-log large-corpus-report-open test-oracle-shfmt test-oracle-shfmt-fixtures test-oracle-shfmt-benchmark test-oracle-shfmt-large-corpus update-oracle-shfmt-large-corpus-allowlist test-oracle-shellcheck-cli fuzz-setup fuzz-list fuzz-smoke fuzz-run fuzz-cli bench bench-save bench-compare bench-parser bench-arithmetic bench-lexer bench-semantic bench-linter bench-formatter bench-large-corpus-hotspots bench-macro bench-macro-single bench-macro-format bench-macro-format-summary bench-macro-format-single bench-macro-site-local bench-repo-corpus profile-parser profile-parser-view profile-arithmetic profile-arithmetic-view profile-formatter profile-formatter-view profile-linter profile-linter-view profile-cli profile-cli-view profile-large-corpus profile-large-corpus-view flame-parser flame-arithmetic flame-formatter flame-linter flame-cli harden-release check-release-security
 
 ARGS ?= --help
+TARGET ?= $(shell rustc -vV | awk '/^host:/ {print $$2}')
 BENCH_FILE ?=
 BENCH_RUNNER ?= rustybench
 BENCH_BASELINE ?= target/bench-baseline.json
@@ -44,6 +45,19 @@ build:
 
 test:
 	cargo test
+
+release:
+	cargo build --profile dist -p shuck-cli --target "$(TARGET)"
+
+verify-release:
+	@test -x "target/$(TARGET)/dist/shuck" || { echo "release binary for $(TARGET) is missing" >&2; exit 1; }
+	@if printf '%s' "$(TARGET)" | grep -q -- '-linux-musl$$'; then \
+		command -v readelf >/dev/null || { echo 'readelf is required for release verification' >&2; exit 1; }; \
+		! readelf -lW "target/$(TARGET)/dist/shuck" | grep -q INTERP || { echo 'release has a dynamic ELF interpreter' >&2; exit 1; }; \
+		! readelf -dW "target/$(TARGET)/dist/shuck" | grep -q NEEDED || { echo 'release has dynamic library dependencies' >&2; exit 1; }; \
+	else \
+		echo "Skipping ELF checks for $(TARGET)"; \
+	fi
 
 setup-large-corpus:
 	./scripts/corpus-download.sh
