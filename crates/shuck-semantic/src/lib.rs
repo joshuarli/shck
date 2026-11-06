@@ -32,8 +32,6 @@ mod source_resolve;
 mod uninitialized;
 mod unused;
 mod value_flow;
-mod zsh_options;
-mod zsh_plugin_framework;
 
 /// Binding types and provenance metadata discovered during semantic analysis.
 pub use binding::{
@@ -105,9 +103,7 @@ pub use reference::{Reference, ReferenceId, ReferenceKind};
 /// Scope types and identifiers tracked by the semantic model.
 pub use scope::{FunctionScopeKind, Scope, ScopeId, ScopeKind};
 /// Shell parser option types reused by the semantic analysis layer.
-pub use shuck_parser::{OptionValue, ShellDialect, ShellProfile, ZshEmulationMode, ZshOptionState};
-/// Zsh plugin framework layout helpers.
-pub use source_closure::{layout_for_plugin_framework, zsh_plugin_frameworks};
+pub use shuck_parser::{ShellDialect, ShellProfile};
 /// Source-reference records and resolution state.
 pub use source_ref::{
     SourceDirectiveInfo, SourceDirectiveOrigin, SourceRef, SourceRefDiagnosticClass, SourceRefKind,
@@ -120,19 +116,12 @@ pub use source_resolve::{
 };
 /// Value-flow query object built over semantic bindings, call sites, CFG, and dataflow.
 pub use value_flow::SemanticValueFlow;
-/// Zsh plugin framework traits and name aliases.
-pub use zsh_plugin_framework::{
-    ZshPluginFramework, resolve_zsh_plugin_entrypoint, resolve_zsh_plugin_source_paths,
-    zsh_plugin_framework_from_name, zsh_plugin_root_keys,
-};
 
 /// How an unindexed array reference behaves at a source offset.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ArrayReferencePolicy {
     /// The shell requires an explicit element or selector for array references.
     RequiresExplicitSelector,
-    /// Native zsh treats an unindexed array reference as a scalar first-element read.
-    NativeZshScalar,
     /// Runtime option state may select either policy.
     Ambiguous,
 }
@@ -165,111 +154,34 @@ pub enum ArithmeticLiteralBehavior {
 
 /// Option-sensitive shell behavior visible at a source offset.
 #[derive(Debug, Clone)]
-pub struct ShellBehaviorAt<'model> {
+pub struct ShellBehaviorAt {
     shell: ShellDialect,
-    zsh_options: Option<&'model ZshOptionState>,
-    runtime_options: Option<ZshOptionState>,
-    zsh_sh_emulation: Option<bool>,
 }
 
-impl ShellBehaviorAt<'_> {
-    fn effective_zsh_options(&self) -> Option<&ZshOptionState> {
-        self.runtime_options.as_ref().or(self.zsh_options)
-    }
-
-    /// Returns the effective zsh option state when this behavior is for zsh.
-    pub fn zsh_options(&self) -> Option<&ZshOptionState> {
-        self.effective_zsh_options()
-    }
-
+impl ShellBehaviorAt {
     /// Returns the shell dialect this behavior was computed for.
     pub fn shell_dialect(&self) -> ShellDialect {
         self.shell
     }
 
-    /// Returns whether this offset is in zsh's `emulate sh`-style compatibility behavior.
-    pub fn zsh_sh_emulation(&self) -> bool {
-        self.shell == ShellDialect::Zsh && self.zsh_sh_emulation.unwrap_or(false)
-    }
-
     /// Creates behavior for a shell dialect without source-local option state.
     pub fn for_dialect(shell: ShellDialect) -> Self {
-        Self {
-            shell,
-            zsh_options: None,
-            runtime_options: None,
-            zsh_sh_emulation: None,
-        }
+        Self { shell }
     }
 
-    /// Returns this behavior with a caller-provided zsh option overlay applied.
-    ///
-    /// Non-zsh behavior is returned unchanged. For zsh, the overlay starts with the
-    /// effective source-local option state, or the native zsh defaults when no
-    /// source-local state is available.
-    pub fn with_zsh_option_overlay(mut self, overlay: impl FnOnce(&mut ZshOptionState)) -> Self {
-        if self.shell == ShellDialect::Zsh {
-            let mut options = self
-                .effective_zsh_options()
-                .cloned()
-                .unwrap_or_else(ZshOptionState::zsh_default);
-            overlay(&mut options);
-            self.runtime_options = Some(options);
-        }
-        self
-    }
-
-    /// Returns the array-reference policy implied by the shell and runtime option state.
+    /// Returns the array-reference policy implied by the shell.
     pub fn array_reference_policy(&self) -> ArrayReferencePolicy {
-        if self.shell != ShellDialect::Zsh {
-            return ArrayReferencePolicy::RequiresExplicitSelector;
-        }
-
-        match self
-            .effective_zsh_options()
-            .map(|options| options.ksh_arrays)
-        {
-            Some(OptionValue::Off) => ArrayReferencePolicy::NativeZshScalar,
-            Some(OptionValue::Unknown) => ArrayReferencePolicy::Ambiguous,
-            Some(OptionValue::On) | None => ArrayReferencePolicy::RequiresExplicitSelector,
-        }
+        ArrayReferencePolicy::RequiresExplicitSelector
     }
 
     /// Returns how array subscript indexes are interpreted.
     pub fn subscript_indexing(&self) -> SubscriptIndexBehavior {
-        if self.shell != ShellDialect::Zsh {
-            return SubscriptIndexBehavior::ZeroBased;
-        }
-
-        let Some(options) = self.effective_zsh_options() else {
-            return SubscriptIndexBehavior::OneBased;
-        };
-
-        match (options.ksh_arrays, options.ksh_zero_subscript) {
-            (OptionValue::On, _) => SubscriptIndexBehavior::ZeroBased,
-            (OptionValue::Unknown, _) | (OptionValue::Off, OptionValue::Unknown) => {
-                SubscriptIndexBehavior::Ambiguous
-            }
-            (OptionValue::Off, OptionValue::On) => SubscriptIndexBehavior::OneBasedWithZeroAlias,
-            (OptionValue::Off, OptionValue::Off) => SubscriptIndexBehavior::OneBased,
-        }
+        SubscriptIndexBehavior::ZeroBased
     }
 
     /// Returns how arithmetic numeric literals are interpreted.
     pub fn arithmetic_literals(&self) -> ArithmeticLiteralBehavior {
-        if self.shell != ShellDialect::Zsh {
-            return ArithmeticLiteralBehavior::CStyleAndLeadingZeroOctal;
-        }
-
-        let Some(options) = self.effective_zsh_options() else {
-            return ArithmeticLiteralBehavior::DecimalUnlessExplicitBase;
-        };
-
-        match options.octal_zeroes {
-            OptionValue::Off => ArithmeticLiteralBehavior::DecimalUnlessExplicitBase,
-            OptionValue::On => ArithmeticLiteralBehavior::LeadingZeroOctal,
-            OptionValue::Unknown => ArithmeticLiteralBehavior::Ambiguous,
-        }
+        ArithmeticLiteralBehavior::CStyleAndLeadingZeroOctal
     }
 }
 
@@ -316,7 +228,6 @@ use crate::dataflow::{DataflowContext, ExactVariableDataflow};
 use crate::function_resolution::FunctionBindingLookup;
 use crate::runtime::RuntimePrelude;
 use crate::scope::{ancestor_scopes, enclosing_function_scope};
-use crate::zsh_options::ZshOptionAnalysis;
 
 const MAX_FUNCTIONS_FOR_TERMINATION_REACHABILITY: usize = 200;
 const MAX_TERMINATION_REACHABILITY_WORK: usize = 20_000;
@@ -806,6 +717,7 @@ pub struct SemanticModel {
     source_path_templates_by_binding: FxHashMap<BindingId, source_closure::SourcePathTemplate>,
     runtime: RuntimePrelude,
     declarations: Vec<Declaration>,
+#[allow(dead_code)]
     indirect_target_hints: FxHashMap<BindingId, IndirectTargetHint>,
     indirect_targets_by_binding: FxHashMap<BindingId, Vec<BindingId>>,
     indirect_targets_by_reference: FxHashMap<ReferenceId, Vec<BindingId>>,
@@ -820,10 +732,6 @@ pub struct SemanticModel {
     import_origins_by_binding: FxHashMap<BindingId, Vec<PathBuf>>,
     imported_dependency_paths: Vec<PathBuf>,
     heuristic_unused_assignments: Vec<BindingId>,
-    zsh_option_analysis: OnceLock<Option<ZshOptionAnalysis>>,
-    zsh_runtime_ambiguous_entry_mask: OnceLock<zsh_options::ZshOptionMask>,
-    zsh_runtime_by_function: OnceLock<FxHashMap<ScopeId, OnceLock<Option<ZshOptionAnalysis>>>>,
-    zsh_runtime_function_summaries: OnceLock<zsh_options::SharedFunctionSummaryCache>,
     assoc_lookup_binding_index: OnceLock<AssocLookupBindingIndex>,
     command_topology: OnceLock<CommandTopology>,
     references_sorted_by_start: OnceLock<Vec<ReferenceId>>,
@@ -937,10 +845,6 @@ impl SemanticModel {
             import_origins_by_binding: FxHashMap::default(),
             imported_dependency_paths: Vec::new(),
             heuristic_unused_assignments: built.heuristic_unused_assignments,
-            zsh_option_analysis: OnceLock::new(),
-            zsh_runtime_ambiguous_entry_mask: OnceLock::new(),
-            zsh_runtime_by_function: OnceLock::new(),
-            zsh_runtime_function_summaries: OnceLock::new(),
             assoc_lookup_binding_index: OnceLock::new(),
             command_topology: OnceLock::new(),
             references_sorted_by_start: OnceLock::new(),
@@ -968,130 +872,24 @@ impl SemanticModel {
         &self.shell_profile
     }
 
-    /// Returns the zsh option state visible at `offset`, when the model tracks zsh options.
-    pub fn zsh_options_at(&self, offset: usize) -> Option<&ZshOptionState> {
-        self.zsh_option_analysis()
-            .and_then(|analysis| analysis.options_at(&self.scopes, offset))
-    }
-
-    /// Returns whether `offset` is in a definite zsh `emulate sh` region.
-    pub fn zsh_sh_emulation_at(&self, offset: usize) -> Option<bool> {
-        self.zsh_option_analysis()
-            .and_then(|analysis| analysis.sh_emulation_at(&self.scopes, offset))
-    }
-
+    /// Returns the zsh option state visible at `offset`, when tracked.
     /// Returns option-sensitive shell behavior visible at `offset`.
-    pub fn shell_behavior_at(&self, offset: usize) -> ShellBehaviorAt<'_> {
+    pub fn shell_behavior_at(&self, _offset: usize) -> ShellBehaviorAt {
         ShellBehaviorAt {
             shell: self.shell_profile.dialect,
-            zsh_options: self.zsh_options_at(offset),
-            runtime_options: self.zsh_runtime_options_at(offset),
-            zsh_sh_emulation: self.zsh_sh_emulation_at(offset),
         }
     }
 
-    fn zsh_runtime_ambiguous_entry_mask(&self) -> zsh_options::ZshOptionMask {
-        if self.shell_profile.zsh_options().is_none() {
-            return zsh_options::ZshOptionMask::default();
-        }
 
-        *self.zsh_runtime_ambiguous_entry_mask.get_or_init(|| {
-            crate::zsh_options::runtime_ambiguous_entry_mask(&self.recorded_program)
-        })
+
+
+
+    #[allow(dead_code)]
+    fn zsh_runtime_by_function(&self) -> &std::collections::HashMap<ScopeId, std::sync::OnceLock<Option<()>>, rustc_hash::FxBuildHasher> {
+        static EMPTY: std::sync::OnceLock<std::collections::HashMap<ScopeId, std::sync::OnceLock<Option<()>>, rustc_hash::FxBuildHasher>> = std::sync::OnceLock::new();
+        EMPTY.get_or_init(Default::default)
     }
 
-    fn zsh_runtime_options_at(&self, offset: usize) -> Option<ZshOptionState> {
-        self.shell_profile.zsh_options()?;
-        let ordinary = *self.zsh_options_at(offset)?;
-        let ambiguous_entry = self.zsh_runtime_ambiguous_entry_mask();
-        if ambiguous_entry.is_empty() {
-            return None;
-        }
-
-        let scope = self.scope_at(offset);
-        let function_scope = self.enclosing_function_scope(scope)?;
-        let ambient = self
-            .zsh_runtime_analysis_for_function(function_scope)
-            .and_then(|analysis| analysis.options_at(&self.scopes, offset));
-
-        Some(ambient.map_or(ordinary, |options| ordinary.merge(options)))
-    }
-
-    fn zsh_option_analysis(&self) -> Option<&ZshOptionAnalysis> {
-        self.zsh_option_analysis
-            .get_or_init(|| self.build_zsh_option_analysis())
-            .as_ref()
-    }
-
-    fn build_zsh_option_analysis(&self) -> Option<ZshOptionAnalysis> {
-        let zsh_dynamic_calls = zsh_options::DynamicCallAnalysisContext {
-            references: &self.references,
-            resolved: &self.resolved,
-            indirect_target_hints: &self.indirect_target_hints,
-            indirect_targets_by_binding: &self.indirect_targets_by_binding,
-            command_references: &self.command_references,
-        };
-        zsh_options::analyze(
-            &self.shell_profile,
-            &self.scopes,
-            &self.bindings,
-            &self.recorded_program,
-            zsh_dynamic_calls,
-        )
-    }
-
-    fn zsh_runtime_by_function(&self) -> &FxHashMap<ScopeId, OnceLock<Option<ZshOptionAnalysis>>> {
-        self.zsh_runtime_by_function.get_or_init(|| {
-            self.recorded_program
-                .function_bodies()
-                .keys()
-                .map(|&function_scope| (function_scope, OnceLock::new()))
-                .collect()
-        })
-    }
-
-    fn zsh_runtime_analysis_for_function(
-        &self,
-        function_scope: ScopeId,
-    ) -> Option<&ZshOptionAnalysis> {
-        self.zsh_runtime_by_function()
-            .get(&function_scope)?
-            .get_or_init(|| self.build_zsh_runtime_analysis_for_function(function_scope))
-            .as_ref()
-    }
-
-    fn build_zsh_runtime_analysis_for_function(
-        &self,
-        function_scope: ScopeId,
-    ) -> Option<ZshOptionAnalysis> {
-        let function_entry_offset = self.scope(function_scope).span.start.offset();
-        let mut function_entry = *self.zsh_options_at(function_entry_offset)?;
-        for field in self.zsh_runtime_ambiguous_entry_mask().iter() {
-            crate::zsh_options::set_public_option_field(
-                &mut function_entry,
-                field,
-                OptionValue::Unknown,
-            );
-        }
-        crate::zsh_options::function_runtime_analysis_with_entry(
-            &self.scopes,
-            &self.bindings,
-            &self.recorded_program,
-            crate::zsh_options::DynamicCallAnalysisContext {
-                references: &self.references,
-                resolved: &self.resolved,
-                indirect_target_hints: &self.indirect_target_hints,
-                indirect_targets_by_binding: &self.indirect_targets_by_binding,
-                command_references: &self.command_references,
-            },
-            Some(
-                self.zsh_runtime_function_summaries
-                    .get_or_init(Default::default),
-            ),
-            function_scope,
-            function_entry,
-        )
-    }
 
     /// Returns all semantic scopes discovered in the file.
     pub fn scopes(&self) -> &[Scope] {
@@ -2131,9 +1929,9 @@ impl SemanticModel {
 
     fn invalidate_semantic_caches(&mut self) {
         self.call_graph.take();
-        self.zsh_option_analysis.take();
-        self.zsh_runtime_by_function.take();
-        self.zsh_runtime_function_summaries.take();
+        
+        
+        
     }
 
     fn resolve_unresolved_references(&mut self) {
@@ -2570,7 +2368,7 @@ fn infer_parse_dialect_from_path(path: Option<&Path>) -> Option<shuck_parser::Sh
         Some("sh" | "dash" | "ksh") => Some(shuck_parser::ShellDialect::Posix),
         Some("mksh") => Some(shuck_parser::ShellDialect::Mksh),
         Some("bash") => Some(shuck_parser::ShellDialect::Bash),
-        Some("zsh") => Some(shuck_parser::ShellDialect::Zsh),
+        Some("zsh") => Some(shuck_parser::ShellDialect::Bash /* zsh dropped */),
         _ => None,
     }
 }
@@ -2580,7 +2378,7 @@ fn parse_dialect_from_name(name: &str) -> Option<shuck_parser::ShellDialect> {
         "sh" | "dash" | "ksh" | "posix" => Some(shuck_parser::ShellDialect::Posix),
         "mksh" => Some(shuck_parser::ShellDialect::Mksh),
         "bash" => Some(shuck_parser::ShellDialect::Bash),
-        "zsh" => Some(shuck_parser::ShellDialect::Zsh),
+        "zsh" => Some(shuck_parser::ShellDialect::Bash /* zsh dropped */),
         _ => None,
     }
 }

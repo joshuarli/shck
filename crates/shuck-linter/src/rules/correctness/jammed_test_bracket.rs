@@ -21,9 +21,7 @@ impl Violation for JammedTestBracket {
 }
 
 pub fn jammed_test_bracket(checker: &mut Checker) {
-    if checker.shell() == ShellDialect::Zsh {
-        return;
-    }
+    // Rule applies to all supported shell dialects.
 
     let diagnostics = checker
         .facts()
@@ -96,17 +94,6 @@ if[ -r x ]; then :; fi
 echo [foo]
 ";
         let diagnostics = test_snippet(source, &LinterSettings::for_rule(Rule::JammedTestBracket));
-
-        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
-    }
-
-    #[test]
-    fn skips_zsh() {
-        let source = "#!/bin/zsh\n[foo]\n[[foo]]\n";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::JammedTestBracket).with_shell(ShellDialect::Zsh),
-        );
 
         assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
     }

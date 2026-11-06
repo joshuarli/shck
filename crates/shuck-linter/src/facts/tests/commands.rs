@@ -1901,90 +1901,6 @@ echo ${foo:-$((10#1))}
     );
 }
 
-#[test]
-fn base_prefix_arithmetic_literals_record_arithmetic_literal_behavior() {
-    let source = "\
-#!/bin/zsh
-echo $((10#1))
-echo $((010))
-setopt c_bases
-echo $((10#2))
-unsetopt c_bases
-setopt octal_zeroes
-echo $((10#3))
-echo $((010))
-setopt c_bases
-echo $((10#4))
-unsetopt c_bases
-echo $((10#5))
-opt=octal_zeroes
-unsetopt \"$opt\"
-echo $((10#6))
-";
-    let output = Parser::with_dialect(source, shuck_parser::parser::ShellDialect::Zsh)
-        .parse()
-        .unwrap();
-    let indexer = Indexer::new(source, &output);
-    let semantic = LinterSemanticArtifacts::build(&output.file, source, &indexer);
-    let facts = LinterFacts::build(&output.file, source, &semantic, &indexer);
-
-    assert_eq!(
-        facts
-            .words()
-            .arithmetic_literal_facts()
-            .iter()
-            .map(|literal| {
-                (
-                    literal.span().slice(source),
-                    literal.kind(),
-                    literal.behavior(),
-                )
-            })
-            .collect::<Vec<_>>(),
-        vec![
-            (
-                "10#1",
-                ArithmeticLiteralKind::ExplicitBasePrefix,
-                ArithmeticLiteralBehavior::DecimalUnlessExplicitBase,
-            ),
-            (
-                "010",
-                ArithmeticLiteralKind::LeadingZeroInteger,
-                ArithmeticLiteralBehavior::DecimalUnlessExplicitBase,
-            ),
-            (
-                "10#2",
-                ArithmeticLiteralKind::ExplicitBasePrefix,
-                ArithmeticLiteralBehavior::DecimalUnlessExplicitBase,
-            ),
-            (
-                "10#3",
-                ArithmeticLiteralKind::ExplicitBasePrefix,
-                ArithmeticLiteralBehavior::LeadingZeroOctal,
-            ),
-            (
-                "010",
-                ArithmeticLiteralKind::LeadingZeroInteger,
-                ArithmeticLiteralBehavior::LeadingZeroOctal,
-            ),
-            (
-                "10#4",
-                ArithmeticLiteralKind::ExplicitBasePrefix,
-                ArithmeticLiteralBehavior::LeadingZeroOctal,
-            ),
-            (
-                "10#5",
-                ArithmeticLiteralKind::ExplicitBasePrefix,
-                ArithmeticLiteralBehavior::LeadingZeroOctal,
-            ),
-            (
-                "10#6",
-                ArithmeticLiteralKind::ExplicitBasePrefix,
-                ArithmeticLiteralBehavior::Ambiguous,
-            ),
-        ]
-    );
-}
 
 #[test]
 fn base_prefix_arithmetic_literals_record_bash_arithmetic_literal_behavior() {
@@ -2026,59 +1942,6 @@ echo $((010))
     );
 }
 
-#[test]
-fn arithmetic_literals_record_leading_zeroes_in_nested_arithmetic_fragments() {
-    let source = "\
-#!/bin/zsh
-echo ${value:010:1}
-echo ${value:-$((010))}
-echo ${value:010#7:1}
-echo ${value:-$((010#7))}
-";
-    let output = Parser::with_dialect(source, shuck_parser::parser::ShellDialect::Zsh)
-        .parse()
-        .unwrap();
-    let indexer = Indexer::new(source, &output);
-    let semantic = LinterSemanticArtifacts::build(&output.file, source, &indexer);
-    let facts = LinterFacts::build(&output.file, source, &semantic, &indexer);
-
-    assert_eq!(
-        facts
-            .words()
-            .arithmetic_literal_facts()
-            .iter()
-            .map(|literal| {
-                (
-                    literal.span().slice(source),
-                    literal.kind(),
-                    literal.behavior(),
-                )
-            })
-            .collect::<Vec<_>>(),
-        vec![
-            (
-                "010",
-                ArithmeticLiteralKind::LeadingZeroInteger,
-                ArithmeticLiteralBehavior::DecimalUnlessExplicitBase,
-            ),
-            (
-                "010",
-                ArithmeticLiteralKind::LeadingZeroInteger,
-                ArithmeticLiteralBehavior::DecimalUnlessExplicitBase,
-            ),
-            (
-                "010#7",
-                ArithmeticLiteralKind::ExplicitBasePrefix,
-                ArithmeticLiteralBehavior::DecimalUnlessExplicitBase,
-            ),
-            (
-                "010#7",
-                ArithmeticLiteralKind::ExplicitBasePrefix,
-                ArithmeticLiteralBehavior::DecimalUnlessExplicitBase,
-            ),
-        ]
-    );
-}
 
 #[test]
 fn collects_base_prefix_arithmetic_spans_from_semantic_nested_command_visits() {
@@ -4217,8 +4080,8 @@ fn builds_recovered_nested_command_substitutions_without_duplicate_lookup_panics
     with_facts_dialect(
         source,
         None,
-        shuck_parser::parser::ShellDialect::Zsh,
-        ShellDialect::Zsh,
+        shuck_parser::parser::ShellDialect::Bash,
+        ShellDialect::Bash,
         |_, facts| {
             assert!(
                 facts

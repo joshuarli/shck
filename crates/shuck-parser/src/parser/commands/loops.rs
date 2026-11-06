@@ -14,8 +14,7 @@ impl<'a> Parser<'a> {
             return result;
         }
 
-        let allow_zsh_targets = self.dialect == ShellDialect::Zsh;
-        let targets = match self.parse_for_targets(allow_zsh_targets) {
+        let targets = match self.parse_for_targets(false) {
             Ok(targets) => targets,
             Err(error) => {
                 self.pop_depth();
@@ -23,69 +22,7 @@ impl<'a> Parser<'a> {
             }
         };
 
-        if allow_zsh_targets {
-            self.skip_newlines()?;
-        }
-
-        let (words, header) = if allow_zsh_targets && self.at(TokenKind::LeftParen) {
-            let left_paren_span = self.current_span;
-            self.advance();
-
-            let mut words = SmallVec::<[Word; 2]>::new();
-            while !self.at(TokenKind::RightParen) {
-                if self.at(TokenKind::Newline) {
-                    self.skip_newlines()?;
-                    continue;
-                }
-                match self.current_token_kind {
-                    Some(kind)
-                        if kind.is_word_like()
-                            || (self.dialect == ShellDialect::Zsh
-                                && matches!(kind, TokenKind::LeftParen)) =>
-                    {
-                        if self.dialect == ShellDialect::Zsh
-                            && self
-                                .current_token
-                                .as_ref()
-                                .is_some_and(|token| !token.flags.is_synthetic())
-                        {
-                            let start = self.current_span.start;
-                            if let Some((text, end)) = self.scan_source_word(start) {
-                                let span = Span::from_positions(start, end);
-                                let word = self.parse_word_with_context(&text, span, start, true);
-                                self.advance_past_word(&word);
-                                words.push(word);
-                                continue;
-                            }
-                        }
-
-                        let word = self
-                            .take_current_word_and_advance()
-                            .ok_or_else(|| self.error("expected for word"))?;
-                        words.push(word);
-                    }
-                    Some(_) | None => {
-                        self.pop_depth();
-                        return Err(self.error("expected ')' after for word list"));
-                    }
-                }
-            }
-
-            let right_paren_span = self.current_span;
-            self.advance();
-            if self.at(TokenKind::Semicolon) {
-                self.advance();
-            }
-            self.skip_newlines()?;
-
-            (
-                Some(words),
-                ForHeaderSurface::Paren {
-                    left_paren_span,
-                    right_paren_span,
-                },
-            )
-        } else if self.is_keyword(Keyword::In) {
+        let (words, header) = if self.is_keyword(Keyword::In) {
             let in_span = self.current_span;
             self.advance();
 
@@ -109,69 +46,19 @@ impl<'a> Parser<'a> {
         };
 
         let (body, syntax, end_span) = match header {
-            ForHeaderSurface::In { in_span }
-                if allow_zsh_targets && self.at(TokenKind::LeftBrace) =>
-            {
-                let (body, left_brace_span, right_brace_span) = self
-                    .parse_brace_enclosed_stmt_seq(
-                        "syntax error: empty for loop body",
-                        BraceBodyContext::Ordinary,
-                    )?;
-                (
-                    body,
-                    ForSyntax::InBrace {
-                        in_span,
-                        left_brace_span,
-                        right_brace_span,
-                    },
-                    right_brace_span,
-                )
-            }
-            ForHeaderSurface::Paren {
-                left_paren_span,
-                right_paren_span,
-            } if allow_zsh_targets && self.at(TokenKind::LeftBrace) => {
-                let (body, left_brace_span, right_brace_span) = self
-                    .parse_brace_enclosed_stmt_seq(
-                        "syntax error: empty for loop body",
-                        BraceBodyContext::Ordinary,
-                    )?;
-                (
-                    body,
-                    ForSyntax::ParenBrace {
-                        left_paren_span,
-                        right_paren_span,
-                        left_brace_span,
-                        right_brace_span,
-                    },
-                    right_brace_span,
-                )
-            }
-            ForHeaderSurface::In { in_span }
-                if allow_zsh_targets && !self.is_keyword(Keyword::Do) =>
-            {
-                let stmt = self.parse_single_stmt_command()?;
-                let span = stmt.span;
-                (
-                    Self::stmt_seq_with_span(span, vec![stmt]),
-                    ForSyntax::InDirect { in_span },
-                    span,
-                )
-            }
             ForHeaderSurface::In { in_span } => {
-                let do_span = if self.is_keyword(Keyword::Do) {
-                    self.current_span
-                } else {
+                if !self.is_keyword(Keyword::Do) {
                     self.pop_depth();
                     return Err(self.error("expected 'do'"));
-                };
+                }
+                let do_span = self.current_span;
                 self.advance();
                 self.skip_newlines()?;
 
                 let body_start = self.current_span.start;
                 let body = self.parse_compound_list(Keyword::Done)?;
                 let body_span = Span::from_positions(body_start, self.current_span.start);
-                if body.is_empty() && self.dialect != ShellDialect::Zsh {
+                if body.is_empty() {
                     self.pop_depth();
                     return Err(self.error("syntax error: empty for loop body"));
                 }
@@ -181,11 +68,7 @@ impl<'a> Parser<'a> {
                 }
                 let done_span = self.current_span;
                 self.advance();
-                let body = if body.is_empty() {
-                    Self::stmt_seq_with_span(body_span, Vec::new())
-                } else {
-                    Self::stmt_seq_with_span(body_span, body)
-                };
+                let body = Self::stmt_seq_with_span(body_span, body);
                 (
                     body,
                     ForSyntax::InDoDone {
@@ -196,62 +79,9 @@ impl<'a> Parser<'a> {
                     done_span,
                 )
             }
-            ForHeaderSurface::Paren {
-                left_paren_span,
-                right_paren_span,
-            } if allow_zsh_targets && !self.is_keyword(Keyword::Do) => {
-                let stmt = self.parse_single_stmt_command()?;
-                let span = stmt.span;
-                (
-                    Self::stmt_seq_with_span(span, vec![stmt]),
-                    ForSyntax::ParenDirect {
-                        left_paren_span,
-                        right_paren_span,
-                    },
-                    span,
-                )
-            }
-            ForHeaderSurface::Paren {
-                left_paren_span,
-                right_paren_span,
-            } => {
-                let do_span = if self.is_keyword(Keyword::Do) {
-                    self.current_span
-                } else {
-                    self.pop_depth();
-                    return Err(self.error("expected 'do'"));
-                };
-                self.advance();
-                self.skip_newlines()?;
-
-                let body_start = self.current_span.start;
-                let body = self.parse_compound_list(Keyword::Done)?;
-                let body_span = Span::from_positions(body_start, self.current_span.start);
-                if body.is_empty() && self.dialect != ShellDialect::Zsh {
-                    self.pop_depth();
-                    return Err(self.error("syntax error: empty for loop body"));
-                }
-                if !self.is_keyword(Keyword::Done) {
-                    self.pop_depth();
-                    return Err(self.error("expected 'done'"));
-                }
-                let done_span = self.current_span;
-                self.advance();
-                let body = if body.is_empty() {
-                    Self::stmt_seq_with_span(body_span, Vec::new())
-                } else {
-                    Self::stmt_seq_with_span(body_span, body)
-                };
-                (
-                    body,
-                    ForSyntax::ParenDoDone {
-                        left_paren_span,
-                        right_paren_span,
-                        do_span,
-                        done_span,
-                    },
-                    done_span,
-                )
+            ForHeaderSurface::Paren { .. } => {
+                self.pop_depth();
+                return Err(self.error("expected 'do'"));
             }
         };
 
@@ -267,41 +97,14 @@ impl<'a> Parser<'a> {
 
     pub(super) fn parse_for_targets(
         &mut self,
-        allow_zsh_targets: bool,
+        _allow_zsh_targets: bool,
     ) -> Result<SmallVec<[ForTarget; 1]>> {
-        let allow_digits = allow_zsh_targets;
         let first_target = self
-            .current_for_target(allow_digits)
+            .current_for_target(false)
             .ok_or_else(|| Error::parse("expected variable name in for loop".to_string()))?;
         let first_word = first_target.word.clone();
         self.advance_past_word(&first_word);
-
-        let mut targets = SmallVec::from_vec(vec![first_target]);
-        if !allow_zsh_targets {
-            return Ok(targets);
-        }
-
-        loop {
-            if self.current_keyword() == Some(Keyword::In)
-                || matches!(
-                    self.current_token_kind,
-                    Some(TokenKind::LeftParen | TokenKind::Semicolon | TokenKind::Newline)
-                )
-                || self.at(TokenKind::LeftBrace)
-                || self.is_keyword(Keyword::Do)
-            {
-                break;
-            }
-
-            let target = self
-                .current_for_target(true)
-                .ok_or_else(|| Error::parse("expected variable name in for loop".to_string()))?;
-            let word = target.word.clone();
-            self.advance_past_word(&word);
-            targets.push(target);
-        }
-
-        Ok(targets)
+        Ok(SmallVec::from_vec(vec![first_target]))
     }
 
     pub(super) fn current_for_target(&mut self, allow_digits: bool) -> Option<ForTarget> {
@@ -324,27 +127,7 @@ impl<'a> Parser<'a> {
         let mut words = SmallVec::<[Word; 2]>::new();
         loop {
             match self.current_token_kind {
-                Some(kind)
-                    if kind.is_word_like()
-                        || (self.dialect == ShellDialect::Zsh
-                            && matches!(kind, TokenKind::LeftParen)) =>
-                {
-                    if self.dialect == ShellDialect::Zsh
-                        && self
-                            .current_token
-                            .as_ref()
-                            .is_some_and(|token| !token.flags.is_synthetic())
-                    {
-                        let start = self.current_span.start;
-                        if let Some((text, end)) = self.scan_source_word(start) {
-                            let span = Span::from_positions(start, end);
-                            let word = self.parse_word_with_context(&text, span, start, true);
-                            self.advance_past_word(&word);
-                            words.push(word);
-                            continue;
-                        }
-                    }
-
+                Some(kind) if kind.is_word_like() => {
                     let word = self
                         .take_current_word_and_advance()
                         .ok_or_else(|| self.error("expected for word"))?;
@@ -362,282 +145,6 @@ impl<'a> Parser<'a> {
                 _ => return Ok((words, false)),
             }
         }
-    }
-
-    /// Parse a zsh repeat loop.
-    pub(super) fn parse_repeat(&mut self) -> Result<CompoundCommand> {
-        self.ensure_repeat_loop()?;
-        let start_span = self.current_span;
-        self.push_depth()?;
-        self.advance(); // consume 'repeat'
-
-        let count = match self.current_token_kind {
-            Some(kind) if kind.is_word_like() => self.expect_word()?,
-            _ => {
-                self.pop_depth();
-                return Err(self.error("expected loop count in repeat"));
-            }
-        };
-
-        let (syntax, body, end_span) = match self.current_token_kind {
-            _ if self.is_keyword(Keyword::Do) => {
-                let do_span = self.current_span;
-                self.advance();
-                self.skip_newlines()?;
-
-                let body_start = self.current_span.start;
-                let body = self.parse_compound_list(Keyword::Done)?;
-                let body_span = Span::from_positions(body_start, self.current_span.start);
-                if body.is_empty() {
-                    self.pop_depth();
-                    return Err(self.error("syntax error: empty repeat loop body"));
-                }
-                if !self.is_keyword(Keyword::Done) {
-                    self.pop_depth();
-                    return Err(self.error("expected 'done'"));
-                }
-                let done_span = self.current_span;
-                self.advance();
-                (
-                    RepeatSyntax::DoDone { do_span, done_span },
-                    Self::stmt_seq_with_span(body_span, body),
-                    done_span,
-                )
-            }
-            Some(TokenKind::LeftBrace) => {
-                let (body, left_brace_span, right_brace_span) = self
-                    .parse_brace_enclosed_stmt_seq(
-                        "syntax error: empty repeat loop body",
-                        BraceBodyContext::Ordinary,
-                    )?;
-                (
-                    RepeatSyntax::Brace {
-                        left_brace_span,
-                        right_brace_span,
-                    },
-                    body,
-                    right_brace_span,
-                )
-            }
-            Some(TokenKind::Semicolon) => {
-                self.advance();
-                self.skip_newlines()?;
-                if !self.is_keyword(Keyword::Do) {
-                    self.pop_depth();
-                    return Err(self.error("expected 'do' after repeat count"));
-                }
-                let do_span = self.current_span;
-                self.advance();
-                self.skip_newlines()?;
-
-                let body_start = self.current_span.start;
-                let body = self.parse_compound_list(Keyword::Done)?;
-                let body_span = Span::from_positions(body_start, self.current_span.start);
-                if body.is_empty() {
-                    self.pop_depth();
-                    return Err(self.error("syntax error: empty repeat loop body"));
-                }
-                if !self.is_keyword(Keyword::Done) {
-                    self.pop_depth();
-                    return Err(self.error("expected 'done'"));
-                }
-                let done_span = self.current_span;
-                self.advance();
-                (
-                    RepeatSyntax::DoDone { do_span, done_span },
-                    Self::stmt_seq_with_span(body_span, body),
-                    done_span,
-                )
-            }
-            Some(TokenKind::Newline) => {
-                self.skip_newlines()?;
-                if !self.is_keyword(Keyword::Do) {
-                    self.pop_depth();
-                    return Err(self.error("expected 'do' after repeat count"));
-                }
-                let do_span = self.current_span;
-                self.advance();
-                self.skip_newlines()?;
-
-                let body_start = self.current_span.start;
-                let body = self.parse_compound_list(Keyword::Done)?;
-                let body_span = Span::from_positions(body_start, self.current_span.start);
-                if body.is_empty() {
-                    self.pop_depth();
-                    return Err(self.error("syntax error: empty repeat loop body"));
-                }
-                if !self.is_keyword(Keyword::Done) {
-                    self.pop_depth();
-                    return Err(self.error("expected 'done'"));
-                }
-                let done_span = self.current_span;
-                self.advance();
-                (
-                    RepeatSyntax::DoDone { do_span, done_span },
-                    Self::stmt_seq_with_span(body_span, body),
-                    done_span,
-                )
-            }
-            _ => {
-                let stmt = self.parse_single_stmt_command()?;
-                let span = stmt.span;
-                (
-                    RepeatSyntax::Direct,
-                    Self::stmt_seq_with_span(span, vec![stmt]),
-                    span,
-                )
-            }
-        };
-
-        self.pop_depth();
-        Ok(CompoundCommand::Repeat(Box::new(RepeatCommand {
-            count,
-            body,
-            syntax,
-            span: start_span.merge(end_span),
-        })))
-    }
-
-    /// Parse a zsh foreach loop.
-    pub(super) fn parse_foreach(&mut self) -> Result<CompoundCommand> {
-        self.ensure_foreach_loop()?;
-        let start_span = self.current_span;
-        self.push_depth()?;
-        self.advance(); // consume 'foreach'
-
-        let (variable, variable_span) = match self.current_name_token() {
-            Some(pair) => pair,
-            _ => {
-                self.pop_depth();
-                return Err(self.error("expected variable name in foreach"));
-            }
-        };
-        self.advance();
-
-        let (words, body, syntax, end_span) = if self.at(TokenKind::LeftParen) {
-            let left_paren_span = self.current_span;
-            self.advance();
-
-            let mut words = SmallVec::<[Word; 2]>::new();
-            while !self.at(TokenKind::RightParen) {
-                match self.current_token_kind {
-                    Some(kind) if kind.is_word_like() => {
-                        let word = self
-                            .take_current_word_and_advance()
-                            .ok_or_else(|| self.error("expected foreach word"))?;
-                        words.push(word);
-                    }
-                    Some(_) | None => {
-                        self.pop_depth();
-                        return Err(self.error("expected ')' after foreach word list"));
-                    }
-                }
-            }
-            if words.is_empty() {
-                self.pop_depth();
-                return Err(self.error("expected word list in foreach"));
-            }
-
-            let right_paren_span = self.current_span;
-            self.advance();
-            if !self.at(TokenKind::LeftBrace) {
-                self.pop_depth();
-                return Err(self.error("expected '{' after foreach word list"));
-            }
-
-            let (body, left_brace_span, right_brace_span) = self.parse_brace_enclosed_stmt_seq(
-                "syntax error: empty foreach loop body",
-                BraceBodyContext::Ordinary,
-            )?;
-            (
-                words,
-                body,
-                ForeachSyntax::ParenBrace {
-                    left_paren_span,
-                    right_paren_span,
-                    left_brace_span,
-                    right_brace_span,
-                },
-                right_brace_span,
-            )
-        } else if self.is_keyword(Keyword::In) {
-            let in_span = self.current_span;
-            self.advance();
-
-            let mut words = SmallVec::<[Word; 2]>::new();
-            let saw_separator = loop {
-                match self.current_token_kind {
-                    _ if self.current_keyword() == Some(Keyword::Do) => break false,
-                    Some(kind) if kind.is_word_like() => {
-                        let word = self
-                            .take_current_word_and_advance()
-                            .ok_or_else(|| self.error("expected foreach word"))?;
-                        words.push(word);
-                    }
-                    Some(TokenKind::Semicolon) => {
-                        self.advance();
-                        break true;
-                    }
-                    Some(TokenKind::Newline) => {
-                        self.skip_newlines()?;
-                        break true;
-                    }
-                    _ => break false,
-                }
-            };
-            if words.is_empty() {
-                self.pop_depth();
-                return Err(self.error("expected word list in foreach"));
-            }
-            if !saw_separator {
-                self.pop_depth();
-                return Err(self.error("expected ';' or newline before 'do' in foreach"));
-            }
-            if !self.is_keyword(Keyword::Do) {
-                self.pop_depth();
-                return Err(self.error("expected 'do' in foreach"));
-            }
-            let do_span = self.current_span;
-            self.advance();
-            self.skip_newlines()?;
-
-            let body_start = self.current_span.start;
-            let body = self.parse_compound_list(Keyword::Done)?;
-            let body_span = Span::from_positions(body_start, self.current_span.start);
-            if body.is_empty() {
-                self.pop_depth();
-                return Err(self.error("syntax error: empty foreach loop body"));
-            }
-            if !self.is_keyword(Keyword::Done) {
-                self.pop_depth();
-                return Err(self.error("expected 'done'"));
-            }
-            let done_span = self.current_span;
-            self.advance();
-            (
-                words,
-                Self::stmt_seq_with_span(body_span, body),
-                ForeachSyntax::InDoDone {
-                    in_span,
-                    do_span,
-                    done_span,
-                },
-                done_span,
-            )
-        } else {
-            self.pop_depth();
-            return Err(self.error("expected '(' or 'in' after foreach variable"));
-        };
-
-        self.pop_depth();
-        Ok(CompoundCommand::Foreach(Box::new(ForeachCommand {
-            variable,
-            variable_span,
-            words: words.into_vec(),
-            body,
-            syntax,
-            span: start_span.merge(end_span),
-        })))
     }
 
     /// Parse select loop: select var in list; do body; done
@@ -902,73 +409,36 @@ impl<'a> Parser<'a> {
 
         // Parse condition
         let condition_start = self.current_span.start;
-        let allow_brace_body = self.dialect == ShellDialect::Zsh && self.zsh_brace_bodies_enabled();
-        let condition = self.parse_loop_condition_until_body_start(allow_brace_body)?;
+        let condition = self.parse_loop_condition_until_body_start(false)?;
         let condition_span = Span::from_positions(condition_start, self.current_span.start);
         let condition = Self::stmt_seq_with_span(condition_span, condition);
 
-        let (body, done_span, end_span) = if allow_brace_body && self.at(TokenKind::LeftBrace) {
-            let (body, close_span) =
-                self.parse_brace_group_with_close_span(BraceBodyContext::Ordinary)?;
-            let span = Self::compound_span(&body);
-            (
-                Self::stmt_seq_with_span(
-                    span,
-                    vec![Self::lower_non_sequence_command_to_stmt(Command::Compound(
-                        Box::new(body),
-                        SmallVec::<[Redirect; 1]>::new(),
-                    ))],
-                ),
-                None,
-                close_span,
-            )
-        } else if let Some((body, left_brace_span, right_brace_span)) = allow_brace_body
-            .then(|| self.try_parse_compact_zsh_brace_body(BraceBodyContext::Ordinary))
-            .transpose()?
-            .flatten()
-        {
-            let brace_group = CompoundCommand::BraceGroup(body);
-            let span = left_brace_span.merge(right_brace_span);
-            (
-                Self::stmt_seq_with_span(
-                    span,
-                    vec![Self::lower_non_sequence_command_to_stmt(Command::Compound(
-                        Box::new(brace_group),
-                        SmallVec::<[Redirect; 1]>::new(),
-                    ))],
-                ),
-                None,
-                right_brace_span,
-            )
-        } else {
-            self.expect_keyword(Keyword::Do)?;
-            self.skip_newlines()?;
+        self.expect_keyword(Keyword::Do)?;
+        self.skip_newlines()?;
 
-            let body_start = self.current_span.start;
-            let body = self.parse_compound_list(Keyword::Done)?;
-            let body_span = Span::from_positions(body_start, self.current_span.start);
+        let body_start = self.current_span.start;
+        let body = self.parse_compound_list(Keyword::Done)?;
+        let body_span = Span::from_positions(body_start, self.current_span.start);
 
-            if body.is_empty() && self.dialect != ShellDialect::Zsh {
-                self.pop_depth();
-                return Err(self.error("syntax error: empty while loop body"));
-            }
-            let body = Self::stmt_seq_with_span(body_span, body);
+        if body.is_empty() {
+            self.pop_depth();
+            return Err(self.error("syntax error: empty while loop body"));
+        }
+        let body = Self::stmt_seq_with_span(body_span, body);
 
-            if !self.is_keyword(Keyword::Done) {
-                self.pop_depth();
-                return Err(self.error("expected 'done'"));
-            }
-            let done_span = self.current_span;
-            self.advance();
-            (body, Some(done_span), self.current_span)
-        };
+        if !self.is_keyword(Keyword::Done) {
+            self.pop_depth();
+            return Err(self.error("expected 'done'"));
+        }
+        let done_span = self.current_span;
+        self.advance();
 
         self.pop_depth();
         Ok(CompoundCommand::While(Box::new(WhileCommand {
             condition,
             body,
-            done_span,
-            span: start_span.merge(end_span),
+            done_span: Some(done_span),
+            span: start_span.merge(self.current_span),
         })))
     }
 
@@ -981,73 +451,36 @@ impl<'a> Parser<'a> {
 
         // Parse condition
         let condition_start = self.current_span.start;
-        let allow_brace_body = self.dialect == ShellDialect::Zsh && self.zsh_brace_bodies_enabled();
-        let condition = self.parse_loop_condition_until_body_start(allow_brace_body)?;
+        let condition = self.parse_loop_condition_until_body_start(false)?;
         let condition_span = Span::from_positions(condition_start, self.current_span.start);
         let condition = Self::stmt_seq_with_span(condition_span, condition);
 
-        let (body, done_span, end_span) = if allow_brace_body && self.at(TokenKind::LeftBrace) {
-            let (body, close_span) =
-                self.parse_brace_group_with_close_span(BraceBodyContext::Ordinary)?;
-            let span = Self::compound_span(&body);
-            (
-                Self::stmt_seq_with_span(
-                    span,
-                    vec![Self::lower_non_sequence_command_to_stmt(Command::Compound(
-                        Box::new(body),
-                        SmallVec::<[Redirect; 1]>::new(),
-                    ))],
-                ),
-                None,
-                close_span,
-            )
-        } else if let Some((body, left_brace_span, right_brace_span)) = allow_brace_body
-            .then(|| self.try_parse_compact_zsh_brace_body(BraceBodyContext::Ordinary))
-            .transpose()?
-            .flatten()
-        {
-            let brace_group = CompoundCommand::BraceGroup(body);
-            let span = left_brace_span.merge(right_brace_span);
-            (
-                Self::stmt_seq_with_span(
-                    span,
-                    vec![Self::lower_non_sequence_command_to_stmt(Command::Compound(
-                        Box::new(brace_group),
-                        SmallVec::<[Redirect; 1]>::new(),
-                    ))],
-                ),
-                None,
-                right_brace_span,
-            )
-        } else {
-            self.expect_keyword(Keyword::Do)?;
-            self.skip_newlines()?;
+        self.expect_keyword(Keyword::Do)?;
+        self.skip_newlines()?;
 
-            let body_start = self.current_span.start;
-            let body = self.parse_compound_list(Keyword::Done)?;
-            let body_span = Span::from_positions(body_start, self.current_span.start);
+        let body_start = self.current_span.start;
+        let body = self.parse_compound_list(Keyword::Done)?;
+        let body_span = Span::from_positions(body_start, self.current_span.start);
 
-            if body.is_empty() && self.dialect != ShellDialect::Zsh {
-                self.pop_depth();
-                return Err(self.error("syntax error: empty until loop body"));
-            }
-            let body = Self::stmt_seq_with_span(body_span, body);
+        if body.is_empty() {
+            self.pop_depth();
+            return Err(self.error("syntax error: empty until loop body"));
+        }
+        let body = Self::stmt_seq_with_span(body_span, body);
 
-            if !self.is_keyword(Keyword::Done) {
-                self.pop_depth();
-                return Err(self.error("expected 'done'"));
-            }
-            let done_span = self.current_span;
-            self.advance();
-            (body, Some(done_span), self.current_span)
-        };
+        if !self.is_keyword(Keyword::Done) {
+            self.pop_depth();
+            return Err(self.error("expected 'done'"));
+        }
+        let done_span = self.current_span;
+        self.advance();
 
         self.pop_depth();
         Ok(CompoundCommand::Until(Box::new(UntilCommand {
             condition,
             body,
-            done_span,
-            span: start_span.merge(end_span),
+            done_span: Some(done_span),
+            span: start_span.merge(self.current_span),
         })))
     }
 }

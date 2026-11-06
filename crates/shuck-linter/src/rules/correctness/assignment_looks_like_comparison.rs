@@ -83,8 +83,7 @@ fn command_assignment_spans(
         | Command::Decl(_)
         | Command::Binary(_)
         | Command::Compound(_)
-        | Command::Function(_)
-        | Command::AnonymousFunction(_) => Vec::new(),
+        | Command::Function(_) => Vec::new(),
     }
 }
 

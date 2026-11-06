@@ -33,8 +33,7 @@ pub(super) enum ArithmeticContext {
     Assignment,
     ConditionalCondition,
     ConditionalBranch,
-    Subscript,
-}
+    Subscript }
 
 pub(super) fn push_arithmetic_expr(
     rendered: &mut String,
@@ -107,8 +106,7 @@ pub(super) fn push_arithmetic_expr(
         ArithmeticExpr::Conditional {
             condition,
             then_expr,
-            else_expr,
-        } => {
+            else_expr } => {
             push_arithmetic_expr(
                 rendered,
                 condition,
@@ -192,8 +190,7 @@ pub(super) fn arithmetic_expr_contains_command_substitution(expr: &ArithmeticExp
         ArithmeticExpr::Conditional {
             condition,
             then_expr,
-            else_expr,
-        } => {
+            else_expr } => {
             arithmetic_expr_contains_command_substitution(condition)
                 || arithmetic_expr_contains_command_substitution(then_expr)
                 || arithmetic_expr_contains_command_substitution(else_expr)
@@ -202,8 +199,7 @@ pub(super) fn arithmetic_expr_contains_command_substitution(expr: &ArithmeticExp
             arithmetic_lvalue_contains_command_substitution(target)
                 || arithmetic_expr_contains_command_substitution(value)
         }
-        ArithmeticExpr::Number(_) | ArithmeticExpr::Variable(_) => false,
-    }
+        ArithmeticExpr::Number(_) | ArithmeticExpr::Variable(_) => false }
 }
 
 pub(super) fn arithmetic_lvalue_contains_command_substitution(target: &ArithmeticLvalue) -> bool {
@@ -237,8 +233,7 @@ pub(super) fn render_arithmetic_shell_word(word: &Word, context: RenderContext<'
             {
                 parameter.raw_body.slice(context.source).to_string()
             }
-            _ => render_with_context(),
-        };
+            _ => render_with_context() };
     }
 
     render_with_context()
@@ -289,8 +284,7 @@ pub(super) fn arithmetic_precedence(expr: &ArithmeticExprNode) -> u8 {
         ArithmeticExpr::Unary { .. } => 80,
         ArithmeticExpr::Binary { op, .. } => arithmetic_precedence_value(*op),
         ArithmeticExpr::Conditional { .. } => 2,
-        ArithmeticExpr::Assignment { .. } => 1,
-    }
+        ArithmeticExpr::Assignment { .. } => 1 }
 }
 
 pub(super) fn arithmetic_precedence_value(op: ArithmeticBinaryOp) -> u8 {
@@ -311,8 +305,7 @@ pub(super) fn arithmetic_precedence_value(op: ArithmeticBinaryOp) -> u8 {
         ArithmeticBinaryOp::Multiply | ArithmeticBinaryOp::Divide | ArithmeticBinaryOp::Modulo => {
             85
         }
-        ArithmeticBinaryOp::Power => 95,
-    }
+        ArithmeticBinaryOp::Power => 95 }
 }
 
 pub(super) fn arithmetic_unary_operator(op: ArithmeticUnaryOp) -> &'static str {
@@ -322,15 +315,13 @@ pub(super) fn arithmetic_unary_operator(op: ArithmeticUnaryOp) -> &'static str {
         ArithmeticUnaryOp::Plus => "+",
         ArithmeticUnaryOp::Minus => "-",
         ArithmeticUnaryOp::LogicalNot => "!",
-        ArithmeticUnaryOp::BitwiseNot => "~",
-    }
+        ArithmeticUnaryOp::BitwiseNot => "~" }
 }
 
 pub(super) fn arithmetic_postfix_operator(op: ArithmeticPostfixOp) -> &'static str {
     match op {
         ArithmeticPostfixOp::Increment => "++",
-        ArithmeticPostfixOp::Decrement => "--",
-    }
+        ArithmeticPostfixOp::Decrement => "--" }
 }
 
 pub(super) fn arithmetic_binary_operator(op: ArithmeticBinaryOp) -> &'static str {
@@ -354,8 +345,7 @@ pub(super) fn arithmetic_binary_operator(op: ArithmeticBinaryOp) -> &'static str
         ArithmeticBinaryOp::BitwiseXor => "^",
         ArithmeticBinaryOp::BitwiseOr => "|",
         ArithmeticBinaryOp::LogicalAnd => "&&",
-        ArithmeticBinaryOp::LogicalOr => "||",
-    }
+        ArithmeticBinaryOp::LogicalOr => "||" }
 }
 
 pub(super) fn arithmetic_assign_operator(op: ArithmeticAssignOp) -> &'static str {
@@ -370,8 +360,7 @@ pub(super) fn arithmetic_assign_operator(op: ArithmeticAssignOp) -> &'static str
         ArithmeticAssignOp::ShiftRightAssign => ">>=",
         ArithmeticAssignOp::AndAssign => "&=",
         ArithmeticAssignOp::XorAssign => "^=",
-        ArithmeticAssignOp::OrAssign => "|=",
-    }
+        ArithmeticAssignOp::OrAssign => "|=" }
 }
 
 pub(super) fn push_arithmetic_lvalue(
@@ -403,8 +392,7 @@ pub(super) fn push_arithmetic_source_text(
             {
                 rendered.push_str(&render_arithmetic_slice_shell_word(word, context));
             }
-            _ => render_arithmetic_subscript_expr_to_buf(rendered, ast, context, true),
-        }
+            _ => render_arithmetic_subscript_expr_to_buf(rendered, ast, context, true) }
     } else {
         rendered.push_str(text.slice(context.source));
     }
@@ -449,8 +437,7 @@ pub(super) fn render_arithmetic_slice_shell_word(
             }
             let (open, close) = match syntax {
                 ArithmeticExpansionSyntax::DollarParenParen => ("$((", "))"),
-                ArithmeticExpansionSyntax::LegacyBracket => ("$[", "]"),
-            };
+                ArithmeticExpansionSyntax::LegacyBracket => ("$[", "]") };
             format!("{open}{body}{close}")
         }
         _ => {
@@ -486,8 +473,7 @@ pub(super) fn push_arithmetic_expansion(
                 push_arithmetic_expansion_body(rendered, expression_ast, env);
                 rendered.push_str("))");
             }
-            ArithmeticExpansionSyntax::LegacyBracket => unreachable!("handled above"),
-        }
+            ArithmeticExpansionSyntax::LegacyBracket => unreachable!("handled above") }
     } else {
         push_trimmed_arithmetic_expansion_source(rendered, expression_source, syntax);
     }
@@ -608,8 +594,7 @@ pub(super) fn push_var_ref(
         if let Some(selector) = subscript.selector() {
             rendered.push(match selector {
                 SubscriptSelector::At => '@',
-                SubscriptSelector::Star => '*',
-            });
+                SubscriptSelector::Star => '*' });
         } else if let Some(ast) = subscript.arithmetic_ast.as_ref() {
             let compact = !arithmetic_subscript_prefers_spaced_expression(
                 subscript.syntax_text(context.source),

@@ -54,8 +54,7 @@ fn command_assignment_spans(command: &Command, source: &str) -> Vec<Span> {
         Command::Decl(_)
         | Command::Binary(_)
         | Command::Compound(_)
-        | Command::Function(_)
-        | Command::AnonymousFunction(_) => Vec::new(),
+        | Command::Function(_) => Vec::new(),
     }
 }
 

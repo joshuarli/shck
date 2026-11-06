@@ -72,7 +72,6 @@ pub(super) fn check_stdin(
         &file.project_root,
         config_arguments,
         &args.rule_selection,
-        &args.zsh_plugin_resolution,
     )?;
     let base_linter_settings =
         settings
@@ -151,7 +150,7 @@ pub(super) fn check_stdin(
         &checked_source,
         &parse_result,
         &linter_settings,
-        Some(settings.zsh_plugins.as_ref()),
+        None,
         closure_resolver,
         &shellcheck_map,
         &file.absolute_path,
@@ -180,8 +179,8 @@ pub(super) fn check_stdin(
                 &checked_source,
                 &parse_result,
                 &linter_settings,
-                Some(settings.zsh_plugins.as_ref()),
-                closure_resolver,
+                None,
+        closure_resolver,
                 &shellcheck_map,
                 &file.absolute_path,
             );

@@ -1072,8 +1072,7 @@ impl<'analysis, 'model> SemanticValueFlow<'analysis, 'model> {
             CommandKind::Simple
             | CommandKind::Builtin(_)
             | CommandKind::Decl
-            | CommandKind::Function
-            | CommandKind::AnonymousFunction => false,
+            | CommandKind::Function => false,
         }
     }
 

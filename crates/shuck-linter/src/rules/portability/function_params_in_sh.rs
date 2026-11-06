@@ -137,17 +137,6 @@ wget() { :; }
     }
 
     #[test]
-    fn ignores_zsh_scripts() {
-        let source = "#!/bin/zsh\nf(x) { :; }\n";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::FunctionParamsInSh).with_shell(ShellDialect::Zsh),
-        );
-
-        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
-    }
-
-    #[test]
     fn reports_named_coproc_subshell_syntax() {
         let source = "\
 #!/bin/sh

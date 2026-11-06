@@ -43,8 +43,7 @@ pub(crate) fn walk_command<V: AstVisitor + ?Sized>(visitor: &mut V, command: &Co
         }
         Command::Compound(command) => visitor.visit_compound_command(command),
         Command::Function(function) => visitor.visit_function(function),
-        Command::AnonymousFunction(function) => visitor.visit_anonymous_function(function),
-    }
+}
 }
 
 fn walk_decl_clause<V: AstVisitor + ?Sized>(visitor: &mut V, command: &DeclClause) {
@@ -55,8 +54,7 @@ fn walk_decl_clause<V: AstVisitor + ?Sized>(visitor: &mut V, command: &DeclClaus
         match operand {
             DeclOperand::Flag(word) | DeclOperand::Dynamic(word) => visitor.visit_word(word),
             DeclOperand::Name(reference) => visitor.visit_var_ref(reference),
-            DeclOperand::Assignment(assignment) => visitor.visit_assignment(assignment),
-        }
+            DeclOperand::Assignment(assignment) => visitor.visit_assignment(assignment) }
     }
 }
 
@@ -84,16 +82,6 @@ pub(crate) fn walk_compound_command<V: AstVisitor + ?Sized>(
                 for word in words {
                     visitor.visit_word(word);
                 }
-            }
-            visitor.visit_stmt_seq(&command.body);
-        }
-        CompoundCommand::Repeat(command) => {
-            visitor.visit_word(&command.count);
-            visitor.visit_stmt_seq(&command.body);
-        }
-        CompoundCommand::Foreach(command) => {
-            for word in &command.words {
-                visitor.visit_word(word);
             }
             visitor.visit_stmt_seq(&command.body);
         }
@@ -149,10 +137,6 @@ pub(crate) fn walk_compound_command<V: AstVisitor + ?Sized>(
             visitor.visit_conditional_expr(&command.expression)
         }
         CompoundCommand::Coproc(command) => visitor.visit_stmt(&command.body),
-        CompoundCommand::Always(command) => {
-            visitor.visit_stmt_seq(&command.body);
-            visitor.visit_stmt_seq(&command.always_body);
-        }
     }
 }
 
@@ -163,21 +147,11 @@ pub(crate) fn walk_function<V: AstVisitor + ?Sized>(visitor: &mut V, function: &
     visitor.visit_stmt(&function.body);
 }
 
-pub(crate) fn walk_anonymous_function<V: AstVisitor + ?Sized>(
-    visitor: &mut V,
-    function: &AnonymousFunctionCommand,
-) {
-    visitor.visit_stmt(&function.body);
-    for argument in &function.args {
-        visitor.visit_word(argument);
-    }
-}
 
 pub(crate) fn walk_redirect<V: AstVisitor + ?Sized>(visitor: &mut V, redirect: &Redirect) {
     match &redirect.target {
         RedirectTarget::Word(word) => visitor.visit_word(word),
-        RedirectTarget::Heredoc(heredoc) => visitor.visit_heredoc(heredoc),
-    }
+        RedirectTarget::Heredoc(heredoc) => visitor.visit_heredoc(heredoc) }
 }
 
 pub(crate) fn walk_heredoc<V: AstVisitor + ?Sized>(visitor: &mut V, heredoc: &Heredoc) {
@@ -234,8 +208,7 @@ pub(crate) fn walk_conditional_expr<V: AstVisitor + ?Sized>(
         }
         ConditionalExpr::Word(word) | ConditionalExpr::Regex(word) => visitor.visit_word(word),
         ConditionalExpr::Pattern(pattern) => visitor.visit_pattern(pattern),
-        ConditionalExpr::VarRef(reference) => visitor.visit_var_ref(reference),
-    }
+        ConditionalExpr::VarRef(reference) => visitor.visit_var_ref(reference) }
 }
 
 pub(crate) fn walk_pattern<V: AstVisitor + ?Sized>(visitor: &mut V, pattern: &Pattern) {
@@ -266,7 +239,6 @@ pub(crate) fn walk_word<V: AstVisitor + ?Sized>(visitor: &mut V, word: &Word) {
 pub(crate) fn walk_word_part<V: AstVisitor + ?Sized>(visitor: &mut V, part: &WordPartNode) {
     match &part.kind {
         WordPart::Literal(_) | WordPart::Variable(_) | WordPart::PrefixMatch { .. } => {}
-        WordPart::ZshQualifiedGlob(glob) => walk_zsh_qualified_glob(visitor, glob),
         WordPart::SingleQuoted { value, .. } => visitor.visit_source_text(value),
         WordPart::DoubleQuoted { parts, .. } => {
             for part in parts {
@@ -394,8 +366,7 @@ pub(crate) fn walk_heredoc_body_part<V: AstVisitor + ?Sized>(
                 visitor.visit_word(expression_word_ast);
             }
         }
-        HeredocBodyPart::Parameter(parameter) => visitor.visit_parameter_expansion(parameter),
-    }
+        HeredocBodyPart::Parameter(parameter) => visitor.visit_parameter_expansion(parameter) }
 }
 
 pub(crate) fn walk_arithmetic_expr<V: AstVisitor + ?Sized>(
@@ -418,8 +389,7 @@ pub(crate) fn walk_arithmetic_expr<V: AstVisitor + ?Sized>(
         ArithmeticExpr::Conditional {
             condition,
             then_expr,
-            else_expr,
-        } => {
+            else_expr } => {
             visitor.visit_arithmetic_expr(condition);
             visitor.visit_arithmetic_expr(then_expr);
             visitor.visit_arithmetic_expr(else_expr);
@@ -437,8 +407,7 @@ pub(crate) fn walk_arithmetic_lvalue<V: AstVisitor + ?Sized>(
 ) {
     match target {
         ArithmeticLvalue::Variable(_) => {}
-        ArithmeticLvalue::Indexed { index, .. } => visitor.visit_arithmetic_expr(index),
-    }
+        ArithmeticLvalue::Indexed { index, .. } => visitor.visit_arithmetic_expr(index) }
 }
 
 pub(crate) fn walk_parameter_expansion<V: AstVisitor + ?Sized>(
@@ -515,93 +484,10 @@ pub(crate) fn walk_parameter_expansion<V: AstVisitor + ?Sized>(
                 }
             }
         },
-        ParameterExpansionSyntax::Zsh(syntax) => walk_zsh_parameter_expansion(visitor, syntax),
-    }
+}
 }
 
-fn walk_zsh_parameter_expansion<V: AstVisitor + ?Sized>(
-    visitor: &mut V,
-    syntax: &ZshParameterExpansion,
-) {
-    match &syntax.target {
-        ZshExpansionTarget::Reference(reference) => visitor.visit_var_ref(reference),
-        ZshExpansionTarget::Nested(parameter) => visitor.visit_parameter_expansion(parameter),
-        ZshExpansionTarget::Word(word) => visitor.visit_word(word),
-        ZshExpansionTarget::Empty => {}
-    }
-    for modifier in &syntax.modifiers {
-        if let Some(argument) = &modifier.argument {
-            visitor.visit_source_text(argument);
-        }
-        if let Some(word) = &modifier.argument_word_ast {
-            visitor.visit_word(word);
-        }
-    }
-    if let Some(operation) = &syntax.operation {
-        walk_zsh_expansion_operation(visitor, operation);
-    }
-}
 
-fn walk_zsh_expansion_operation<V: AstVisitor + ?Sized>(
-    visitor: &mut V,
-    operation: &ZshExpansionOperation,
-) {
-    match operation {
-        ZshExpansionOperation::PatternOperation {
-            operand,
-            operand_word_ast,
-            ..
-        }
-        | ZshExpansionOperation::Defaulting {
-            operand,
-            operand_word_ast,
-            ..
-        }
-        | ZshExpansionOperation::TrimOperation {
-            operand,
-            operand_word_ast,
-            ..
-        } => {
-            visitor.visit_source_text(operand);
-            visitor.visit_word(operand_word_ast);
-        }
-        ZshExpansionOperation::ReplacementOperation {
-            pattern,
-            pattern_word_ast,
-            replacement,
-            replacement_word_ast,
-            ..
-        } => {
-            visitor.visit_source_text(pattern);
-            visitor.visit_word(pattern_word_ast);
-            if let Some(replacement) = replacement {
-                visitor.visit_source_text(replacement);
-            }
-            if let Some(replacement) = replacement_word_ast {
-                visitor.visit_word(replacement);
-            }
-        }
-        ZshExpansionOperation::Slice {
-            offset,
-            offset_word_ast,
-            length,
-            length_word_ast,
-        } => {
-            visitor.visit_source_text(offset);
-            visitor.visit_word(offset_word_ast);
-            if let Some(length) = length {
-                visitor.visit_source_text(length);
-            }
-            if let Some(length) = length_word_ast {
-                visitor.visit_word(length);
-            }
-        }
-        ZshExpansionOperation::Unknown { text, word_ast } => {
-            visitor.visit_source_text(text);
-            visitor.visit_word(word_ast);
-        }
-    }
-}
 
 pub(crate) fn walk_parameter_op<V: AstVisitor + ?Sized>(visitor: &mut V, operator: &ParameterOp) {
     match operator {
@@ -612,13 +498,11 @@ pub(crate) fn walk_parameter_op<V: AstVisitor + ?Sized>(visitor: &mut V, operato
         ParameterOp::ReplaceFirst {
             pattern,
             replacement,
-            replacement_word_ast,
-        }
+            replacement_word_ast }
         | ParameterOp::ReplaceAll {
             pattern,
             replacement,
-            replacement_word_ast,
-        } => {
+            replacement_word_ast } => {
             visitor.visit_pattern(pattern);
             visitor.visit_source_text(replacement);
             visitor.visit_word(replacement_word_ast);
@@ -634,35 +518,4 @@ pub(crate) fn walk_parameter_op<V: AstVisitor + ?Sized>(visitor: &mut V, operato
     }
 }
 
-fn walk_zsh_qualified_glob<V: AstVisitor + ?Sized>(
-    visitor: &mut V,
-    glob: &shuck_ast::ZshQualifiedGlob,
-) {
-    for segment in &glob.segments {
-        match segment {
-            ZshGlobSegment::Pattern(pattern) => visitor.visit_pattern(pattern),
-            ZshGlobSegment::InlineControl(_) => {}
-        }
-    }
-    if let Some(qualifiers) = &glob.qualifiers {
-        walk_zsh_glob_qualifier_group(visitor, qualifiers);
-    }
-}
 
-fn walk_zsh_glob_qualifier_group<V: AstVisitor + ?Sized>(
-    visitor: &mut V,
-    group: &ZshGlobQualifierGroup,
-) {
-    for fragment in &group.fragments {
-        match fragment {
-            ZshGlobQualifier::LetterSequence { text, .. } => visitor.visit_source_text(text),
-            ZshGlobQualifier::NumericArgument { start, end, .. } => {
-                visitor.visit_source_text(start);
-                if let Some(end) = end {
-                    visitor.visit_source_text(end);
-                }
-            }
-            ZshGlobQualifier::Negation { .. } | ZshGlobQualifier::Flag { .. } => {}
-        }
-    }
-}

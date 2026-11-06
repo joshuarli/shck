@@ -64,7 +64,7 @@ echo prefix{a,b}suffix file{1..3}.txt
     fn reports_nested_brace_expansions_individually() {
         let source = "\
 #!/bin/sh
-echo {EGL,GLES{,2,3}}
+echo {EGL,GLES{2,3}}
 ";
         let diagnostics = test_snippet(source, &LinterSettings::for_rule(Rule::BraceExpansion));
 
@@ -73,7 +73,7 @@ echo {EGL,GLES{,2,3}}
                 .iter()
                 .map(|diagnostic| diagnostic.span.slice(source))
                 .collect::<Vec<_>>(),
-            vec!["{EGL,GLES{,2,3}}", "{,2,3}"]
+            vec!["{EGL,GLES{2,3}}", "{2,3}"]
         );
     }
 

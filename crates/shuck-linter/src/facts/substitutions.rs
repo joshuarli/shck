@@ -358,8 +358,7 @@ pub(crate) fn collect_word_substitution_occurrences<'a>(
             | WordPart::ArraySlice { .. }
             | WordPart::IndirectExpansion { .. }
             | WordPart::PrefixMatch { .. }
-            | WordPart::Transformation { .. }
-            | WordPart::ZshQualifiedGlob(_) => {}
+            | WordPart::Transformation { .. } => {}
         }
     }
 }
@@ -625,12 +624,9 @@ pub(crate) fn summarize_stmt_redirects<'a>(
         | Command::Builtin(_)
         | Command::Decl(_)
         | Command::Function(_)
-        | Command::AnonymousFunction(_)
         | Command::Compound(
             CompoundCommand::If(_)
             | CompoundCommand::For(_)
-            | CompoundCommand::Repeat(_)
-            | CompoundCommand::Foreach(_)
             | CompoundCommand::ArithmeticFor(_)
             | CompoundCommand::While(_)
             | CompoundCommand::Until(_)
@@ -641,8 +637,7 @@ pub(crate) fn summarize_stmt_redirects<'a>(
             | CompoundCommand::Subshell(_)
             | CompoundCommand::BraceGroup(_)
             | CompoundCommand::Time(_)
-            | CompoundCommand::Coproc(_)
-            | CompoundCommand::Always(_),
+            | CompoundCommand::Coproc(_),
         ) => summarize_command_redirects(stmt, parent_id, commands, command_relationships, locator),
     }
 }
@@ -1036,8 +1031,7 @@ pub(crate) fn leading_dynamic_dash_literal_in_parts(
             | WordPart::IndirectExpansion { .. }
             | WordPart::PrefixMatch { .. }
             | WordPart::ProcessSubstitution { .. }
-            | WordPart::Transformation { .. }
-            | WordPart::ZshQualifiedGlob(_) => {
+            | WordPart::Transformation { .. } => {
                 *saw_dynamic = true;
             }
         }
@@ -1260,8 +1254,6 @@ pub(crate) fn substitution_body_terminal_command_fact<'facts, 'a>(
             Command::Compound(
                 CompoundCommand::If(_)
                 | CompoundCommand::For(_)
-                | CompoundCommand::Repeat(_)
-                | CompoundCommand::Foreach(_)
                 | CompoundCommand::ArithmeticFor(_)
                 | CompoundCommand::While(_)
                 | CompoundCommand::Until(_)
@@ -1269,11 +1261,9 @@ pub(crate) fn substitution_body_terminal_command_fact<'facts, 'a>(
                 | CompoundCommand::Select(_)
                 | CompoundCommand::Arithmetic(_)
                 | CompoundCommand::Conditional(_)
-                | CompoundCommand::Coproc(_)
-                | CompoundCommand::Always(_),
+                | CompoundCommand::Coproc(_),
             )
-            | Command::Function(_)
-            | Command::AnonymousFunction(_) => return None,
+            | Command::Function(_) => return None,
         }
     }
 }
@@ -1337,8 +1327,7 @@ pub(crate) fn word_parts_contain_unquoted_glob_or_brace(
             | WordPart::ArraySlice { .. }
             | WordPart::IndirectExpansion { .. }
             | WordPart::PrefixMatch { .. }
-            | WordPart::Transformation { .. }
-            | WordPart::ZshQualifiedGlob(_) => {}
+            | WordPart::Transformation { .. } => {}
             WordPart::SingleQuoted { .. } => {}
         }
     }
@@ -1395,18 +1384,11 @@ pub(crate) fn visit_command_words_for_substitutions(
                 visitor(&entry.word);
             }
         }
-        Command::AnonymousFunction(function) => {
-            visit_words_for_substitutions(&function.args, visitor);
-        }
         Command::Compound(command) => match command {
             CompoundCommand::For(command) => {
                 if let Some(words) = &command.words {
                     visit_words_for_substitutions(words, visitor);
                 }
-            }
-            CompoundCommand::Repeat(command) => visitor(&command.count),
-            CompoundCommand::Foreach(command) => {
-                visit_words_for_substitutions(&command.words, visitor)
             }
             CompoundCommand::Case(command) => {
                 visitor(&command.word);
@@ -1426,7 +1408,6 @@ pub(crate) fn visit_command_words_for_substitutions(
             | CompoundCommand::Until(_)
             | CompoundCommand::Subshell(_)
             | CompoundCommand::BraceGroup(_)
-            | CompoundCommand::Always(_)
             | CompoundCommand::Arithmetic(_)
             | CompoundCommand::Time(_)
             | CompoundCommand::Coproc(_) => {}
@@ -1515,9 +1496,6 @@ pub(crate) fn visit_command_argument_words_for_substitutions<'a>(
             for entry in &function.header.entries {
                 visitor(&entry.word);
             }
-        }
-        Command::AnonymousFunction(function) => {
-            visit_words_for_substitutions(&function.args, visitor);
         }
     }
 }
@@ -1682,25 +1660,12 @@ pub(crate) fn visit_command_substitution_inputs<'a>(
                 visitor(SubstitutionHostKind::CommandArgument, &entry.word);
             }
         }
-        Command::AnonymousFunction(function) => {
-            for word in &function.args {
-                visitor(SubstitutionHostKind::CommandArgument, word);
-            }
-        }
         Command::Compound(command) => match command {
             CompoundCommand::For(c) => {
                 if let Some(words) = &c.words {
                     for word in words {
                         visitor(SubstitutionHostKind::Other, word);
                     }
-                }
-            }
-            CompoundCommand::Repeat(c) => {
-                visitor(SubstitutionHostKind::Other, &c.count);
-            }
-            CompoundCommand::Foreach(c) => {
-                for word in &c.words {
-                    visitor(SubstitutionHostKind::Other, word);
                 }
             }
             CompoundCommand::Case(c) => {
@@ -1729,7 +1694,6 @@ pub(crate) fn visit_command_substitution_inputs<'a>(
             | CompoundCommand::Until(_)
             | CompoundCommand::Subshell(_)
             | CompoundCommand::BraceGroup(_)
-            | CompoundCommand::Always(_)
             | CompoundCommand::Arithmetic(_)
             | CompoundCommand::Time(_)
             | CompoundCommand::Coproc(_) => {}

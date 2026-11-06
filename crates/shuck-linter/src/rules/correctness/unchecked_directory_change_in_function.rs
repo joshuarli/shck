@@ -302,22 +302,4 @@ f() {
         );
     }
 
-    #[test]
-    fn ignores_zsh_scripts() {
-        let source = "\
-#!/bin/zsh
-f() {
-\tcd /tmp
-\tpwd
-\tcd ..
-}
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::UncheckedDirectoryChangeInFunction)
-                .with_shell(crate::ShellDialect::Zsh),
-        );
-
-        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
-    }
 }

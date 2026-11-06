@@ -21,9 +21,7 @@ impl Violation for MissingSpaceBeforeBracketClose {
 }
 
 pub fn missing_space_before_bracket_close(checker: &mut Checker) {
-    if checker.shell() == ShellDialect::Zsh {
-        return;
-    }
+    // Rule applies to all supported shell dialects.
 
     let diagnostics = checker
         .facts()

@@ -32,8 +32,7 @@ pub fn standalone_arithmetic(checker: &mut Checker) {
             | Command::Decl(_)
             | Command::Binary(_)
             | Command::Compound(_)
-            | Command::Function(_)
-            | Command::AnonymousFunction(_) => None,
+            | Command::Function(_) => None,
         })
         .collect::<Vec<_>>();
 

@@ -23,8 +23,7 @@ pub const DEFAULT_IGNORED_DIR_NAMES: &[&str] = &[
     ".jj",
     ".svn",
     "node_modules",
-    "vendor",
-];
+    "vendor"];
 
 const SHEBANG_SNIFF_LIMIT_BYTES: u64 = 4096;
 
@@ -33,12 +32,11 @@ const SHEBANG_SNIFF_LIMIT_BYTES: u64 = 4096;
 /// possibly rewritten) as shell.
 const NON_SHELL_EXTENSIONS: &[&str] = &[
     "awk", "bat", "c", "cc", "cjs", "clj", "cmake", "cmd", "cpp", "cs", "css", "cts", "cxx",
-    "dart", "el", "erl", "ex", "exs", "fish", "go", "groovy", "h", "hh", "hpp", "hs", "htm",
+    "dart", "el", "erl", "ex", "exs", "go", "groovy", "h", "hh", "hpp", "hs", "htm",
     "html", "ipynb", "java", "jl", "js", "json", "jsonc", "jsx", "kt", "kts", "lisp", "lua",
     "markdown", "md", "mjs", "ml", "mts", "nim", "nu", "php", "pl", "pm", "ps1", "psm1", "py",
     "pyi", "pyw", "r", "rb", "rs", "rst", "scala", "scss", "sed", "swift", "tcl", "toml", "ts",
-    "tsx", "vim", "xml", "zig",
-];
+    "tsx", "vim", "xml", "zig"];
 
 /// Shebang interpreters that positively identify a non-shell language. Version
 /// suffixes such as `python3.12` are stripped before matching.
@@ -49,7 +47,6 @@ const NON_SHELL_INTERPRETERS: &[&str] = &[
     "elixir",
     "escript",
     "expect",
-    "fish",
     "gawk",
     "gmake",
     "groovy",
@@ -84,8 +81,7 @@ const NON_SHELL_INTERPRETERS: &[&str] = &[
     "tclsh",
     "ts-node",
     "tsx",
-    "wish",
-];
+    "wish"];
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct ProjectRoot {
@@ -910,11 +906,7 @@ pub fn is_shell_script(path: &Path) -> Result<bool> {
 }
 
 fn source_prefix_is_shell(bytes: &[u8]) -> bool {
-    // Zsh completion/autoload functions lead with a `#compdef`/`#autoload` tag on
-    // the first line (compinit requires the tag there, so no shebang can precede
-    // it). Recognize them so these extensionless zsh files are discovered; the
-    // linter already infers the zsh dialect from the same marker.
-    infer_shebang_dialect(bytes).is_some() || first_line_is_zsh_autoload_tag(bytes)
+    infer_shebang_dialect(bytes).is_some()
 }
 
 /// Classifies an explicitly named input (a command-line path or a
@@ -968,12 +960,6 @@ fn has_non_shell_shebang(src: &[u8]) -> bool {
     NON_SHELL_INTERPRETERS.contains(&name)
 }
 
-fn first_line_is_zsh_autoload_tag(src: &[u8]) -> bool {
-    src.split(|byte| *byte == b'\n')
-        .next()
-        .and_then(|line| std::str::from_utf8(line).ok())
-        .is_some_and(ShellDialect::is_zsh_autoload_tag_line)
-}
 
 /// Classifies a walked file. Errors are path-free messages.
 fn discovered_file_kind(path: &Path) -> std::result::Result<Option<FileKind>, String> {
@@ -1021,7 +1007,6 @@ fn infer_shebang_dialect(src: &[u8]) -> Option<&'static str> {
         "ksh" => Some("ksh"),
         "mksh" => Some("mksh"),
         "bats" => Some("bats"),
-        "zsh" => Some("zsh"),
         _ => None,
     }
 }
@@ -1088,14 +1073,6 @@ mod tests {
         assert!(is_shell_script(&script).unwrap());
     }
 
-    #[test]
-    fn detects_env_zsh_shebang() {
-        let tempdir = tempdir().unwrap();
-        let script = tempdir.path().join("script");
-        fs::write(&script, "#!/usr/bin/env zsh\nprint ok\n").unwrap();
-
-        assert!(is_shell_script(&script).unwrap());
-    }
 
     #[test]
     fn detects_env_split_bash_shebang() {
@@ -1106,15 +1083,6 @@ mod tests {
         assert!(is_shell_script(&script).unwrap());
     }
 
-    #[test]
-    fn detects_common_zsh_dotfiles_without_shebangs() {
-        let tempdir = tempdir().unwrap();
-        for name in [".zshrc", ".zshenv", ".zprofile", ".zlogin", ".zlogout"] {
-            let script = tempdir.path().join(name);
-            fs::write(&script, "plugins=(git)\n").unwrap();
-            assert!(is_shell_script(&script).unwrap(), "{name}");
-        }
-    }
 
     #[test]
     fn detects_known_shell_filenames_without_shebangs() {
@@ -1126,36 +1094,7 @@ mod tests {
         }
     }
 
-    #[test]
-    fn detects_extensionless_compdef_completion_file() {
-        let tempdir = tempdir().unwrap();
-        let script = tempdir.path().join("_zdot");
-        fs::write(&script, "#compdef zdot\n_arguments '*:: :->args'\n").unwrap();
 
-        assert!(is_shell_script(&script).unwrap());
-    }
-
-    #[test]
-    fn detects_extensionless_autoload_tag_file() {
-        let tempdir = tempdir().unwrap();
-        let script = tempdir.path().join("myfunc");
-        fs::write(&script, "#autoload\nprint hi\n").unwrap();
-
-        assert!(is_shell_script(&script).unwrap());
-    }
-
-    #[test]
-    fn ignores_spaced_compdef_comment_without_shebang() {
-        let tempdir = tempdir().unwrap();
-        let file = tempdir.path().join("notes");
-        fs::write(
-            &file,
-            "# compdef is discussed in these notes\nplain prose\n",
-        )
-        .unwrap();
-
-        assert!(!is_shell_script(&file).unwrap());
-    }
 
     #[test]
     fn ignores_large_extensionless_non_shell_file() {
@@ -1238,7 +1177,6 @@ mod tests {
         fs::write(tempdir.path().join("PKGBUILD"), "echo package\n").unwrap();
         fs::write(tempdir.path().join(".bashrc"), "echo bash\n").unwrap();
         fs::write(tempdir.path().join(".profile"), "echo profile\n").unwrap();
-        fs::write(tempdir.path().join(".zshrc"), "print zsh\n").unwrap();
 
         let files = discover_files(
             &[tempdir.path().to_path_buf()],
@@ -1256,10 +1194,8 @@ mod tests {
             vec![
                 PathBuf::from(".bashrc"),
                 PathBuf::from(".profile"),
-                PathBuf::from(".zshrc"),
                 PathBuf::from("PKGBUILD"),
-                PathBuf::from("script"),
-            ]
+                PathBuf::from("script")]
         );
     }
 
@@ -1339,8 +1275,7 @@ mod tests {
             vec![
                 PathBuf::from("script-00.sh"),
                 PathBuf::from("script-01.sh"),
-                PathBuf::from("script-02.sh"),
-            ]
+                PathBuf::from("script-02.sh")]
         );
     }
 
@@ -1454,8 +1389,7 @@ mod tests {
                 python.clone(),
                 python_shebang.clone(),
                 ruby_versioned.clone(),
-                shell_shebang_py.clone(),
-            ],
+                shell_shebang_py.clone()],
             tempdir.path(),
             &DiscoveryOptions::default(),
         )

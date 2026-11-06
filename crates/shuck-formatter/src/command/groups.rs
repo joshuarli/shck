@@ -203,8 +203,7 @@ pub(crate) fn stmt_start_after_operator(
             '(',
             ')',
         ),
-        _ => command_format_span(&stmt.command).start.offset(),
-    }
+        _ => command_format_span(&stmt.command).start.offset() }
 }
 
 fn group_open_offset_after_operator(
@@ -366,12 +365,11 @@ where
     }
 
     match &stmt.command {
-        Command::Function(_) | Command::AnonymousFunction(_) => stmt_span(stmt).end.offset(),
+        Command::Function(_) => stmt_span(stmt).end.offset(),
         _ if stmt_contains_heredoc(stmt) => stmt_verbatim_span_with_source_map(stmt, source_map)
             .end
             .offset(),
-        _ => stmt_span(stmt).end.offset(),
-    }
+        _ => stmt_span(stmt).end.offset() }
 }
 
 fn find_group_close_offset(source: &str, sequence_end: usize, close: char) -> Option<usize> {
@@ -444,8 +442,7 @@ pub(crate) fn matching_group_close(open: char) -> char {
     match open {
         '{' => '}',
         '(' => ')',
-        other => other,
-    }
+        other => other }
 }
 
 pub(super) fn find_empty_group_open_offset(
@@ -479,8 +476,7 @@ mod tests {
         let file = parse(source);
         let brace_group = match &file.body[0].command {
             Command::Compound(CompoundCommand::BraceGroup(commands)) => commands,
-            _ => panic!("expected brace group"),
-        };
+            _ => panic!("expected brace group") };
 
         let source_map = SourceMap::new(source);
         group_verbatim_span_impl(brace_group.as_slice(), &source_map, '{', '}')

@@ -9,7 +9,7 @@ pub(crate) fn zsh_function_arity_is_externally_defined(
     checker: &Checker<'_>,
     function_scope: ScopeId,
 ) -> bool {
-    checker.shell() == ShellDialect::Zsh
+    checker.shell() == ShellDialect::Bash
         && (checker
             .facts()
             .command_facts()

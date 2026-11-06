@@ -182,99 +182,6 @@ if [ \"${arr[@]:1}\" = foo ]; then :; fi
     }
 
     #[test]
-    fn ignores_zsh_indexed_and_sliced_positional_parameter_assignments() {
-        let source = "\
-#!/bin/zsh
-selected=\"${@[_i]}\"
-selected_short=\"$@[_i]\"
-scope=\"${@[_i]:-}\"
-initial_query=\"${@[2,-1]:-}\"
-fallback=\"${@[5,-1]:-fallback}\"
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::QuotedArraySlice).with_shell(ShellDialect::Zsh),
-        );
-
-        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
-    }
-
-    #[test]
-    fn ignores_zsh_single_argument_slices_in_scalar_bindings() {
-        let source = r#"#!/bin/zsh
-ls_or_cat() {
-    local _path="${@: -1}"
-    print -r -- "$_path"
-}
-last=${@: -1}
-decorated="prefix${@: -1 }suffix"
-typeset first="${@:1:1}"
-readonly empty="${@:2:0}"
-"#;
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::QuotedArraySlice).with_shell(ShellDialect::Zsh),
-        );
-
-        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
-    }
-
-    #[test]
-    fn reports_zsh_slices_that_can_contain_multiple_arguments() {
-        let source = r#"#!/bin/zsh
-all="$@"
-braced="${@}"
-tail="${@: -2}"
-rest="${@:2}"
-pair="${@:1:2}"
-dynamic_offset="${@:offset}"
-dynamic_length="${@:1:count}"
-fallback="${@:-fallback}"
-"#;
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::QuotedArraySlice).with_shell(ShellDialect::Zsh),
-        );
-
-        assert_eq!(diagnostics.len(), 8, "{diagnostics:#?}");
-    }
-
-    #[test]
-    fn fixing_zsh_join_preserves_single_argument_slice_in_same_word() {
-        let source = "#!/bin/zsh\nargs=\"${@: -1}:$@\"\n";
-        let result = test_snippet_with_fix(
-            source,
-            &LinterSettings::for_rule(Rule::QuotedArraySlice).with_shell(ShellDialect::Zsh),
-            Applicability::Unsafe,
-        );
-
-        assert_eq!(result.fixes_applied, 1);
-        assert_eq!(result.fixed_source, "#!/bin/zsh\nargs=\"${@: -1}:$*\"\n");
-        assert!(result.fixed_diagnostics.is_empty());
-    }
-
-    #[test]
-    fn reports_zsh_positional_star_selector_assignments() {
-        let source = "\
-#!/bin/zsh
-selected=\"${@[*]}\"
-selected_short=\"$@[*]\"
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::QuotedArraySlice).with_shell(ShellDialect::Zsh),
-        );
-
-        assert_eq!(
-            diagnostics
-                .iter()
-                .map(|diagnostic| diagnostic.span.slice(source))
-                .collect::<Vec<_>>(),
-            vec!["\"${@[*]}\"", "\"$@[*]\""]
-        );
-    }
-
-    #[test]
     fn applies_unsafe_fix_to_intentional_join_selectors() {
         let source = "\
 #!/bin/bash
@@ -302,31 +209,6 @@ z=${*:5}
 p=\"${arr[*]}\"
 q=\"${arr[*]:-fallback}\"
 flags+=\" ${add_flags[*]}\"
-"
-        );
-        assert!(result.fixed_diagnostics.is_empty());
-    }
-
-    #[test]
-    fn applies_unsafe_fix_to_zsh_star_selector_forms() {
-        let source = "\
-#!/bin/zsh
-selected=\"${@[*]}\"
-selected_short=\"$@[*]\"
-";
-        let result = test_snippet_with_fix(
-            source,
-            &LinterSettings::for_rule(Rule::QuotedArraySlice).with_shell(ShellDialect::Zsh),
-            Applicability::Unsafe,
-        );
-
-        assert_eq!(result.fixes_applied, 2);
-        assert_eq!(
-            result.fixed_source,
-            "\
-#!/bin/zsh
-selected=\"${*[*]}\"
-selected_short=\"$*[*]\"
 "
         );
         assert!(result.fixed_diagnostics.is_empty());

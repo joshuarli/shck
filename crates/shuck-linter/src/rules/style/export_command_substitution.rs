@@ -166,28 +166,6 @@ typeset -r n_version=\"$(./bin/n --version)\"
     }
 
     #[test]
-    fn reports_zsh_integer_declarations_with_command_substitution() {
-        let source = "\
-#!/bin/zsh
-integer generated=$(date)
-integer -r readonly_generated=$(date)
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::ExportCommandSubstitution)
-                .with_shell(ShellDialect::Zsh),
-        );
-
-        assert_eq!(
-            diagnostics
-                .iter()
-                .map(|diagnostic| diagnostic.span.slice(source))
-                .collect::<Vec<_>>(),
-            vec!["generated", "readonly_generated"]
-        );
-    }
-
-    #[test]
     fn reports_top_level_readonly_variants_from_corpus() {
         let source = "\
 #!/bin/bash

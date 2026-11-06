@@ -103,12 +103,6 @@ impl<'a> Parser<'a> {
                 .is_some_and(|ch| matches!(ch, ' ' | '\t' | '\n'))
     }
 
-    pub(super) fn current_token_is_tight_to_next_token(&mut self) -> bool {
-        let current_end = self.current_span.end.offset();
-        self.peek_next()
-            .is_some_and(|token| token.span.start.offset() == current_end)
-    }
-
     pub(super) fn at_in_set(&self, set: TokenSet) -> bool {
         self.current_token_kind
             .is_some_and(|kind| set.contains(kind))
@@ -155,6 +149,7 @@ impl<'a> Parser<'a> {
         self.current_keyword
     }
 
+    #[allow(dead_code)]
     pub(super) fn looks_like_disabled_repeat_loop(&mut self) -> Result<bool> {
         if self.current_keyword() != Some(Keyword::Repeat) {
             return Ok(false);

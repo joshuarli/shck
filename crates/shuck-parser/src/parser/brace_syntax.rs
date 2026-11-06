@@ -58,13 +58,6 @@ impl<'a> Parser<'a> {
                     brace_ccl_enabled,
                     out,
                 ),
-                WordPart::ZshQualifiedGlob(glob) => self
-                    .collect_brace_syntax_from_zsh_qualified_glob(
-                        glob,
-                        quote_context,
-                        brace_ccl_enabled,
-                        out,
-                    ),
                 WordPart::Variable(_)
                 | WordPart::CommandSubstitution { .. }
                 | WordPart::ArithmeticExpansion { .. }
@@ -114,11 +107,7 @@ impl<'a> Parser<'a> {
                 }
                 WordPart::SingleQuoted { .. }
                 | WordPart::DoubleQuoted { .. }
-                | WordPart::ZshQualifiedGlob(_) => self
-                    .input
-                    .get(part.span.start.offset()..part.span.end.offset())
-                    .is_some_and(|raw| raw.contains(['{', '}'])),
-                WordPart::Variable(_)
+                | WordPart::Variable(_)
                 | WordPart::CommandSubstitution { .. }
                 | WordPart::ArithmeticExpansion { .. }
                 | WordPart::Parameter(_)
@@ -169,8 +158,7 @@ impl<'a> Parser<'a> {
                 WordPart::DoubleQuoted { parts, .. } => {
                     self.collect_brace_scan_chars_from_double_quoted_part(part.span, parts, out);
                 }
-                WordPart::ZshQualifiedGlob(_) => {}
-                WordPart::Variable(_)
+WordPart::Variable(_)
                 | WordPart::CommandSubstitution { .. }
                 | WordPart::ArithmeticExpansion { .. }
                 | WordPart::Parameter(_)
@@ -226,8 +214,7 @@ impl<'a> Parser<'a> {
                 WordPart::DoubleQuoted { parts, .. } => {
                     self.collect_brace_scan_chars_from_double_quoted_part(part.span, parts, out);
                 }
-                WordPart::ZshQualifiedGlob(_) => {}
-                WordPart::Variable(_)
+WordPart::Variable(_)
                 | WordPart::CommandSubstitution { .. }
                 | WordPart::ArithmeticExpansion { .. }
                 | WordPart::Parameter(_)
@@ -579,6 +566,7 @@ impl<'a> Parser<'a> {
         }
     }
 
+    #[allow(dead_code)]
     pub(super) fn collect_brace_syntax_from_pattern(
         &self,
         pattern: &Pattern,
@@ -623,24 +611,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub(super) fn collect_brace_syntax_from_zsh_qualified_glob(
-        &self,
-        glob: &ZshQualifiedGlob,
-        quote_context: BraceQuoteContext,
-        brace_ccl_enabled: bool,
-        out: &mut Vec<BraceSyntax>,
-    ) {
-        for segment in &glob.segments {
-            if let ZshGlobSegment::Pattern(pattern) = segment {
-                self.collect_brace_syntax_from_pattern(
-                    pattern,
-                    quote_context,
-                    brace_ccl_enabled,
-                    out,
-                );
-            }
-        }
-    }
 
     pub(super) fn scan_brace_syntax_text(
         text: &str,
@@ -766,6 +736,7 @@ impl<'a> Parser<'a> {
         }
     }
 
+    #[allow(dead_code)]
     pub(super) fn text_position(base: Position, text: &str, offset: usize) -> Position {
         base.advanced_by(&text[..offset])
     }
@@ -966,360 +937,19 @@ impl<'a> Parser<'a> {
 
     pub(super) fn maybe_parse_zsh_qualified_glob_word(
         &mut self,
-        text: &str,
-        span: Span,
-        source_backed: bool,
+        _text: &str,
+        _span: Span,
+        _source_backed: bool,
     ) -> Option<Word> {
-        let features = self.zsh_glob_parse_features_at(span.start.offset());
-        if !self.zsh_glob_word_parsing_enabled_at(span.start.offset())
-            || text.is_empty()
-            || text.contains('=')
-            || text.contains(['\x00', '\\', '\'', '"', '$', '`'])
-            || text.chars().any(char::is_whitespace)
-        {
-            return None;
-        }
-
-        let (segments, qualifiers, saw_glob_syntax) =
-            self.parse_zsh_qualified_glob_segments(text, span, source_backed, features)?;
-        if !saw_glob_syntax {
-            return None;
-        }
-
-        Some(self.word_with_parts(
-            vec![WordPartNode::new(
-                WordPart::ZshQualifiedGlob(Box::new(ZshQualifiedGlob {
-                    span,
-                    segments,
-                    qualifiers,
-                })),
-                span,
-            )],
-            span,
-        ))
+        None
     }
 
-    pub(super) fn parse_zsh_qualified_glob_segments(
-        &mut self,
-        text: &str,
-        span: Span,
-        source_backed: bool,
-        features: ZshGlobParseFeatures,
-    ) -> Option<(Vec<ZshGlobSegment>, Option<ZshGlobQualifierGroup>, bool)> {
-        let mut segments = Vec::new();
-        let mut qualifiers = None;
-        let mut saw_glob_syntax = false;
-        let mut pattern_start = 0usize;
-        let mut index = 0usize;
 
-        while index < text.len() {
-            if features.extended_glob && text[index..].starts_with("(#") {
-                if let Some((len, control)) =
-                    self.parse_zsh_inline_glob_control(text, span.start, index)
-                {
-                    self.push_zsh_pattern_segment(
-                        &mut segments,
-                        text,
-                        span.start,
-                        (pattern_start, index),
-                        source_backed,
-                        features,
-                    );
-                    segments.push(ZshGlobSegment::InlineControl(control));
-                    saw_glob_syntax = true;
-                    index += len;
-                    pattern_start = index;
-                    continue;
-                }
 
-                let suffix_start = Self::text_position(span.start, text, index);
-                if let Some(group) = self.parse_zsh_terminal_glob_qualifier_group(
-                    &text[index..],
-                    suffix_start,
-                    source_backed,
-                ) {
-                    self.push_zsh_pattern_segment(
-                        &mut segments,
-                        text,
-                        span.start,
-                        (pattern_start, index),
-                        source_backed,
-                        features,
-                    );
-                    qualifiers = Some(group);
-                    saw_glob_syntax = true;
-                    index = text.len();
-                    pattern_start = index;
-                    break;
-                }
-            }
 
-            if features.classic_qualifiers && text[index..].starts_with('(') {
-                let suffix_start = Self::text_position(span.start, text, index);
-                if let Some(group) = self.parse_zsh_terminal_glob_qualifier_group(
-                    &text[index..],
-                    suffix_start,
-                    source_backed,
-                ) && matches!(group.kind, ZshGlobQualifierKind::Classic)
-                {
-                    self.push_zsh_pattern_segment(
-                        &mut segments,
-                        text,
-                        span.start,
-                        (pattern_start, index),
-                        source_backed,
-                        features,
-                    );
-                    qualifiers = Some(group);
-                    saw_glob_syntax = true;
-                    index = text.len();
-                    pattern_start = index;
-                    break;
-                }
-            }
 
-            index += text[index..].chars().next()?.len_utf8();
-        }
 
-        saw_glob_syntax |= self.push_zsh_pattern_segment(
-            &mut segments,
-            text,
-            span.start,
-            (pattern_start, text.len()),
-            source_backed,
-            features,
-        );
-
-        segments
-            .iter()
-            .any(|segment| matches!(segment, ZshGlobSegment::Pattern(_)))
-            .then_some((segments, qualifiers, saw_glob_syntax))
-    }
-
-    pub(super) fn push_zsh_pattern_segment(
-        &mut self,
-        segments: &mut Vec<ZshGlobSegment>,
-        text: &str,
-        base: Position,
-        bounds: (usize, usize),
-        source_backed: bool,
-        features: ZshGlobParseFeatures,
-    ) -> bool {
-        let (start, end) = bounds;
-        if start >= end {
-            return false;
-        }
-
-        let span = Span::from_positions(
-            Self::text_position(base, text, start),
-            Self::text_position(base, text, end),
-        );
-        let pattern_word =
-            self.decode_word_text(&text[start..end], span, span.start, source_backed);
-        let pattern = self.pattern_from_word(&pattern_word);
-        let saw_glob_syntax = self.pattern_has_glob_syntax_with_features(&pattern, features);
-        segments.push(ZshGlobSegment::Pattern(pattern));
-        saw_glob_syntax
-    }
-
-    pub(super) fn parse_zsh_inline_glob_control(
-        &self,
-        text: &str,
-        base: Position,
-        start: usize,
-    ) -> Option<(usize, ZshInlineGlobControl)> {
-        let (len, control) = if text[start..].starts_with("(#i)") {
-            (
-                "(#i)".len(),
-                ZshInlineGlobControl::CaseInsensitive {
-                    span: Span::from_positions(
-                        Self::text_position(base, text, start),
-                        Self::text_position(base, text, start + "(#i)".len()),
-                    ),
-                },
-            )
-        } else if text[start..].starts_with("(#b)") {
-            (
-                "(#b)".len(),
-                ZshInlineGlobControl::Backreferences {
-                    span: Span::from_positions(
-                        Self::text_position(base, text, start),
-                        Self::text_position(base, text, start + "(#b)".len()),
-                    ),
-                },
-            )
-        } else if text[start..].starts_with("(#s)") {
-            (
-                "(#s)".len(),
-                ZshInlineGlobControl::StartAnchor {
-                    span: Span::from_positions(
-                        Self::text_position(base, text, start),
-                        Self::text_position(base, text, start + "(#s)".len()),
-                    ),
-                },
-            )
-        } else if text[start..].starts_with("(#e)") {
-            (
-                "(#e)".len(),
-                ZshInlineGlobControl::EndAnchor {
-                    span: Span::from_positions(
-                        Self::text_position(base, text, start),
-                        Self::text_position(base, text, start + "(#e)".len()),
-                    ),
-                },
-            )
-        } else {
-            return None;
-        };
-
-        Some((len, control))
-    }
-
-    pub(super) fn parse_zsh_terminal_glob_qualifier_group(
-        &self,
-        text: &str,
-        base: Position,
-        source_backed: bool,
-    ) -> Option<ZshGlobQualifierGroup> {
-        let (kind, prefix_len, inner) = if let Some(inner) = text
-            .strip_prefix("(#q")
-            .and_then(|rest| rest.strip_suffix(')'))
-        {
-            (ZshGlobQualifierKind::HashQ, "(#q".len(), inner)
-        } else {
-            let inner = text.strip_prefix('(')?.strip_suffix(')')?;
-            (ZshGlobQualifierKind::Classic, "(".len(), inner)
-        };
-
-        let fragments = self.parse_zsh_glob_qualifier_fragments(
-            inner,
-            Self::text_position(base, text, prefix_len),
-            source_backed,
-        )?;
-
-        Some(ZshGlobQualifierGroup {
-            span: Span::from_positions(base, Self::text_position(base, text, text.len())),
-            kind,
-            fragments,
-        })
-    }
-
-    pub(super) fn parse_zsh_glob_qualifier_fragments(
-        &self,
-        text: &str,
-        base: Position,
-        source_backed: bool,
-    ) -> Option<Vec<ZshGlobQualifier>> {
-        let mut fragments = Vec::new();
-        let mut index = 0;
-        let mut saw_non_letter_fragment = false;
-
-        while index < text.len() {
-            let start = index;
-            let ch = text[index..].chars().next()?;
-
-            match ch {
-                '^' => {
-                    index += ch.len_utf8();
-                    fragments.push(ZshGlobQualifier::Negation {
-                        span: Span::from_positions(
-                            Self::text_position(base, text, start),
-                            Self::text_position(base, text, index),
-                        ),
-                    });
-                    saw_non_letter_fragment = true;
-                }
-                '.' | '/' | '-' | 'A'..='Z' => {
-                    index += ch.len_utf8();
-                    fragments.push(ZshGlobQualifier::Flag {
-                        name: ch,
-                        span: Span::from_positions(
-                            Self::text_position(base, text, start),
-                            Self::text_position(base, text, index),
-                        ),
-                    });
-                    saw_non_letter_fragment = true;
-                }
-                '[' => {
-                    index += ch.len_utf8();
-                    let number_start = index;
-                    while matches!(text[index..].chars().next(), Some('0'..='9')) {
-                        index += 1;
-                    }
-                    if number_start == index {
-                        return None;
-                    }
-
-                    let start_text = self.zsh_glob_qualifier_source_text(
-                        text,
-                        base,
-                        number_start,
-                        index,
-                        source_backed,
-                    );
-                    let end_text = if text[index..].starts_with(',') {
-                        index += 1;
-                        let range_start = index;
-                        while matches!(text[index..].chars().next(), Some('0'..='9')) {
-                            index += 1;
-                        }
-                        if range_start == index {
-                            return None;
-                        }
-                        Some(self.zsh_glob_qualifier_source_text(
-                            text,
-                            base,
-                            range_start,
-                            index,
-                            source_backed,
-                        ))
-                    } else {
-                        None
-                    };
-
-                    if !text[index..].starts_with(']') {
-                        return None;
-                    }
-                    index += "]".len();
-                    fragments.push(ZshGlobQualifier::NumericArgument {
-                        span: Span::from_positions(
-                            Self::text_position(base, text, start),
-                            Self::text_position(base, text, index),
-                        ),
-                        start: start_text,
-                        end: end_text,
-                    });
-                    saw_non_letter_fragment = true;
-                }
-                'a'..='z' => {
-                    index += ch.len_utf8();
-                    while matches!(text[index..].chars().next(), Some('a'..='z' | 'A'..='Z')) {
-                        index += 1;
-                    }
-                    if index - start <= 1 {
-                        return None;
-                    }
-                    fragments.push(ZshGlobQualifier::LetterSequence {
-                        text: self.zsh_glob_qualifier_source_text(
-                            text,
-                            base,
-                            start,
-                            index,
-                            source_backed,
-                        ),
-                        span: Span::from_positions(
-                            Self::text_position(base, text, start),
-                            Self::text_position(base, text, index),
-                        ),
-                    });
-                }
-                _ => return None,
-            }
-        }
-
-        (!fragments.is_empty() && saw_non_letter_fragment).then_some(fragments)
-    }
-
+    #[allow(dead_code)]
     pub(super) fn zsh_glob_qualifier_source_text(
         &self,
         text: &str,
@@ -1339,6 +969,7 @@ impl<'a> Parser<'a> {
         }
     }
 
+    #[allow(dead_code)]
     pub(super) fn pattern_has_glob_syntax_with_features(
         &self,
         pattern: &Pattern,
@@ -1354,12 +985,14 @@ impl<'a> Parser<'a> {
         })
     }
 
+    #[allow(dead_code)]
     pub(super) fn pattern_has_glob_word(word: &Word) -> bool {
         word.parts
             .iter()
             .any(|part| !matches!(part.kind, WordPart::Literal(_)))
     }
 
+    #[allow(dead_code)]
     pub(super) fn literal_text_has_zsh_glob_syntax(
         text: &str,
         features: ZshGlobParseFeatures,
@@ -1428,6 +1061,7 @@ impl<'a> Parser<'a> {
         false
     }
 
+    #[allow(dead_code)]
     pub(super) fn literal_text_has_numeric_range_suffix(text: &str) -> bool {
         let Some(rest) = text.strip_prefix('<') else {
             return false;

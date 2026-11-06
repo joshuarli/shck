@@ -5,41 +5,34 @@ use crate::context::RenderContext;
 use super::body_site::CompoundBodySite;
 use super::shape::{
     can_format_multiline_subshell_inline, can_inline_group, can_inline_source_line_subshell,
-    group_has_inline_source_shape,
-};
+    group_has_inline_source_shape };
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct FunctionBodyPlan<'a> {
     body: &'a Stmt,
-    layout: FunctionBodyLayout<'a>,
-}
+    layout: FunctionBodyLayout<'a> }
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum FunctionBodyLayout<'a> {
     FallbackStmt,
     BraceGroup {
         site: CompoundBodySite<'a>,
-        layout: FunctionBodyGroupLayout,
-    },
+        layout: FunctionBodyGroupLayout },
     Subshell {
         site: CompoundBodySite<'a>,
-        layout: FunctionSubshellLayout,
-    },
-}
+        layout: FunctionSubshellLayout } }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum FunctionBodyGroupLayout {
     Inline,
     Multiline,
-    HeaderComment,
-}
+    HeaderComment }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum FunctionSubshellLayout {
     Inline { source_line: bool },
     MultilineInline,
-    Multiline,
-}
+    Multiline }
 
 impl<'a> FunctionBodyPlan<'a> {
     pub(crate) fn for_body(
@@ -51,21 +44,17 @@ impl<'a> FunctionBodyPlan<'a> {
         let Some(site) = CompoundBodySite::function_group_body(body, upper_bound) else {
             return Self {
                 body,
-                layout: FunctionBodyLayout::FallbackStmt,
-            };
+                layout: FunctionBodyLayout::FallbackStmt };
         };
 
         let layout = match site.group_open_char() {
             Some('{') => FunctionBodyLayout::BraceGroup {
                 site,
-                layout: brace_group_layout(site, has_header_comment, context),
-            },
+                layout: brace_group_layout(site, has_header_comment, context) },
             Some('(') => FunctionBodyLayout::Subshell {
                 site,
-                layout: subshell_layout(site, context),
-            },
-            _ => unreachable!("function body group uses brace or subshell syntax"),
-        };
+                layout: subshell_layout(site, context) },
+            _ => unreachable!("function body group uses brace or subshell syntax") };
         Self { body, layout }
     }
 
@@ -120,8 +109,7 @@ fn subshell_layout(
         && (group_inline || source_line_inline)
     {
         return FunctionSubshellLayout::Inline {
-            source_line: source_line_inline && !group_inline,
-        };
+            source_line: source_line_inline && !group_inline };
     }
 
     if can_format_multiline_subshell_inline(context, body, upper_bound) {

@@ -83,8 +83,7 @@ struct RawShellBlockPolicy {
     /// Whether lines lose one indent unit when the substitution starts on an
     /// unindented line. Nested words keep their source indent instead, since
     /// that is already the rendered body indent after one formatting pass.
-    strip_unit_without_outer_indent: bool,
-}
+    strip_unit_without_outer_indent: bool }
 
 impl RawShellBlockPolicy {
     fn command_substitution_word() -> Self {
@@ -95,8 +94,7 @@ impl RawShellBlockPolicy {
             multiline_literal_policy: RawShellBlockLiteralPolicy::NormalizeContinuations,
             pipeline_policy: RawShellBlockPipelinePolicy::NestedWord,
             body_indent_policy: RawShellBlockBodyIndentPolicy::None,
-            strip_unit_without_outer_indent: false,
-        }
+            strip_unit_without_outer_indent: false }
     }
 
     fn block_command_substitution_body() -> Self {
@@ -107,28 +105,24 @@ impl RawShellBlockPolicy {
             multiline_literal_policy: RawShellBlockLiteralPolicy::PreserveSource,
             pipeline_policy: RawShellBlockPipelinePolicy::BodyLine,
             body_indent_policy: RawShellBlockBodyIndentPolicy::StripFirstBodyIndent,
-            strip_unit_without_outer_indent: true,
-        }
+            strip_unit_without_outer_indent: true }
     }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum RawShellBlockLiteralPolicy {
     NormalizeContinuations,
-    PreserveSource,
-}
+    PreserveSource }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum RawShellBlockPipelinePolicy {
     NestedWord,
-    BodyLine,
-}
+    BodyLine }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum RawShellBlockBodyIndentPolicy {
     None,
-    StripFirstBodyIndent,
-}
+    StripFirstBodyIndent }
 
 #[derive(Default)]
 struct RawShellBlockLinePlan {
@@ -136,8 +130,7 @@ struct RawShellBlockLinePlan {
     forced_rendered_indent: Option<String>,
     used_continuation_indent: bool,
     in_compound_body: bool,
-    closes_substitution_wrapper: bool,
-}
+    closes_substitution_wrapper: bool }
 
 struct RawShellBlockFormatter<'source, 'options> {
     options: &'options ResolvedShellFormatOptions,
@@ -153,8 +146,7 @@ struct RawShellBlockFormatter<'source, 'options> {
     command_start_indent: Option<String>,
     literal_exit_continuation_indent: Option<String>,
     compound_indents: RawCompoundIndentState,
-    body_indent: Option<String>,
-}
+    body_indent: Option<String> }
 
 impl<'source, 'options> RawShellBlockFormatter<'source, 'options> {
     fn format_to(
@@ -197,8 +189,7 @@ impl<'source, 'options> RawShellBlockFormatter<'source, 'options> {
             command_start_indent: None,
             literal_exit_continuation_indent: None,
             compound_indents: RawCompoundIndentState::default(),
-            body_indent: None,
-        };
+            body_indent: None };
         formatter.scan_and_seed_first_line(first);
         for (line_index, line) in lines.iter().enumerate() {
             formatter.push_line(target, line, lines, line_index);
@@ -541,10 +532,8 @@ impl<'source, 'options> RawShellBlockFormatter<'source, 'options> {
                 // indent itself.
                 Some(match self.command_start_indent.as_deref() {
                     Some(start) if !self.normalized_pipeline_continuation => start.to_string(),
-                    _ => rendered_indent.to_string(),
-                })
-            }),
-        }
+                    _ => rendered_indent.to_string() })
+            }) }
     }
 
     fn update_continuation_pipeline_stage(
@@ -589,8 +578,7 @@ impl<'source, 'options> RawShellBlockFormatter<'source, 'options> {
                     } else {
                         source_indent_plus_one_unit(rendered_indent, self.options)
                     }
-                }),
-        }
+                }) }
     }
 }
 
@@ -615,8 +603,7 @@ pub(super) struct RawCommandSubstitutionCommentFallback<'source, 'facts> {
     pub(super) raw: &'source str,
     pub(super) body: &'source shuck_ast::StmtSeq,
     pub(super) span_start: usize,
-    pub(super) context: RenderContext<'source, 'facts>,
-}
+    pub(super) context: RenderContext<'source, 'facts> }
 
 pub(super) fn push_raw_command_substitution_comment_fallback(
     rendered: &mut String,
@@ -627,8 +614,7 @@ pub(super) fn push_raw_command_substitution_comment_fallback(
         raw,
         body,
         span_start,
-        context,
-    } = fallback;
+        context } = fallback;
     let source = context.source;
     let options = context.options;
 
@@ -869,8 +855,7 @@ pub(super) fn stmt_is_compound_group_pipeline_operand(stmt: &Stmt) -> bool {
     match &stmt.command {
         Command::Binary(_) => command_is_pipeline_of_compound_groups(&stmt.command),
         Command::Compound(CompoundCommand::BraceGroup(_) | CompoundCommand::Subshell(_)) => true,
-        _ => false,
-    }
+        _ => false }
 }
 
 pub(super) fn restore_raw_case_terminator_suffix_comments(
@@ -1159,8 +1144,7 @@ pub(super) enum CommandSubstitutionLayout {
     Inline,
     InlineContinued,
     InlineSourceIndented,
-    Block,
-}
+    Block }
 
 pub(super) fn command_substitution_layout(
     raw: Option<&str>,
@@ -1381,8 +1365,7 @@ pub(super) fn normalize_inline_raw_command_substitution_body_with_options(
                     indent_units
                 } else {
                     pipeline_base_units
-                },
-            });
+                } });
         }
         if pipeline_compounds
             .last()
@@ -1397,8 +1380,7 @@ pub(super) fn normalize_inline_raw_command_substitution_body_with_options(
 
 pub(super) struct InlinePipelineCompound {
     close_keyword: &'static str,
-    base_units: usize,
-}
+    base_units: usize }
 
 pub(super) fn inline_raw_body_source_base_indent(lines: &[String]) -> Option<String> {
     let mut common: Option<String> = None;
@@ -1594,8 +1576,7 @@ pub(super) fn normalized_source_inline_indent(
         IndentStyle::Space if indent.chars().all(|ch| ch == '\t') => {
             " ".repeat(indent.len() * usize::from(options.indent_width()))
         }
-        _ => indent.to_string(),
-    }
+        _ => indent.to_string() }
 }
 
 pub(super) fn normalized_raw_shell_indent(
@@ -1607,8 +1588,7 @@ pub(super) fn normalized_raw_shell_indent(
             let unit = usize::from(options.indent_width()).clamp(1, 4);
             "\t".repeat(indent.len().div_ceil(unit))
         }
-        _ => normalized_source_inline_indent(indent, options),
-    }
+        _ => normalized_source_inline_indent(indent, options) }
 }
 
 pub(super) fn push_indented_rendered_block(
@@ -1729,8 +1709,7 @@ pub(super) fn strip_common_rendered_block_indent<'a>(
 pub(super) struct CommandSubstitutionHeredocIndent {
     delimiter: String,
     strip_tabs: bool,
-    command_indent: String,
-}
+    command_indent: String }
 
 pub(super) fn command_substitution_heredoc_indent(
     line: &str,
@@ -1739,8 +1718,7 @@ pub(super) fn command_substitution_heredoc_indent(
     Some(CommandSubstitutionHeredocIndent {
         delimiter: start.delimiter.to_string(),
         strip_tabs: start.strip_tabs,
-        command_indent: line_leading_shell_indent(line).to_string(),
-    })
+        command_indent: line_leading_shell_indent(line).to_string() })
 }
 
 pub(super) fn heredoc_line_closes_command_substitution_heredoc(
@@ -1766,6 +1744,5 @@ pub(super) fn line_needs_command_substitution_indent(
         // Leave literal multiline string continuation lines alone. Formatter-
         // produced shell indentation already uses tabs in this mode.
         IndentStyle::Tab => !line.starts_with(' '),
-        IndentStyle::Space => true,
-    }
+        IndentStyle::Space => true }
 }

@@ -44,6 +44,7 @@ fn stdout_string(output: &std::process::Output) -> String {
     String::from_utf8(output.stdout.clone()).unwrap()
 }
 
+
 fn platform_path(path: &str) -> String {
     if std::path::MAIN_SEPARATOR == '/' {
         path.to_owned()
@@ -299,41 +300,6 @@ fn check_stdin_filename_is_optional_and_controls_per_file_settings() {
         ])
         .write_stdin("#!/bin/bash\necho $foo\n");
     cmd.assert().success().stdout("").stderr("");
-}
-
-#[test]
-fn check_c099_preserves_zsh_last_argument_slice() {
-    let source = r#"#!/bin/zsh
-ls_or_cat() {
- local _path="${@: -1}"
- if [[ -d "$_path" ]]; then
-  ls "$@"
- elif [[ -f "$_path" ]]; then
-  cat "$@"
- else
-  die "$0: $_path: not a file or directory"
- fi
-}
-"#;
-    for fix_args in [vec![], vec!["--fix"], vec!["--unsafe-fixes"]] {
-        let mut cmd = Command::cargo_bin("shuck").unwrap();
-        cmd.args([
-            "check",
-            "--isolated",
-            "--no-cache",
-            "--stdin-filename",
-            "repro.zsh",
-            "--select",
-            "C099",
-            "-",
-        ])
-        .args(&fix_args)
-        .write_stdin(source);
-        cmd.assert()
-            .success()
-            .stdout(if fix_args.is_empty() { "" } else { source })
-            .stderr("");
-    }
 }
 
 #[test]
@@ -1972,99 +1938,6 @@ fn format_stdin_filename_accepts_common_shell_extensions() {
 }
 
 #[test]
-fn format_stdin_filename_infers_zsh_dialect() {
-    let mut cmd = Command::cargo_bin("shuck").unwrap();
-    cmd.args(["format", "--stdin-filename", "script.zsh"])
-        .write_stdin("print ${(m)foo}\n");
-    cmd.assert().success().stdout("print ${(m)foo}\n");
-}
-
-#[test]
-fn format_stdin_filename_uses_shared_per_file_shell_config() {
-    let tempdir = tempdir().unwrap();
-    fs::write(
-        tempdir.path().join("shuck.toml"),
-        "[per-file-shell]\n'dot_z*' = 'zsh'\n",
-    )
-    .unwrap();
-
-    let source = "(($+commands[vivid]))\n";
-    let mut cmd = Command::cargo_bin("shuck").unwrap();
-    cmd.current_dir(tempdir.path())
-        .args(["format", "--stdin-filename", "dot_zshenv", "-"])
-        .write_stdin(source);
-    cmd.assert().success().stdout(source).stderr("");
-}
-
-#[test]
-fn format_stdin_rejects_configured_dialect() {
-    let tempdir = tempdir().unwrap();
-    fs::write(
-        tempdir.path().join("shuck.toml"),
-        "[format]\ndialect = \"zsh\"\n",
-    )
-    .unwrap();
-
-    let mut cmd = Command::cargo_bin("shuck").unwrap();
-    cmd.current_dir(tempdir.path())
-        .args(["format", "-"])
-        .write_stdin("print ${(m)foo}\n");
-    cmd.assert()
-        .code(2)
-        .stderr(predicate::str::contains("[format].dialect"))
-        .stderr(predicate::str::contains("--dialect"));
-}
-
-#[test]
-fn format_stdin_uses_cli_zsh_dialect_override() {
-    let mut cmd = Command::cargo_bin("shuck").unwrap();
-    cmd.args(["format", "--dialect", "zsh", "-"])
-        .write_stdin("print ${(m)foo}\n");
-    cmd.assert().success().stdout("print ${(m)foo}\n");
-}
-
-#[test]
-fn check_zsh_extension_parses_with_inferred_zsh_dialect() {
-    let tempdir = tempdir().unwrap();
-    fs::write(tempdir.path().join("ok.zsh"), "foo=bar\nprint ${(m)foo}\n").unwrap();
-
-    let mut cmd = Command::cargo_bin("shuck").unwrap();
-    configure_env_cache(&mut cmd, tempdir.path());
-    cmd.current_dir(tempdir.path()).arg("check");
-    cmd.assert().success().stdout("");
-}
-
-#[test]
-fn check_zsh_extension_parses_repeat_and_foreach_with_inferred_zsh_dialect() {
-    let tempdir = tempdir().unwrap();
-    fs::write(
-        tempdir.path().join("ok.zsh"),
-        "repeat 3; do echo hi; done\nforeach x (a b c) { echo $x; }\n",
-    )
-    .unwrap();
-
-    let mut cmd = Command::cargo_bin("shuck").unwrap();
-    configure_env_cache(&mut cmd, tempdir.path());
-    cmd.current_dir(tempdir.path()).arg("check");
-    cmd.assert().success().stdout("");
-}
-
-#[test]
-fn check_zsh_shebang_parses_with_inferred_zsh_dialect() {
-    let tempdir = tempdir().unwrap();
-    fs::write(
-        tempdir.path().join("ok"),
-        "#!/usr/bin/env zsh\nfoo=bar\nprint ${(m)foo}\n",
-    )
-    .unwrap();
-
-    let mut cmd = Command::cargo_bin("shuck").unwrap();
-    configure_env_cache(&mut cmd, tempdir.path());
-    cmd.current_dir(tempdir.path()).arg("check");
-    cmd.assert().success().stdout("");
-}
-
-#[test]
 fn check_analyzes_every_explicit_regular_file() {
     #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
@@ -2163,27 +2036,6 @@ fn check_per_file_shell_reaches_explicit_extensionless_file() {
 }
 
 #[test]
-fn check_uses_shared_per_file_shell_config() {
-    let tempdir = tempdir().unwrap();
-    fs::write(
-        tempdir.path().join("shuck.toml"),
-        "[per-file-shell]\n'dot_z*' = 'zsh'\n",
-    )
-    .unwrap();
-    fs::write(
-        tempdir.path().join("dot_zshenv"),
-        "foo=bar\nprint ${(m)foo}\n",
-    )
-    .unwrap();
-
-    let mut cmd = Command::cargo_bin("shuck").unwrap();
-    configure_env_cache(&mut cmd, tempdir.path());
-    cmd.current_dir(tempdir.path())
-        .args(["check", "--no-cache", "dot_zshenv"]);
-    cmd.assert().success().stdout("").stderr("");
-}
-
-#[test]
 fn check_directory_discovery_stays_limited_to_shell_candidates() {
     #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
@@ -2193,7 +2045,6 @@ fn check_directory_discovery_stays_limited_to_shell_candidates() {
     fs::write(tempdir.path().join("PKGBUILD"), "{\n").unwrap();
     fs::write(tempdir.path().join(".bashrc"), "{\n").unwrap();
     fs::write(tempdir.path().join(".profile"), "{\n").unwrap();
-    fs::write(tempdir.path().join(".zshrc"), "{\n").unwrap();
     fs::write(tempdir.path().join("unknown"), "{\n").unwrap();
     fs::write(tempdir.path().join("notes.txt"), "{\n").unwrap();
     let executable = tempdir.path().join("tool");
@@ -2215,7 +2066,6 @@ fn check_directory_discovery_stays_limited_to_shell_candidates() {
         .stdout(predicate::str::contains("--> PKGBUILD:1:1"))
         .stdout(predicate::str::contains("--> .bashrc:1:1"))
         .stdout(predicate::str::contains("--> .profile:1:1"))
-        .stdout(predicate::str::contains("--> .zshrc:1:1"))
         .stdout(predicate::str::contains("--> unknown:").not())
         .stdout(predicate::str::contains("--> notes.txt:").not())
         .stdout(predicate::str::contains("--> tool:").not());
@@ -2429,15 +2279,15 @@ fn format_config_exclude_skips_walked_and_explicit_files_per_project() {
     fs::write(tempdir.path().join("shuck.toml"), "[format]\n").unwrap();
     fs::write(
         nested.join("shuck.toml"),
-        "[format]\nexclude = ['**/*p10k.zsh']\n",
+        "[format]\nexclude = ['**/*generated.sh']\n",
     )
     .unwrap();
 
-    let regular = nested.join("regular.zsh");
-    let generated = nested.join(".p10k.zsh");
-    let unformatted_regular = "if true; then\nprint ok\nfi\n";
-    let formatted_regular = "if true; then\n\tprint ok\nfi\n";
-    let unformatted_generated = "if true\n";
+    let regular = nested.join("regular.sh");
+    let generated = nested.join(".generated.sh");
+    let unformatted_regular = "if true; then\necho ok\nfi\n";
+    let formatted_regular = "if true; then\n\techo ok\nfi\n";
+    let unformatted_generated = "if true; then\necho gen\nfi\n";
     fs::write(&regular, unformatted_regular).unwrap();
     fs::write(&generated, unformatted_generated).unwrap();
 
@@ -2456,7 +2306,7 @@ fn format_config_exclude_skips_walked_and_explicit_files_per_project() {
     configure_env_cache(&mut explicit, tempdir.path());
     explicit
         .current_dir(tempdir.path())
-        .args(["format", "nested/.p10k.zsh"]);
+        .args(["format", "nested/.generated.sh"]);
     explicit.assert().success().stdout("");
     assert_eq!(
         fs::read_to_string(&generated).unwrap(),
@@ -2529,46 +2379,6 @@ fn format_honors_project_config_and_cli_overrides_it() {
         fs::read_to_string(script).unwrap(),
         "foo()\n{\n\techo hi\n}\n"
     );
-}
-
-#[test]
-fn format_uses_shared_per_file_shell_for_extensionless_zsh_file() {
-    let tempdir = tempdir().unwrap();
-    fs::write(
-        tempdir.path().join("shuck.toml"),
-        "[per-file-shell]\n'dot_z*' = 'zsh'\n",
-    )
-    .unwrap();
-    let script = tempdir.path().join("dot_zshenv");
-    let source = "(($+commands[vivid]))\n";
-    fs::write(&script, source).unwrap();
-
-    let mut cmd = Command::cargo_bin("shuck").unwrap();
-    configure_env_cache(&mut cmd, tempdir.path());
-    cmd.current_dir(tempdir.path())
-        .args(["format", "dot_zshenv"]);
-    cmd.assert().success().stdout("").stderr("");
-
-    assert_eq!(fs::read_to_string(script).unwrap(), source);
-}
-
-#[test]
-fn format_rejects_conflicting_per_file_shell_mappings() {
-    let tempdir = tempdir().unwrap();
-    fs::write(
-        tempdir.path().join("shuck.toml"),
-        "[per-file-shell]\n'*' = 'bash'\n'dot_z*' = 'zsh'\n",
-    )
-    .unwrap();
-    fs::write(tempdir.path().join("dot_zshenv"), "(($+commands[vivid]))\n").unwrap();
-
-    let mut cmd = Command::cargo_bin("shuck").unwrap();
-    configure_env_cache(&mut cmd, tempdir.path());
-    cmd.current_dir(tempdir.path())
-        .args(["format", "dot_zshenv"]);
-    cmd.assert().code(2).stderr(predicate::str::contains(
-        "conflicting per-file shell mappings",
-    ));
 }
 
 #[test]
@@ -2687,31 +2497,6 @@ fn format_cache_invalidates_when_formatter_options_change() {
         .current_dir(tempdir.path())
         .args(["format", "--check", "--function-next-line"]);
     check.assert().code(1).stdout("");
-}
-
-#[test]
-fn format_cache_invalidates_when_per_file_shell_changes() {
-    let tempdir = tempdir().unwrap();
-    let config = tempdir.path().join("shuck.toml");
-    fs::write(&config, "[per-file-shell]\n'dot_z*' = 'zsh'\n").unwrap();
-    let script = tempdir.path().join("dot_zshenv");
-    fs::write(&script, "(($+commands[vivid]))\n").unwrap();
-
-    let mut initial = Command::cargo_bin("shuck").unwrap();
-    configure_env_cache(&mut initial, tempdir.path());
-    initial
-        .current_dir(tempdir.path())
-        .args(["format", "dot_zshenv"]);
-    initial.assert().success().stdout("").stderr("");
-
-    fs::write(&config, "[per-file-shell]\n'dot_z*' = 'bash'\n").unwrap();
-
-    let mut changed = Command::cargo_bin("shuck").unwrap();
-    configure_env_cache(&mut changed, tempdir.path());
-    changed
-        .current_dir(tempdir.path())
-        .args(["format", "--check", "dot_zshenv"]);
-    changed.assert().code(1).stdout("").stderr("");
 }
 
 #[test]

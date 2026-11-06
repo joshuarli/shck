@@ -167,7 +167,6 @@ impl<'a> SafeValueIndex<'a> {
             return false;
         }
         match part {
-            WordPart::ZshQualifiedGlob(_) => query == SafeValueQuery::Quoted,
             WordPart::Parameter(parameter) => self.parameter_part_is_safe(parameter, span, query),
             WordPart::Literal(_) | WordPart::SingleQuoted { .. } => {
                 self.literal_part_is_safe(part, span, query)
@@ -375,8 +374,7 @@ impl<'a> SafeValueIndex<'a> {
             WordPart::ArithmeticExpansion { .. }
             | WordPart::Length(_)
             | WordPart::ArrayLength(_) => S001QuoteExposure::QuoteInertNonEmpty,
-            WordPart::ZshQualifiedGlob(_)
-            | WordPart::CommandSubstitution { .. }
+            WordPart::CommandSubstitution { .. }
             | WordPart::ArrayIndices(_)
             | WordPart::ArraySlice { .. }
             | WordPart::PrefixMatch { .. }
@@ -518,7 +516,7 @@ impl<'a> SafeValueIndex<'a> {
                 .binding_value(binding_id)
                 .and_then(|value| value.scalar_word())
                 .and_then(|word| static_word_text(word, self.source))
-                .is_some_and(|text| literal_is_setup_atom(&text));
+                .is_some_and(|text| literal_is_setup_atom(text.as_ref()));
             if !setup_atom {
                 return false;
             }
@@ -573,8 +571,6 @@ impl<'a> SafeValueIndex<'a> {
                 self.facts.command_facts().command(command_id).command(),
                 Command::Compound(
                     CompoundCommand::For(_)
-                        | CompoundCommand::Repeat(_)
-                        | CompoundCommand::Foreach(_)
                         | CompoundCommand::ArithmeticFor(_)
                         | CompoundCommand::While(_)
                         | CompoundCommand::Until(_)
@@ -628,7 +624,7 @@ impl<'a> SafeValueIndex<'a> {
             return false;
         }
 
-        static_word_text(&word, self.source).is_some_and(|text| query.literal_is_safe(&text))
+        static_word_text(&word, self.source).is_some_and(|text| query.literal_is_safe(text.as_ref()))
     }
 
     fn literal_part_s001_quote_exposure(
@@ -1100,8 +1096,7 @@ impl<'a> SafeValueIndex<'a> {
                     | Command::Decl(_)
                     | Command::Binary(_)
                     | Command::Compound(_)
-                    | Command::Function(_)
-                    | Command::AnonymousFunction(_) => false,
+                    | Command::Function(_) => false,
                 }
             })
     }
@@ -1133,8 +1128,7 @@ impl<'a> SafeValueIndex<'a> {
                     | Command::Decl(_)
                     | Command::Binary(_)
                     | Command::Compound(_)
-                    | Command::Function(_)
-                    | Command::AnonymousFunction(_) => false,
+                    | Command::Function(_) => false,
                 }
             })
     }
@@ -1817,7 +1811,7 @@ impl<'a> SafeValueIndex<'a> {
             .binding_value(binding_id)
             .and_then(|value| value.scalar_word())
             .and_then(|word| static_word_text(word, self.source))
-            .is_some_and(|text| query.literal_is_safe(&text))
+            .is_some_and(|text| query.literal_is_safe(text.as_ref()))
         {
             return false;
         }
@@ -3878,7 +3872,6 @@ impl<'a> SafeValueIndex<'a> {
                     operator,
                 } => self.transformation_is_safe(reference, *operator, at, query),
             },
-            ParameterExpansionSyntax::Zsh(_) => false,
         }
     }
 
@@ -3902,13 +3895,7 @@ impl<'a> SafeValueIndex<'a> {
             ParameterExpansionSyntax::Bourne(BourneParameterExpansion::Length { .. }) => {
                 S001QuoteExposure::QuoteInertNonEmpty
             }
-            ParameterExpansionSyntax::Bourne(_) | ParameterExpansionSyntax::Zsh(_) => {
-                if self.parameter_part_is_safe(parameter, at, query) {
-                    S001QuoteExposure::QuoteInertNonEmpty
-                } else {
-                    S001QuoteExposure::Unsafe
-                }
-            }
+            ParameterExpansionSyntax::Bourne(_) => S001QuoteExposure::Unsafe,
         }
     }
 
@@ -4280,8 +4267,7 @@ impl<'a> SafeValueIndex<'a> {
                 | Command::Decl(_)
                 | Command::Binary(_)
                 | Command::Compound(_)
-                | Command::Function(_)
-                | Command::AnonymousFunction(_) => None,
+                | Command::Function(_) => None,
             })
             .min_by_key(|span| span.end.offset() - span.start.offset())
     }
@@ -4366,10 +4352,9 @@ fn plain_scalar_reference_name_from_part(part: &WordPart) -> Option<Name> {
             {
                 Some(reference.name.clone())
             }
-            ParameterExpansionSyntax::Bourne(_) | ParameterExpansionSyntax::Zsh(_) => None,
+            ParameterExpansionSyntax::Bourne(_) => None,
         },
         WordPart::Literal(_)
-        | WordPart::ZshQualifiedGlob(_)
         | WordPart::SingleQuoted { .. }
         | WordPart::Variable(_)
         | WordPart::CommandSubstitution { .. }
@@ -4434,7 +4419,6 @@ fn part_is_safe_special_parameter_access(part: &WordPart) -> bool {
                 if safe_special_parameter(&reference.name) && reference.subscript.is_none()
         ),
         WordPart::Literal(_)
-        | WordPart::ZshQualifiedGlob(_)
         | WordPart::SingleQuoted { .. }
         | WordPart::CommandSubstitution { .. }
         | WordPart::ArithmeticExpansion { .. }
@@ -4468,7 +4452,7 @@ fn safe_numeric_shell_variable(name: &Name) -> bool {
 }
 
 fn word_static_text_is_shell_integer(word: &Word, source: &str) -> bool {
-    static_word_text(word, source).is_some_and(|text| shell_integer_text_is_safe(&text))
+    static_word_text(word, source).is_some_and(|text| shell_integer_text_is_safe(text.as_ref()))
 }
 
 fn shell_integer_text_is_safe(text: &str) -> bool {
@@ -4583,12 +4567,6 @@ fn command_terminal_flow_kind(command: &Command) -> TerminalFlowKind {
         Command::Compound(CompoundCommand::For(command)) => {
             maybe_stop_terminal_flow_kind(stmt_seq_terminal_flow_kind(&command.body))
         }
-        Command::Compound(CompoundCommand::Repeat(command)) => {
-            maybe_stop_terminal_flow_kind(stmt_seq_terminal_flow_kind(&command.body))
-        }
-        Command::Compound(CompoundCommand::Foreach(command)) => {
-            maybe_stop_terminal_flow_kind(stmt_seq_terminal_flow_kind(&command.body))
-        }
         Command::Compound(CompoundCommand::ArithmeticFor(command)) => {
             maybe_stop_terminal_flow_kind(stmt_seq_terminal_flow_kind(&command.body))
         }
@@ -4618,8 +4596,7 @@ fn command_terminal_flow_kind(command: &Command) -> TerminalFlowKind {
         | Command::Decl(_)
         | Command::Binary(_)
         | Command::Compound(_)
-        | Command::Function(_)
-        | Command::AnonymousFunction(_) => TerminalFlowKind::None,
+        | Command::Function(_) => TerminalFlowKind::None,
     }
 }
 
@@ -4746,56 +4723,6 @@ mod tests {
 
         assert!(safe_values.word_is_safe(&command.args[1], SafeValueQuery::Quoted));
         assert!(!safe_values.word_is_safe(&command.args[2], SafeValueQuery::Argv));
-    }
-
-    #[test]
-    fn treats_zsh_parameter_modifiers_as_dynamic_unknown_values() {
-        let source = "print ${(m)foo}\n";
-        let output = Parser::with_dialect(source, shuck_parser::parser::ShellDialect::Zsh)
-            .parse()
-            .unwrap();
-        let indexer = Indexer::new(source, &output);
-        let semantic = LinterSemanticArtifacts::build(&output.file, source, &indexer);
-        let analysis = semantic.semantic().analysis();
-        let facts = LinterFacts::build(&output.file, source, &semantic, &indexer);
-        let mut safe_values = SafeValueIndex::build(semantic.semantic(), &analysis, &facts, source);
-
-        let Command::Simple(command) = &output.file.body[0].command else {
-            panic!("expected simple command");
-        };
-
-        assert!(!safe_values.word_is_safe(&command.args[0], SafeValueQuery::Argv));
-        assert!(!safe_values.word_is_safe(&command.args[0], SafeValueQuery::Quoted));
-    }
-
-    #[test]
-    fn keeps_typed_zsh_parameter_operations_conservative() {
-        let source = "print ${(m)foo#${needle}} ${(S)foo/$pattern/$replacement} ${(m)foo:$offset:${length}}\n";
-        let output = Parser::with_dialect(source, shuck_parser::parser::ShellDialect::Zsh)
-            .parse()
-            .unwrap();
-        let indexer = Indexer::new(source, &output);
-        let semantic = LinterSemanticArtifacts::build(&output.file, source, &indexer);
-        let analysis = semantic.semantic().analysis();
-        let facts = LinterFacts::build(&output.file, source, &semantic, &indexer);
-        let mut safe_values = SafeValueIndex::build(semantic.semantic(), &analysis, &facts, source);
-
-        let Command::Simple(command) = &output.file.body[0].command else {
-            panic!("expected simple command");
-        };
-
-        assert!(
-            command
-                .args
-                .iter()
-                .all(|word| !safe_values.word_is_safe(word, SafeValueQuery::Argv))
-        );
-        assert!(
-            command
-                .args
-                .iter()
-                .all(|word| !safe_values.word_is_safe(word, SafeValueQuery::Quoted))
-        );
     }
 
     #[test]

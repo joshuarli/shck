@@ -91,8 +91,7 @@ pub(super) fn push_parameter_word(
         }
         BourneParameterExpansion::Transformation {
             reference,
-            operator,
-        } => {
+            operator } => {
             rendered.push_str("${");
             push_var_ref(rendered, reference, context);
             rendered.push('@');
@@ -258,8 +257,7 @@ pub(super) fn render_parameter_expansion(
                 ParameterOp::RemovePrefixLong { .. } => "##",
                 ParameterOp::RemoveSuffixShort { .. } => "%",
                 ParameterOp::RemoveSuffixLong { .. } => "%%",
-                _ => unreachable!(),
-            };
+                _ => unreachable!() };
             rendered.push_str(removal_operator);
             render_pattern_syntax_to_buf(pattern, env, rendered);
         }
@@ -297,8 +295,7 @@ pub(super) fn render_parameter_expansion(
         ParameterOp::UpperFirst => rendered.push('^'),
         ParameterOp::UpperAll => rendered.push_str("^^"),
         ParameterOp::LowerFirst => rendered.push(','),
-        ParameterOp::LowerAll => rendered.push_str(",,"),
-    }
+        ParameterOp::LowerAll => rendered.push(',') }
     rendered.push('}');
     Ok(())
 }
@@ -331,8 +328,7 @@ pub(super) fn raw_parameter_replacement_parts<'a>(
 pub(super) fn split_raw_parameter_replacement(raw: &str) -> (&str, &str) {
     match raw_parameter_replacement_separator(raw) {
         Some(index) => (&raw[..index], &raw[index + '/'.len_utf8()..]),
-        None => (raw, ""),
-    }
+        None => (raw, "") }
 }
 
 /// Finds the `/` separating the pattern from the replacement in the text after
@@ -408,8 +404,7 @@ pub(crate) fn parameter_defaulting_operator(operator: &ParameterOp) -> &'static 
         ParameterOp::AssignDefault => "=",
         ParameterOp::UseReplacement => "+",
         ParameterOp::Error => "?",
-        _ => "",
-    }
+        _ => "" }
 }
 
 pub(crate) fn render_pattern_syntax_to_buf(
@@ -447,8 +442,7 @@ pub(super) fn pattern_needs_formatter_rendering(pattern: &Pattern) -> bool {
         PatternPart::Group { patterns, .. } => {
             patterns.iter().any(pattern_needs_formatter_rendering)
         }
-        _ => false,
-    })
+        _ => false })
 }
 
 pub(super) fn render_pattern_parts_syntax_to_buf(
@@ -474,8 +468,7 @@ pub(super) fn render_pattern_parts_syntax_to_buf(
             _ => {
                 let single = Pattern {
                     parts: vec![part.clone()],
-                    span: part.span,
-                };
+                    span: part.span };
                 single.render_syntax_to_buf(context.source, rendered);
             }
         }

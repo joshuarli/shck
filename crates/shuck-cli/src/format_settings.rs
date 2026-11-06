@@ -114,7 +114,6 @@ const fn shell_dialect_key(dialect: FormatDialect) -> u8 {
         FormatDialect::Bash => 1,
         FormatDialect::Posix => 2,
         FormatDialect::Mksh => 3,
-        FormatDialect::Zsh => 4,
     }
 }
 
@@ -224,7 +223,7 @@ mod tests {
     #[test]
     fn configured_dialect_errors_with_migration_hint() {
         let config = FormatConfig {
-            dialect: Some(toml::Value::String("zsh".to_owned())),
+            dialect: Some(toml::Value::String("bash".to_owned())),
             ..FormatConfig::default()
         };
 
@@ -237,7 +236,7 @@ mod tests {
         let tempdir = tempdir().unwrap();
         fs::write(
             tempdir.path().join("shuck.toml"),
-            "[per-file-shell]\n'dot_z*' = 'zsh'\n",
+            "[per-file-shell]\n'dot_b*' = 'bash'\n",
         )
         .unwrap();
 
@@ -250,10 +249,10 @@ mod tests {
 
         assert_eq!(
             settings
-                .shell_format_options_for_path(&tempdir.path().join("dot_zshenv"))
+                .shell_format_options_for_path(&tempdir.path().join("dot_bashrc"))
                 .unwrap()
                 .dialect(),
-            FormatDialect::Zsh
+            FormatDialect::Bash
         );
         assert_eq!(
             settings
@@ -269,7 +268,7 @@ mod tests {
         let tempdir = tempdir().unwrap();
         fs::write(
             tempdir.path().join("shuck.toml"),
-            "[lint]\nper-file-shell = { 'dot_z*' = 'zsh' }\n",
+            "[lint]\nper-file-shell = { 'dot_b*' = 'bash' }\n",
         )
         .unwrap();
 
@@ -282,10 +281,10 @@ mod tests {
 
         assert_eq!(
             settings
-                .shell_format_options_for_path(&tempdir.path().join("dot_zshenv"))
+                .shell_format_options_for_path(&tempdir.path().join("dot_bashrc"))
                 .unwrap()
                 .dialect(),
-            FormatDialect::Zsh
+            FormatDialect::Bash
         );
     }
 
@@ -294,11 +293,11 @@ mod tests {
         let tempdir = tempdir().unwrap();
         fs::write(
             tempdir.path().join("shuck.toml"),
-            "[per-file-shell]\n'dot_z*' = 'zsh'\n",
+            "[per-file-shell]\n'dot_b*' = 'bash'\n",
         )
         .unwrap();
         let mut args = format_args();
-        args.dialect = Some(FormatDialectArg::Bash);
+        args.dialect = Some(FormatDialectArg::Posix);
 
         let settings = resolve_project_format_settings(
             tempdir.path(),
@@ -309,10 +308,10 @@ mod tests {
 
         assert_eq!(
             settings
-                .shell_format_options_for_path(&tempdir.path().join("dot_zshenv"))
+                .shell_format_options_for_path(&tempdir.path().join("dot_bashrc"))
                 .unwrap()
                 .dialect(),
-            FormatDialect::Bash
+            FormatDialect::Posix
         );
     }
 
@@ -321,7 +320,7 @@ mod tests {
         let tempdir = tempdir().unwrap();
         fs::write(
             tempdir.path().join("shuck.toml"),
-            "[per-file-shell]\n'*' = 'bash'\n'dot_z*' = 'zsh'\n",
+            "[per-file-shell]\n'*' = 'bash'\n'dot_*' = 'sh'\n",
         )
         .unwrap();
 
@@ -332,7 +331,7 @@ mod tests {
         )
         .unwrap();
         let error = settings
-            .shell_format_options_for_path(&tempdir.path().join("dot_zshenv"))
+            .shell_format_options_for_path(&tempdir.path().join("dot_profile"))
             .unwrap_err();
 
         assert!(

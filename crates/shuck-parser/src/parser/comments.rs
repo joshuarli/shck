@@ -126,17 +126,6 @@ impl<'a> Parser<'a> {
                     function.body.leading_comments.extend(body_comments);
                 }
             }
-            AstCommand::AnonymousFunction(function) => {
-                let mut body_comments = std::mem::take(comments);
-                Self::attach_comments_to_stmt_with_source(
-                    source,
-                    function.body.as_mut(),
-                    &mut body_comments,
-                );
-                if !body_comments.is_empty() {
-                    function.body.leading_comments.extend(body_comments);
-                }
-            }
             AstCommand::Simple(_) | AstCommand::Builtin(_) | AstCommand::Decl(_) => {}
         }
     }
@@ -193,24 +182,6 @@ impl<'a> Parser<'a> {
                 }
             }
             CompoundCommand::For(command) => {
-                let mut body_comments = std::mem::take(comments);
-                Self::attach_comments_to_stmt_seq_with_source(
-                    source,
-                    &mut command.body,
-                    &mut body_comments,
-                );
-                command.body.trailing_comments.extend(body_comments);
-            }
-            CompoundCommand::Repeat(command) => {
-                let mut body_comments = std::mem::take(comments);
-                Self::attach_comments_to_stmt_seq_with_source(
-                    source,
-                    &mut command.body,
-                    &mut body_comments,
-                );
-                command.body.trailing_comments.extend(body_comments);
-            }
-            CompoundCommand::Foreach(command) => {
                 let mut body_comments = std::mem::take(comments);
                 Self::attach_comments_to_stmt_seq_with_source(
                     source,
@@ -289,27 +260,6 @@ impl<'a> Parser<'a> {
                 let mut body_comments = std::mem::take(comments);
                 Self::attach_comments_to_stmt_seq_with_source(source, body, &mut body_comments);
                 body.trailing_comments.extend(body_comments);
-            }
-            CompoundCommand::Always(command) => {
-                let mut body_comments =
-                    Self::take_comments_before(comments, command.body.span.end.offset());
-                Self::attach_comments_to_stmt_seq_with_source(
-                    source,
-                    &mut command.body,
-                    &mut body_comments,
-                );
-                command.body.trailing_comments.extend(body_comments);
-
-                let mut always_comments = std::mem::take(comments);
-                Self::attach_comments_to_stmt_seq_with_source(
-                    source,
-                    &mut command.always_body,
-                    &mut always_comments,
-                );
-                command
-                    .always_body
-                    .trailing_comments
-                    .extend(always_comments);
             }
             CompoundCommand::Time(command) => {
                 if let Some(inner) = &mut command.command {

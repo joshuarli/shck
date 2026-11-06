@@ -85,14 +85,6 @@ fn test_scan_command_substitution_body_len_handles_case_pattern_comment_after_ri
 }
 
 #[test]
-fn test_hash_starts_comment_ignores_zsh_inline_glob_controls_after_left_paren() {
-    let source = "[[ \"$buf\" == (#b)(*) ]]";
-    let index = source.find('#').expect("expected hash");
-
-    assert!(!hash_starts_comment(source, index));
-}
-
-#[test]
 fn test_hash_starts_comment_allows_grouped_comments_without_space_after_hash() {
     let source = "(#comment with )";
     let index = source.find('#').expect("expected hash");
@@ -415,24 +407,6 @@ fn test_midword_brace_expansion_with_arithmetic_substitution_stays_single_word()
 }
 
 #[test]
-fn test_zsh_arithmetic_char_literal_inside_double_parens_is_not_comment() {
-    let mut lexer = Lexer::new("(( #c < 256 / $1 * $1 )) && break\n");
-
-    let mut saw_comment = false;
-    while let Some(token) = lexer.next_lexed_token_with_comments() {
-        if token.kind == TokenKind::Comment {
-            saw_comment = true;
-            break;
-        }
-    }
-
-    assert!(
-        !saw_comment,
-        "zsh arithmetic char literals inside (( )) should not lex as comments"
-    );
-}
-
-#[test]
 fn test_double_quoted_parameter_replacement_with_embedded_quotes_stays_single_word() {
     let mut lexer = Lexer::new(
         "builtin printf '\\e]133;C;cmdline_url=%s\\a' \"${1//(#m)[^a-zA-Z0-9\"\\/:_.-!'()~\"]/%${(l:2::0:)$(([##16]#MATCH))}}\"\n",
@@ -451,45 +425,6 @@ fn test_double_quoted_parameter_replacement_with_embedded_quotes_stays_single_wo
         Some("${1//(#m)[^a-zA-Z0-9\"\\/:_.-!'()~\"]/%${(l:2::0:)$(([##16]#MATCH))}}"),
     );
     assert_next_token(&mut lexer, TokenKind::Newline, None);
-}
-
-#[test]
-fn test_anonymous_function_body_with_nested_replacement_word_keeps_closing_brace_token() {
-    let mut lexer = Lexer::new(
-        "() {\n  builtin printf '\\e]133;C;cmdline_url=%s\\a' \"${1//(#m)[^a-zA-Z0-9\"\\/:_.-!'()~\"]/%${(l:2::0:)$(([##16]#MATCH))}}\"\n} \"$1\"\n",
-    );
-
-    assert_next_token(&mut lexer, TokenKind::LeftParen, None);
-    assert_next_token(&mut lexer, TokenKind::RightParen, None);
-    assert_next_token(&mut lexer, TokenKind::LeftBrace, None);
-    assert_next_token(&mut lexer, TokenKind::Newline, None);
-    assert_next_token(&mut lexer, TokenKind::Word, Some("builtin"));
-    assert_next_token(&mut lexer, TokenKind::Word, Some("printf"));
-    assert_next_token(
-        &mut lexer,
-        TokenKind::LiteralWord,
-        Some("\\e]133;C;cmdline_url=%s\\a"),
-    );
-    assert_next_token(
-        &mut lexer,
-        TokenKind::QuotedWord,
-        Some("${1//(#m)[^a-zA-Z0-9\"\\/:_.-!'()~\"]/%${(l:2::0:)$(([##16]#MATCH))}}"),
-    );
-    assert_next_token(&mut lexer, TokenKind::Newline, None);
-    assert_next_token(&mut lexer, TokenKind::RightBrace, None);
-    assert_next_token(&mut lexer, TokenKind::QuotedWord, Some("$1"));
-    assert_next_token(&mut lexer, TokenKind::Newline, None);
-}
-
-#[test]
-fn test_parameter_expansion_with_zsh_qualifier_stays_single_word() {
-    let source = r#"$dir/${~pats}(N)"#;
-    let mut lexer = Lexer::new(source);
-
-    let token = lexer.next_lexed_token().unwrap();
-    assert_eq!(token.kind, TokenKind::Word);
-    assert_eq!(token.span.slice(source), source);
-    assert!(lexer.next_lexed_token().is_none());
 }
 
 #[test]

@@ -333,8 +333,7 @@ fn missing_space_before_bracket_close_offsets(
         | Command::Decl(_)
         | Command::Binary(_)
         | Command::Compound(_)
-        | Command::Function(_)
-        | Command::AnonymousFunction(_) => None,
+        | Command::Function(_) => None,
     }
 }
 
@@ -1636,8 +1635,6 @@ pub(crate) fn command_is_line_oriented_substitution_body<'a>(
         Command::Compound(
             CompoundCommand::If(_)
             | CompoundCommand::For(_)
-            | CompoundCommand::Repeat(_)
-            | CompoundCommand::Foreach(_)
             | CompoundCommand::ArithmeticFor(_)
             | CompoundCommand::While(_)
             | CompoundCommand::Until(_)
@@ -1647,10 +1644,9 @@ pub(crate) fn command_is_line_oriented_substitution_body<'a>(
             | CompoundCommand::Conditional(_)
             | CompoundCommand::Subshell(_)
             | CompoundCommand::BraceGroup(_)
-            | CompoundCommand::Coproc(_)
-            | CompoundCommand::Always(_),
+            | CompoundCommand::Coproc(_),
         ) => false,
-        Command::Function(_) | Command::AnonymousFunction(_) => false,
+        Command::Function(_) => false,
     }
 }
 

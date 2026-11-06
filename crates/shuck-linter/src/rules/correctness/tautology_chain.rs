@@ -13,9 +13,7 @@ impl Violation for TautologyChain {
 }
 
 pub fn tautology_chain(checker: &mut Checker) {
-    if checker.shell() == ShellDialect::Zsh {
-        return;
-    }
+    // Rule applies to all supported shell dialects.
 
     let spans = checker
         .facts()

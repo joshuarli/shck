@@ -79,13 +79,6 @@ fn nested_parsers_share_the_callers_fuel() {
 }
 
 #[test]
-fn deeply_nested_zsh_parameter_targets_report_nesting_error() {
-    let input = format!("echo {}", nested("${", "a", "}", 3000));
-    let output = Parser::with_dialect(&input, ShellDialect::Zsh).parse();
-    assert_limit_error(&output, "nesting too deep");
-}
-
-#[test]
 fn deeply_nested_arithmetic_reports_nesting_error() {
     for input in [
         format!("echo $(({}))\n", nested("(", "1", ")", 240).trim_end()),

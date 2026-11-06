@@ -30,8 +30,8 @@ pub mod shebang;
 
 /// Error types returned by parser operations.
 pub use error::{Error, Result};
-/// Shell dialect, profile, and option types exposed by the parser.
+/// Shell dialect and profile types exposed by the parser.
 pub use parser::{
-    OptionValue, ShellDialect, ShellProfile, ZshEmulationMode, ZshOptionState,
-    text_is_self_contained_arithmetic_expression, text_looks_like_nontrivial_arithmetic_expression,
+    ShellDialect, ShellProfile, text_is_self_contained_arithmetic_expression,
+    text_looks_like_nontrivial_arithmetic_expression,
 };

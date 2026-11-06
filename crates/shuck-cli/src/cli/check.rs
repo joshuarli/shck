@@ -9,9 +9,9 @@ use crate::ExitStatus;
 use crate::cli::command::{CommandSpec, OptionSpec, PositionalSpec};
 use crate::cli::error::CliError;
 use crate::cli::types::{
-    CheckOutputFormatArg, FileSelectionArgs, FrameworkRootPair, PatternFrameworkNameTriple,
-    PatternPathPair, PatternRuleSelectorPair, PatternShellPair, RuleSelectionArgs, ZshPluginArgs,
-    parse_cli_rule_selector, parse_comma_separated, parse_comma_separated_strings, require_utf8,
+    CheckOutputFormatArg, FileSelectionArgs, PatternRuleSelectorPair, PatternShellPair,
+    RuleSelectionArgs, parse_cli_rule_selector, parse_comma_separated,
+    parse_comma_separated_strings, require_utf8,
 };
 
 pub const OPT_FIX: OptionSpec = OptionSpec::new("fix", "Apply safe fixes");
@@ -132,82 +132,6 @@ pub const OPT_EXTEND_FIXABLE: OptionSpec = OptionSpec::new(
 .with_heading("Rule selection")
 .repeatable();
 
-pub const OPT_ZSH_PLUGIN_RESOLUTION: OptionSpec = OptionSpec::new(
-    "zsh-plugin-resolution",
-    "Enable zsh plugin resolution",
-)
-.with_heading("Zsh plugin resolution");
-
-pub const OPT_NO_ZSH_PLUGIN_RESOLUTION: OptionSpec = OptionSpec::new(
-    "no-zsh-plugin-resolution",
-    "Disable zsh plugin resolution",
-)
-.with_heading("Zsh plugin resolution")
-.hidden();
-
-pub const OPT_ZSH_PLUGIN_ROOT: OptionSpec = OptionSpec::new(
-    "zsh-plugin-root",
-    "Replace configured zsh plugin roots with the provided framework-to-path mappings",
-)
-.with_value_name("FRAMEWORK=PATH")
-.with_heading("Zsh plugin resolution")
-.repeatable();
-
-pub const OPT_EXTEND_ZSH_PLUGIN_ROOT: OptionSpec = OptionSpec::new(
-    "extend-zsh-plugin-root",
-    "Add or replace individual zsh plugin roots on top of earlier config or CLI values",
-)
-.with_value_name("FRAMEWORK=PATH")
-.with_heading("Zsh plugin resolution")
-.repeatable();
-
-pub const OPT_ZSH_PLUGIN: OptionSpec = OptionSpec::new(
-    "zsh-plugin",
-    "Replace configured logical zsh plugin loads with the provided pattern-to-framework-to-name mappings",
-)
-.with_value_name("FILE_PATTERN:FRAMEWORK:NAME")
-.with_heading("Zsh plugin resolution")
-.repeatable();
-
-pub const OPT_EXTEND_ZSH_PLUGIN: OptionSpec = OptionSpec::new(
-    "extend-zsh-plugin",
-    "Add logical zsh plugin loads on top of earlier config or CLI values",
-)
-.with_value_name("FILE_PATTERN:FRAMEWORK:NAME")
-.with_heading("Zsh plugin resolution")
-.repeatable();
-
-pub const OPT_ZSH_THEME: OptionSpec = OptionSpec::new(
-    "zsh-theme",
-    "Replace configured logical zsh theme loads with the provided pattern-to-framework-to-name mappings",
-)
-.with_value_name("FILE_PATTERN:FRAMEWORK:NAME")
-.with_heading("Zsh plugin resolution")
-.repeatable();
-
-pub const OPT_EXTEND_ZSH_THEME: OptionSpec = OptionSpec::new(
-    "extend-zsh-theme",
-    "Add logical zsh theme loads on top of earlier config or CLI values",
-)
-.with_value_name("FILE_PATTERN:FRAMEWORK:NAME")
-.with_heading("Zsh plugin resolution")
-.repeatable();
-
-pub const OPT_ZSH_PLUGIN_ENTRYPOINT: OptionSpec = OptionSpec::new(
-    "zsh-plugin-entrypoint",
-    "Replace configured raw zsh plugin entrypoints with the provided pattern-to-path mappings",
-)
-.with_value_name("FILE_PATTERN:PATH")
-.with_heading("Zsh plugin resolution")
-.repeatable();
-
-pub const OPT_EXTEND_ZSH_PLUGIN_ENTRYPOINT: OptionSpec = OptionSpec::new(
-    "extend-zsh-plugin-entrypoint",
-    "Add raw zsh plugin entrypoints on top of earlier config or CLI values",
-)
-.with_value_name("FILE_PATTERN:PATH")
-.with_heading("Zsh plugin resolution")
-.repeatable();
 
 pub const OPT_EXCLUDE: OptionSpec = OptionSpec::new(
     "exclude",
@@ -277,16 +201,6 @@ pub const CHECK_OPTIONS: &[OptionSpec] = &[
     OPT_FIXABLE,
     OPT_UNFIXABLE,
     OPT_EXTEND_FIXABLE,
-    OPT_ZSH_PLUGIN_RESOLUTION,
-    OPT_NO_ZSH_PLUGIN_RESOLUTION,
-    OPT_ZSH_PLUGIN_ROOT,
-    OPT_EXTEND_ZSH_PLUGIN_ROOT,
-    OPT_ZSH_PLUGIN,
-    OPT_EXTEND_ZSH_PLUGIN,
-    OPT_ZSH_THEME,
-    OPT_EXTEND_ZSH_THEME,
-    OPT_ZSH_PLUGIN_ENTRYPOINT,
-    OPT_EXTEND_ZSH_PLUGIN_ENTRYPOINT,
     OPT_EXCLUDE,
     OPT_EXTEND_EXCLUDE,
     OPT_RESPECT_GITIGNORE,
@@ -316,7 +230,6 @@ pub struct CheckCommand {
     pub paths: Vec<PathBuf>,
     pub stdin_filename: Option<PathBuf>,
     pub rule_selection: RuleSelectionArgs,
-    pub zsh_plugin_resolution: ZshPluginArgs,
     pub file_selection: FileSelectionArgs,
     pub no_cache: bool,
     pub exit_zero: bool,
@@ -349,7 +262,6 @@ pub fn parse(parser: &mut lexopt::Parser) -> Result<CheckCommand, CliError> {
     let mut exit_non_zero_on_fix = false;
 
     let mut rule_selection = RuleSelectionArgs::default();
-    let mut zsh_plugin_resolution = ZshPluginArgs::default();
     let mut file_selection = FileSelectionArgs::default();
 
     while let Some(arg) = parser.next()? {
@@ -476,102 +388,6 @@ pub fn parse(parser: &mut lexopt::Parser) -> Result<CheckCommand, CliError> {
                 let selectors = parse_comma_separated_rules(&val_str, "--extend-fixable")?;
                 rule_selection.extend_fixable.extend(selectors);
             }
-            ref a if OPT_ZSH_PLUGIN_RESOLUTION.matches_arg(a) => {
-                zsh_plugin_resolution.zsh_plugin_resolution = true;
-                zsh_plugin_resolution.no_zsh_plugin_resolution = false;
-            }
-            ref a if OPT_NO_ZSH_PLUGIN_RESOLUTION.matches_arg(a) => {
-                zsh_plugin_resolution.no_zsh_plugin_resolution = true;
-                zsh_plugin_resolution.zsh_plugin_resolution = false;
-            }
-            ref a if OPT_ZSH_PLUGIN_ROOT.matches_arg(a) => {
-                let val = parser.value()?;
-                let val_str = require_utf8(&val, "--zsh-plugin-root")?;
-                let pairs = parse_comma_separated::<FrameworkRootPair>(&val_str)
-                    .map_err(|reason| CliError::InvalidValue {
-                        option: "--zsh-plugin-root".to_string(),
-                        value: val_str,
-                        reason,
-                    })?;
-                zsh_plugin_resolution.zsh_plugin_root.get_or_insert_with(Vec::new).extend(pairs);
-            }
-            ref a if OPT_EXTEND_ZSH_PLUGIN_ROOT.matches_arg(a) => {
-                let val = parser.value()?;
-                let val_str = require_utf8(&val, "--extend-zsh-plugin-root")?;
-                let pairs = parse_comma_separated::<FrameworkRootPair>(&val_str)
-                    .map_err(|reason| CliError::InvalidValue {
-                        option: "--extend-zsh-plugin-root".to_string(),
-                        value: val_str,
-                        reason,
-                    })?;
-                zsh_plugin_resolution.extend_zsh_plugin_root.extend(pairs);
-            }
-            ref a if OPT_ZSH_PLUGIN.matches_arg(a) => {
-                let val = parser.value()?;
-                let val_str = require_utf8(&val, "--zsh-plugin")?;
-                let triples = parse_comma_separated::<PatternFrameworkNameTriple>(&val_str)
-                    .map_err(|reason| CliError::InvalidValue {
-                        option: "--zsh-plugin".to_string(),
-                        value: val_str,
-                        reason,
-                    })?;
-                zsh_plugin_resolution.zsh_plugin.get_or_insert_with(Vec::new).extend(triples);
-            }
-            ref a if OPT_EXTEND_ZSH_PLUGIN.matches_arg(a) => {
-                let val = parser.value()?;
-                let val_str = require_utf8(&val, "--extend-zsh-plugin")?;
-                let triples = parse_comma_separated::<PatternFrameworkNameTriple>(&val_str)
-                    .map_err(|reason| CliError::InvalidValue {
-                        option: "--extend-zsh-plugin".to_string(),
-                        value: val_str,
-                        reason,
-                    })?;
-                zsh_plugin_resolution.extend_zsh_plugin.extend(triples);
-            }
-            ref a if OPT_ZSH_THEME.matches_arg(a) => {
-                let val = parser.value()?;
-                let val_str = require_utf8(&val, "--zsh-theme")?;
-                let triples = parse_comma_separated::<PatternFrameworkNameTriple>(&val_str)
-                    .map_err(|reason| CliError::InvalidValue {
-                        option: "--zsh-theme".to_string(),
-                        value: val_str,
-                        reason,
-                    })?;
-                zsh_plugin_resolution.zsh_theme.get_or_insert_with(Vec::new).extend(triples);
-            }
-            ref a if OPT_EXTEND_ZSH_THEME.matches_arg(a) => {
-                let val = parser.value()?;
-                let val_str = require_utf8(&val, "--extend-zsh-theme")?;
-                let triples = parse_comma_separated::<PatternFrameworkNameTriple>(&val_str)
-                    .map_err(|reason| CliError::InvalidValue {
-                        option: "--extend-zsh-theme".to_string(),
-                        value: val_str,
-                        reason,
-                    })?;
-                zsh_plugin_resolution.extend_zsh_theme.extend(triples);
-            }
-            ref a if OPT_ZSH_PLUGIN_ENTRYPOINT.matches_arg(a) => {
-                let val = parser.value()?;
-                let val_str = require_utf8(&val, "--zsh-plugin-entrypoint")?;
-                let pairs = parse_comma_separated::<PatternPathPair>(&val_str)
-                    .map_err(|reason| CliError::InvalidValue {
-                        option: "--zsh-plugin-entrypoint".to_string(),
-                        value: val_str,
-                        reason,
-                    })?;
-                zsh_plugin_resolution.zsh_plugin_entrypoint.get_or_insert_with(Vec::new).extend(pairs);
-            }
-            ref a if OPT_EXTEND_ZSH_PLUGIN_ENTRYPOINT.matches_arg(a) => {
-                let val = parser.value()?;
-                let val_str = require_utf8(&val, "--extend-zsh-plugin-entrypoint")?;
-                let pairs = parse_comma_separated::<PatternPathPair>(&val_str)
-                    .map_err(|reason| CliError::InvalidValue {
-                        option: "--extend-zsh-plugin-entrypoint".to_string(),
-                        value: val_str,
-                        reason,
-                    })?;
-                zsh_plugin_resolution.extend_zsh_plugin_entrypoint.extend(pairs);
-            }
             ref a if OPT_EXCLUDE.matches_arg(a) => {
                 let val = parser.value()?;
                 let val_str = require_utf8(&val, "--exclude")?;
@@ -653,7 +469,6 @@ pub fn parse(parser: &mut lexopt::Parser) -> Result<CheckCommand, CliError> {
         paths,
         stdin_filename,
         rule_selection,
-        zsh_plugin_resolution,
         file_selection,
         no_cache,
         exit_zero,
@@ -801,7 +616,6 @@ mod tests {
         ])
         .unwrap();
 
-        assert_eq!(cmd.zsh_plugin_resolution.resolution(), Some(false));
     }
 
     #[test]

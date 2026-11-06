@@ -15,9 +15,6 @@ pub(crate) fn walk_word_part_surface_source_texts_mut<V: AstVisitorMut + ?Sized>
     part: &mut WordPartNode,
 ) -> usize {
     match &mut part.kind {
-        WordPart::ZshQualifiedGlob(glob) => {
-            walk_zsh_qualified_glob_surface_source_texts_mut(visitor, glob)
-        }
         WordPart::SingleQuoted { value, .. } => visitor.visit_source_text(value),
         WordPart::DoubleQuoted { parts, .. } => parts
             .iter_mut()
@@ -82,8 +79,7 @@ pub(crate) fn walk_word_part_surface_source_texts_mut<V: AstVisitorMut + ?Sized>
         | WordPart::Variable(_)
         | WordPart::CommandSubstitution { .. }
         | WordPart::ProcessSubstitution { .. }
-        | WordPart::PrefixMatch { .. } => 0,
-    }
+        | WordPart::PrefixMatch { .. } => 0 }
 }
 
 fn walk_var_ref_surface_source_texts_mut<V: AstVisitorMut + ?Sized>(
@@ -120,8 +116,7 @@ fn walk_pattern_surface_source_texts_mut<V: AstVisitorMut + ?Sized>(
                 .map(|pattern| walk_pattern_surface_source_texts_mut(visitor, pattern))
                 .sum(),
             PatternPart::Word(word) => walk_word_surface_source_texts_mut(visitor, word),
-            PatternPart::Literal(_) | PatternPart::AnyString | PatternPart::AnyChar => 0,
-        })
+            PatternPart::Literal(_) | PatternPart::AnyString | PatternPart::AnyChar => 0 })
         .sum()
 }
 
@@ -178,26 +173,9 @@ pub(crate) fn walk_parameter_expansion_surface_source_texts_mut<V: AstVisitorMut
                 }
                 changes + walk_parameter_op_surface_source_texts_mut(visitor, operator)
             }
-        },
-        ParameterExpansionSyntax::Zsh(syntax) => {
-            walk_zsh_parameter_expansion_surface_source_texts_mut(visitor, syntax)
-        }
-    }
+        } }
 }
 
-fn walk_zsh_parameter_expansion_surface_source_texts_mut<V: AstVisitorMut + ?Sized>(
-    visitor: &mut V,
-    syntax: &mut ZshParameterExpansion,
-) -> usize {
-    match &mut syntax.target {
-        ZshExpansionTarget::Reference(reference) => {
-            walk_var_ref_surface_source_texts_mut(visitor, reference)
-        }
-        ZshExpansionTarget::Word(word) => walk_word_surface_source_texts_mut(visitor, word),
-        ZshExpansionTarget::Nested(parameter) => visitor.visit_parameter_expansion(parameter),
-        ZshExpansionTarget::Empty => 0,
-    }
-}
 
 fn walk_parameter_op_surface_source_texts_mut<V: AstVisitorMut + ?Sized>(
     visitor: &mut V,
@@ -230,46 +208,7 @@ fn walk_parameter_op_surface_source_texts_mut<V: AstVisitorMut + ?Sized>(
         | ParameterOp::UpperFirst
         | ParameterOp::UpperAll
         | ParameterOp::LowerFirst
-        | ParameterOp::LowerAll => 0,
-    }
+        | ParameterOp::LowerAll => 0 }
 }
 
-fn walk_zsh_qualified_glob_surface_source_texts_mut<V: AstVisitorMut + ?Sized>(
-    visitor: &mut V,
-    glob: &mut shuck_ast::ZshQualifiedGlob,
-) -> usize {
-    let mut changes = 0;
-    for segment in &mut glob.segments {
-        changes += match segment {
-            ZshGlobSegment::Pattern(pattern) => {
-                walk_pattern_surface_source_texts_mut(visitor, pattern)
-            }
-            ZshGlobSegment::InlineControl(_) => 0,
-        };
-    }
-    if let Some(qualifiers) = &mut glob.qualifiers {
-        changes += walk_zsh_glob_qualifier_group_surface_source_texts_mut(visitor, qualifiers);
-    }
-    changes
-}
 
-fn walk_zsh_glob_qualifier_group_surface_source_texts_mut<V: AstVisitorMut + ?Sized>(
-    visitor: &mut V,
-    group: &mut ZshGlobQualifierGroup,
-) -> usize {
-    group
-        .fragments
-        .iter_mut()
-        .map(|fragment| match fragment {
-            ZshGlobQualifier::LetterSequence { text, .. } => visitor.visit_source_text(text),
-            ZshGlobQualifier::NumericArgument { start, end, .. } => {
-                let mut changes = visitor.visit_source_text(start);
-                if let Some(end) = end {
-                    changes += visitor.visit_source_text(end);
-                }
-                changes
-            }
-            ZshGlobQualifier::Negation { .. } | ZshGlobQualifier::Flag { .. } => 0,
-        })
-        .sum()
-}

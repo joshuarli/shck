@@ -58,7 +58,7 @@ pub(crate) use recorded::{
     IsolatedRegion, RecordedCaseArm, RecordedCaseArmRange, RecordedCommand, RecordedCommandInfo,
     RecordedCommandKind, RecordedCommandRange, RecordedElifBranch, RecordedElifBranchRange,
     RecordedListItem, RecordedListItemRange, RecordedListOperator, RecordedPipelineOperator,
-    RecordedPipelineOperatorKind, RecordedPipelineSegment, RecordedPipelineSegmentRange,
-    RecordedProgram, RecordedRegionRange, RecordedZshCommandEffect, RecordedZshOptionUpdate,
+    RecordedPipelineOperatorKind, RecordedPipelineSegment,
+    RecordedProgram, RecordedRegionRange, RecordedZshCommandEffect,
 };
 pub(crate) use termination::recorded_command_span_for_call_site;

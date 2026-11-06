@@ -45,7 +45,6 @@ mod source_scan;
 mod sourced_runtime;
 #[cfg(test)]
 mod tests;
-mod zsh_caller_arrays;
 
 pub use contracts::{
     AmbientContractActivation, AmbientContractConfig, AmbientContractEffects, AmbientContractSpec,
@@ -59,7 +58,6 @@ pub(crate) struct AmbientContractCollector<'a> {
     signals: signals::AmbientSignals<'a>,
     contracts: Arc<ResolvedAmbientContracts>,
     completion_initializer_invoked: bool,
-    caller_scoped_array_length_names: BTreeSet<Name>,
 }
 
 pub(crate) struct AmbientContractCollectorFactory {
@@ -89,12 +87,8 @@ impl<'a> AmbientContractCollector<'a> {
         shell: ShellDialect,
         contracts: Arc<ResolvedAmbientContracts>,
     ) -> Self {
-        let mut caller_scoped_array_length_names = BTreeSet::new();
-        if shell == ShellDialect::Zsh {
-            zsh_caller_arrays::collect_caller_scoped_array_length_names_from_source(
-                source,
-                &mut caller_scoped_array_length_names,
-            );
+        if shell == ShellDialect::Bash {
+            rustc_hash::FxHashSet::<std::string::String>::default();
         }
 
         Self {
@@ -102,9 +96,7 @@ impl<'a> AmbientContractCollector<'a> {
             shell,
             signals: signals::AmbientSignals::new(source, path),
             contracts,
-            completion_initializer_invoked: false,
-            caller_scoped_array_length_names,
-        }
+            completion_initializer_invoked: false,        }
     }
 
     fn file_entry_contract(&self) -> Option<FileContract> {
@@ -136,12 +128,9 @@ impl FileEntryContractCollector for AmbientContractCollector<'_> {
                 command,
                 self.source,
             );
-        if self.shell == ShellDialect::Zsh {
+        if self.shell == ShellDialect::Bash {
             for word in command.body_args() {
-                zsh_caller_arrays::collect_caller_scoped_array_length_names(
-                    word,
-                    &mut self.caller_scoped_array_length_names,
-                );
+                rustc_hash::FxHashSet::<std::string::String>::default();
             }
         }
     }
@@ -153,7 +142,7 @@ impl FileEntryContractCollector for AmbientContractCollector<'_> {
 
 fn shell_dialect_from_profile(profile: &ShellProfile) -> ShellDialect {
     match profile.dialect {
-        shuck_parser::ShellDialect::Zsh => ShellDialect::Zsh,
+        shuck_parser::ShellDialect::Bash => ShellDialect::Bash,
         shuck_parser::ShellDialect::Mksh => ShellDialect::Mksh,
         shuck_parser::ShellDialect::Posix => ShellDialect::Sh,
         shuck_parser::ShellDialect::Bash => ShellDialect::Bash,

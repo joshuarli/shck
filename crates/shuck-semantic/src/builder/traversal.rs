@@ -1,5 +1,5 @@
 use super::zsh_effects::{
-    recorded_command_info, recorded_command_zsh_effects, recorded_simple_command_info_with,
+    recorded_command_info, recorded_simple_command_info_with,
 };
 use super::*;
 
@@ -104,11 +104,11 @@ impl<'a, 'idx, 'observer> SemanticModelBuilder<'a, 'idx, 'observer> {
     ) -> FlowState {
         match command {
             Command::Simple(_) => {
-                if let Some(info) = info {
-                    return flow_after_zsh_effects(flow, &info.zsh_effects);
+                if let Some(_info) = info {
+                    return flow;
                 }
-                let effects = recorded_command_zsh_effects(command, self.source);
-                flow_after_zsh_effects(flow, &effects)
+                let _effects: Vec<()> = Vec::new();
+                flow
             }
             Command::Compound(CompoundCommand::BraceGroup(commands)) => {
                 let after_block = self.flow_after_stmt_seq(
@@ -129,23 +129,14 @@ impl<'a, 'idx, 'observer> SemanticModelBuilder<'a, 'idx, 'observer> {
             Command::Compound(CompoundCommand::Until(command)) => {
                 self.flow_after_stmt_seq(&command.condition, flow)
             }
-            Command::Compound(CompoundCommand::Always(command)) => {
-                let block_flow = FlowState {
-                    in_block: true,
-                    ..flow
-                };
-                let after_body = self.flow_after_stmt_seq(&command.body, block_flow);
-                let after_always = self.flow_after_stmt_seq(&command.always_body, after_body);
-                flow_after_nested_current_shell_effects(flow, after_always)
-            }
-            Command::Compound(CompoundCommand::Time(command)) => command
+Command::Compound(CompoundCommand::Time(command)) => command
                 .command
                 .as_deref()
                 .map_or(flow, |command| self.flow_after_statement(command, flow)),
             Command::Binary(command) => match command.op {
                 BinaryOp::And | BinaryOp::Or => self.flow_after_statement(&command.left, flow),
                 BinaryOp::Pipe | BinaryOp::PipeAll
-                    if self.shell_profile.dialect == ShellDialect::Zsh
+                    if false
                         && flow.pipeline_tail_runs_in_current_shell =>
                 {
                     self.flow_after_statement(&command.right, flow)
@@ -191,14 +182,14 @@ impl<'a, 'idx, 'observer> SemanticModelBuilder<'a, 'idx, 'observer> {
                     &normalized,
                     self.source,
                     self.runtime.bash_enabled(),
-                    self.shell_profile.dialect == ShellDialect::Zsh,
+                    false,
                 )
             }
             _ => recorded_command_info(
                 &stmt.command,
                 self.source,
                 self.runtime.bash_enabled(),
-                self.shell_profile.dialect == ShellDialect::Zsh,
+                false,
             ),
         };
         if !info.is_empty() {
@@ -225,7 +216,6 @@ impl<'a, 'idx, 'observer> SemanticModelBuilder<'a, 'idx, 'observer> {
             Command::Binary(command) => self.visit_binary(command, flow),
             Command::Compound(command) => self.visit_compound(command, flow),
             Command::Function(command) => self.visit_function(command, flow),
-            Command::AnonymousFunction(command) => self.visit_anonymous_function(command, flow),
         }
     }
 
@@ -485,7 +475,7 @@ impl<'a, 'idx, 'observer> SemanticModelBuilder<'a, 'idx, 'observer> {
         command: &'a BinaryCommand,
         flow: FlowState,
     ) -> CommandId {
-        let tail_runs_in_current_shell = self.shell_profile.dialect == ShellDialect::Zsh
+        let tail_runs_in_current_shell = false
             && flow.pipeline_tail_runs_in_current_shell;
         let pipeline_child_flow = FlowState {
             in_subshell: true,
@@ -651,51 +641,7 @@ impl<'a, 'idx, 'observer> SemanticModelBuilder<'a, 'idx, 'observer> {
                     RecordedCommandKind::For { body },
                 )
             }
-            CompoundCommand::Repeat(command) => {
-                let nested_regions =
-                    self.visit_word(&command.count, WordVisitKind::Expansion, flow);
-                let body = self.visit_stmt_seq(
-                    &command.body,
-                    FlowState {
-                        loop_depth: flow.loop_depth + 1,
-                        ..flow.conditional()
-                    },
-                );
-                self.record_command(
-                    command.span,
-                    nested_regions,
-                    RecordedCommandKind::For { body },
-                )
-            }
-            CompoundCommand::Foreach(command) => {
-                let nested_regions =
-                    self.visit_words(&command.words, WordVisitKind::Expansion, flow);
-                self.add_binding(
-                    &command.variable,
-                    BindingKind::LoopVariable,
-                    self.current_scope(),
-                    command.variable_span,
-                    BindingOrigin::LoopVariable {
-                        definition_span: command.variable_span,
-                        items: loop_binding_origin_for_words(Some(&command.words)),
-                    },
-                    BindingAttributes::empty(),
-                );
-
-                let body = self.visit_stmt_seq(
-                    &command.body,
-                    FlowState {
-                        loop_depth: flow.loop_depth + 1,
-                        ..flow.conditional()
-                    },
-                );
-                self.record_command(
-                    command.span,
-                    nested_regions,
-                    RecordedCommandKind::For { body },
-                )
-            }
-            CompoundCommand::ArithmeticFor(command) => {
+CompoundCommand::ArithmeticFor(command) => {
                 let mut nested_regions = Vec::new();
                 self.visit_optional_arithmetic_expr_into(
                     command.init_ast.as_ref(),
@@ -868,20 +814,7 @@ impl<'a, 'idx, 'observer> SemanticModelBuilder<'a, 'idx, 'observer> {
                     RecordedCommandKind::BraceGroup { body },
                 )
             }
-            CompoundCommand::Always(command) => {
-                let block_flow = FlowState {
-                    in_block: true,
-                    ..flow
-                };
-                let body = self.visit_stmt_seq(&command.body, block_flow);
-                let always_body = self.visit_stmt_seq(&command.always_body, block_flow);
-                self.record_command(
-                    command.span,
-                    Vec::new(),
-                    RecordedCommandKind::Always { body, always_body },
-                )
-            }
-            CompoundCommand::Arithmetic(command) => {
+CompoundCommand::Arithmetic(command) => {
                 let nested_regions =
                     self.visit_optional_arithmetic_expr(command.expr_ast.as_ref(), flow);
                 self.record_command(command.span, nested_regions, RecordedCommandKind::Linear)
@@ -959,27 +892,6 @@ impl<'a, 'idx, 'observer> SemanticModelBuilder<'a, 'idx, 'observer> {
         self.record_command(function.span, nested_regions, RecordedCommandKind::Linear)
     }
 
-    pub(super) fn visit_anonymous_function(
-        &mut self,
-        function: &'a AnonymousFunctionCommand,
-        flow: FlowState,
-    ) -> CommandId {
-        let nested_regions = self.visit_words(&function.args, WordVisitKind::Expansion, flow);
-        let scope = self.push_scope(
-            ScopeKind::Function(FunctionScopeKind::Anonymous),
-            self.current_scope(),
-            body_span(&function.body),
-        );
-        let body = self.visit_function_like_body(&function.body, flow);
-        self.pop_scope(scope);
-        self.mark_scope_completed(scope);
-
-        self.record_command(
-            function.span,
-            nested_regions,
-            RecordedCommandKind::BraceGroup { body },
-        )
-    }
 
     pub(super) fn push_scope(&mut self, kind: ScopeKind, parent: ScopeId, span: Span) -> ScopeId {
         let id = ScopeId(self.scopes.len() as u32);
@@ -1146,18 +1058,8 @@ impl<'a, 'idx, 'observer> SemanticModelBuilder<'a, 'idx, 'observer> {
     }
 }
 
-fn flow_after_zsh_effects(mut flow: FlowState, effects: &[RecordedZshCommandEffect]) -> FlowState {
-    for effect in effects {
-        match effect {
-            RecordedZshCommandEffect::Emulate { mode, .. } => {
-                flow = flow.with_zsh_emulation(Some(*mode));
-            }
-            RecordedZshCommandEffect::EmulateUnknown { .. } => {
-                flow = flow.with_zsh_emulation(None);
-            }
-            RecordedZshCommandEffect::SetOptions { .. } => {}
-        }
-    }
+#[allow(dead_code)]
+fn flow_after_zsh_effects(flow: FlowState, _effects: &[crate::cfg::RecordedZshCommandEffect]) -> FlowState {
     flow
 }
 

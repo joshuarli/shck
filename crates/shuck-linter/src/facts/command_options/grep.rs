@@ -465,8 +465,7 @@ fn collect_cooked_static_word_text_parts_with_source_spans(
             | WordPart::IndirectExpansion { .. }
             | WordPart::PrefixMatch { .. }
             | WordPart::ProcessSubstitution { .. }
-            | WordPart::Transformation { .. }
-            | WordPart::ZshQualifiedGlob(_) => return false,
+            | WordPart::Transformation { .. } => return false,
         }
     }
 

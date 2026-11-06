@@ -42,14 +42,4 @@ mod tests {
         assert!(diagnostics.is_empty());
     }
 
-    #[test]
-    fn ignores_zsh_multi_target_loops() {
-        let source = "#!/bin/zsh\nfor key val in a 1 b 2; do :; done\n";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::MultiVarForLoop).with_shell(ShellDialect::Zsh),
-        );
-
-        assert!(diagnostics.is_empty());
-    }
 }

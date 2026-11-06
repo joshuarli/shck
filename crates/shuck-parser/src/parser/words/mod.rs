@@ -186,20 +186,7 @@ impl<'a> PatternParser<'a> {
                         continue;
                     }
 
-                    if allow_groups
-                        && let Some((group, next_cursor)) =
-                            self.try_parse_bare_zsh_group(*cursor, group_depth)
-                    {
-                        self.flush_literal(
-                            &mut parts,
-                            &mut literal,
-                            &mut literal_start,
-                            literal_end,
-                        );
-                        parts.push(group);
-                        *cursor = next_cursor;
-                        continue;
-                    }
+                    let _ = group_depth;
 
                     let starts_unparsed_group = !allow_groups
                         && stop_at_group_delim
@@ -278,60 +265,6 @@ impl<'a> PatternParser<'a> {
                 Span::from_positions(start, cursor.position)
             },
             parts,
-        }
-    }
-
-    fn try_parse_bare_zsh_group(
-        &self,
-        cursor: PatternCursor,
-        group_depth: usize,
-    ) -> Option<(PatternPartNode, PatternCursor)> {
-        if !self.features.bare_groups {
-            return None;
-        }
-
-        let opener = self.peek_literal_char(cursor)?;
-        if self.is_escaped(cursor) || opener != '(' {
-            return None;
-        }
-        if self.prefix_reserves_group_for_ksh(cursor) {
-            return None;
-        }
-        if !self.has_bare_zsh_group_separator(cursor) {
-            return None;
-        }
-
-        let start = cursor.position;
-        let mut next_cursor = cursor;
-        self.consume_literal_char(&mut next_cursor)?;
-
-        let mut patterns = vec![self.parse_until(&mut next_cursor, true, group_depth + 1)];
-        if self.peek_group_delimiter(next_cursor) != Some('|') {
-            return None;
-        }
-
-        loop {
-            if self.peek_group_delimiter(next_cursor) == Some('|') {
-                self.consume_literal_char(&mut next_cursor)?;
-                patterns.push(self.parse_until(&mut next_cursor, true, group_depth + 1));
-                continue;
-            }
-
-            if self.peek_group_delimiter(next_cursor) == Some(')') {
-                let (_, close_span) = self.consume_literal_char(&mut next_cursor)?;
-                return Some((
-                    PatternPartNode::new(
-                        PatternPart::Group {
-                            kind: PatternGroupKind::ExactlyOne,
-                            patterns,
-                        },
-                        Span::from_positions(start, close_span.end),
-                    ),
-                    next_cursor,
-                ));
-            }
-
-            return None;
         }
     }
 
@@ -705,10 +638,6 @@ impl<'a> PatternParser<'a> {
 
 fn word_part_has_zsh_syntax_comma(part: &WordPart, comma_offset: usize) -> bool {
     match part {
-        WordPart::ZshQualifiedGlob(glob) => glob
-            .qualifiers
-            .as_ref()
-            .is_some_and(|qualifiers| span_contains_offset(qualifiers.span, comma_offset)),
         WordPart::DoubleQuoted { parts, .. } => parts
             .iter()
             .any(|part| word_part_has_zsh_syntax_comma(&part.kind, comma_offset)),
@@ -771,9 +700,6 @@ fn parameter_expansion_has_zsh_syntax_comma(
         ParameterExpansionSyntax::Bourne(expansion) => {
             bourne_parameter_expansion_has_zsh_syntax_comma(expansion, comma_offset)
         }
-        ParameterExpansionSyntax::Zsh(expansion) => {
-            zsh_parameter_expansion_has_zsh_syntax_comma(expansion, comma_offset)
-        }
     }
 }
 
@@ -817,47 +743,6 @@ fn bourne_parameter_expansion_has_zsh_syntax_comma(
         }
         BourneParameterExpansion::PrefixMatch { .. } => false,
     }
-}
-
-fn zsh_parameter_expansion_has_zsh_syntax_comma(
-    expansion: &ZshParameterExpansion,
-    comma_offset: usize,
-) -> bool {
-    zsh_expansion_target_has_zsh_syntax_comma(&expansion.target, comma_offset)
-        || expansion.modifiers.iter().any(|modifier| {
-            modifier
-                .argument_word_ast()
-                .is_some_and(|word| word_has_zsh_syntax_comma(word, comma_offset))
-        })
-        || expansion
-            .operation
-            .as_ref()
-            .is_some_and(|operation| zsh_operation_has_zsh_syntax_comma(operation, comma_offset))
-}
-
-fn zsh_expansion_target_has_zsh_syntax_comma(
-    target: &ZshExpansionTarget,
-    comma_offset: usize,
-) -> bool {
-    match target {
-        ZshExpansionTarget::Reference(reference) => {
-            var_ref_subscript_contains_offset(reference, comma_offset)
-        }
-        ZshExpansionTarget::Nested(expansion) => {
-            parameter_expansion_has_zsh_syntax_comma(expansion, comma_offset)
-        }
-        ZshExpansionTarget::Word(word) => word_has_zsh_syntax_comma(word, comma_offset),
-        ZshExpansionTarget::Empty => false,
-    }
-}
-
-fn zsh_operation_has_zsh_syntax_comma(
-    operation: &ZshExpansionOperation,
-    comma_offset: usize,
-) -> bool {
-    operation
-        .operand_word_ast()
-        .is_some_and(|word| word_has_zsh_syntax_comma(word, comma_offset))
 }
 
 fn word_has_zsh_syntax_comma(word: &Word, comma_offset: usize) -> bool {

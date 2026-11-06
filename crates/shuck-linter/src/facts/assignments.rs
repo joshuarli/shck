@@ -297,7 +297,6 @@ impl<'name, 'uses, 'a> WordSubtreeVisitor<'a>
     fn visit_part(&mut self, part: &'a WordPartNode, _state: WordTraversalState<'a>) {
         match &part.kind {
             WordPart::Literal(_)
-            | WordPart::ZshQualifiedGlob(_)
             | WordPart::SingleQuoted { .. }
             | WordPart::CommandSubstitution { .. } => {}
             WordPart::ArithmeticExpansion {
@@ -448,9 +447,6 @@ fn collect_parameter_expansion_self_uses(
         ParameterExpansionSyntax::Bourne(syntax) => {
             collect_bourne_parameter_expansion_self_uses(syntax, name, semantic, source, uses);
         }
-        ParameterExpansionSyntax::Zsh(syntax) => {
-            collect_zsh_parameter_expansion_self_uses(syntax, name, semantic, source, uses);
-        }
     }
 }
 
@@ -484,26 +480,12 @@ fn collect_bourne_parameter_expansion_self_uses(
 }
 
 fn collect_zsh_parameter_expansion_self_uses(
-    syntax: &ZshParameterExpansion,
-    name: &Name,
-    semantic: &LinterSemanticArtifacts<'_>,
-    source: &str,
-    uses: &mut SelfParameterExpansionUses,
+    _syntax: &(),
+    _name: &Name,
+    _semantic: &LinterSemanticArtifacts<'_>,
+    _source: &str,
+    _uses: &mut SelfParameterExpansionUses,
 ) {
-    match &syntax.target {
-        ZshExpansionTarget::Reference(reference) => match &syntax.operation {
-            Some(ZshExpansionOperation::Defaulting {
-                kind:
-                    shuck_ast::ZshDefaultingOp::UseDefault | shuck_ast::ZshDefaultingOp::AssignDefault,
-                ..
-            }) => record_parameter_default_use(reference, name, semantic, source, uses),
-            _ => record_var_ref_read(reference, name, semantic, source, uses),
-        },
-        ZshExpansionTarget::Nested(parameter) => {
-            collect_parameter_expansion_self_uses(parameter, name, semantic, source, uses);
-        }
-        ZshExpansionTarget::Word(_) | ZshExpansionTarget::Empty => {}
-    }
 }
 
 fn record_parameter_operation_use(
@@ -596,8 +578,7 @@ pub(crate) fn command_may_have_assignment_spacing_candidate(
         },
         Command::Binary(_)
         | Command::Compound(_)
-        | Command::Function(_)
-        | Command::AnonymousFunction(_) => false,
+        | Command::Function(_) => false,
     }
 }
 
@@ -760,8 +741,7 @@ fn collect_assignment_spacing_spans_in_command(
         },
         Command::Binary(_)
         | Command::Compound(_)
-        | Command::Function(_)
-        | Command::AnonymousFunction(_) => {}
+        | Command::Function(_) => {}
     }
 }
 
@@ -1057,8 +1037,7 @@ pub(crate) fn build_assign_special_zero_spans<'a>(
             | Command::Decl(_)
             | Command::Binary(_)
             | Command::Compound(_)
-            | Command::Function(_)
-            | Command::AnonymousFunction(_) => None,
+            | Command::Function(_) => None,
         })
         .collect()
 }
@@ -1095,8 +1074,7 @@ pub(crate) fn build_spacey_assignment_facts<'a>(
             | Command::Decl(_)
             | Command::Binary(_)
             | Command::Compound(_)
-            | Command::Function(_)
-            | Command::AnonymousFunction(_) => None,
+            | Command::Function(_) => None,
         })
         .collect()
 }
@@ -1125,8 +1103,7 @@ pub(crate) fn collect_assignment_like_command_name_spans_in_command(
         Command::Builtin(_)
         | Command::Binary(_)
         | Command::Compound(_)
-        | Command::Function(_)
-        | Command::AnonymousFunction(_) => {}
+        | Command::Function(_) => {}
     }
 }
 
@@ -1242,9 +1219,9 @@ fn spacey_time_assignment_fact(
 pub(crate) fn zsh_declaration_brace_assignment_target(
     word: &Word,
     source: &str,
-    behavior: &ShellBehaviorAt<'_>,
+    behavior: &ShellBehaviorAt,
 ) -> bool {
-    if behavior.zsh_options().is_none() {
+    if false {
         return false;
     }
 
@@ -1288,8 +1265,7 @@ pub(crate) fn bare_command_name_assignment_span<'a>(
         | Command::Decl(_)
         | Command::Binary(_)
         | Command::Compound(_)
-        | Command::Function(_)
-        | Command::AnonymousFunction(_) => return None,
+        | Command::Function(_) => return None,
     };
 
     let AssignmentValue::Scalar(word) = &assignment.value else {
@@ -1310,7 +1286,7 @@ pub(crate) fn bare_command_name_assignment_span<'a>(
     }
 
     let text = occurrence_static_text(word_nodes, fact, source)?;
-    if !is_bare_command_name_assignment_value(&text, command.shell_behavior().zsh_options()) {
+    if !is_bare_command_name_assignment_value(&text, None) {
         return None;
     }
 
@@ -1343,8 +1319,7 @@ pub(crate) fn anchored_assignment_command_span(
         Command::Decl(_)
         | Command::Binary(_)
         | Command::Compound(_)
-        | Command::Function(_)
-        | Command::AnonymousFunction(_) => {}
+        | Command::Function(_) => {}
     }
 
     Span {
@@ -1367,9 +1342,9 @@ pub(crate) fn assignment_target_span(assignment: &Assignment) -> Span {
 
 pub(crate) fn is_bare_command_name_assignment_value(
     text: &str,
-    zsh_options: Option<&ZshOptionState>,
+    _zsh_options: Option<&()>,
 ) -> bool {
-    let text = zsh_literal_assignment_value_for_command_name_check(text, zsh_options);
+    let text = zsh_literal_assignment_value_for_command_name_check(text, _zsh_options);
     matches!(
         text,
         "admin"
@@ -1480,15 +1455,15 @@ pub(crate) fn is_bare_command_name_assignment_value(
 
 pub(crate) fn zsh_literal_assignment_value_for_command_name_check<'a>(
     text: &'a str,
-    zsh_options: Option<&ZshOptionState>,
+    _zsh_options: Option<&()>,
 ) -> &'a str {
     let Some(candidate) = text.strip_prefix('=') else {
         return text;
     };
-    let Some(options) = zsh_options else {
+    let _ = _zsh_options; { let _ = ();
         return text;
     };
-    if !options.equals.is_definitely_off() {
+    if false {
         return text;
     }
     candidate
@@ -1546,8 +1521,7 @@ pub(crate) fn build_env_prefix_scope_spans(
             | Command::Decl(_)
             | Command::Binary(_)
             | Command::Compound(_)
-            | Command::Function(_)
-            | Command::AnonymousFunction(_) => None,
+            | Command::Function(_) => None,
         };
 
         for (index, assignment) in assignments.iter().enumerate() {
@@ -1588,8 +1562,7 @@ pub(crate) fn build_env_prefix_scope_spans(
                                 | Command::Decl(_)
                                 | Command::Binary(_)
                                 | Command::Compound(_)
-                                | Command::Function(_)
-                                | Command::AnonymousFunction(_),
+                                | Command::Function(_),
                                 _,
                             )
                             | (Command::Simple(_), _) => false,
@@ -1661,8 +1634,7 @@ pub(crate) fn build_env_prefix_scope_spans(
                         | Command::Decl(_)
                         | Command::Binary(_)
                         | Command::Compound(_)
-                        | Command::Function(_)
-                        | Command::AnonymousFunction(_),
+                        | Command::Function(_),
                         _,
                     )
                     | (Command::Simple(_), _) => {}
@@ -1818,8 +1790,7 @@ pub(crate) fn command_is_assignment_only(fact: &CommandFact<'_>, source: &str) -
         | Command::Decl(_)
         | Command::Binary(_)
         | Command::Compound(_)
-        | Command::Function(_)
-        | Command::AnonymousFunction(_) => false,
+        | Command::Function(_) => false,
     }
 }
 
@@ -1985,8 +1956,7 @@ pub(crate) fn visit_command_body_reference_spans_outside_nested_commands(
         }
         Command::Binary(_)
         | Command::Compound(_)
-        | Command::Function(_)
-        | Command::AnonymousFunction(_) => {}
+        | Command::Function(_) => {}
     }
 
     for word in fact.redirects().iter().filter_map(Redirect::word_target) {
@@ -2138,12 +2108,6 @@ pub(crate) fn parameter_is_plain_access_to_name(
         {
             &reference.name == name
         }
-        ParameterExpansionSyntax::Zsh(syntax)
-            if syntax.operation.is_none()
-                && matches!(&syntax.target, ZshExpansionTarget::Reference(reference) if reference.subscript.is_none() && &reference.name == name) =>
-        {
-            true
-        }
         _ => false,
     }
 }
@@ -2220,8 +2184,7 @@ pub(crate) fn collect_plus_equals_assignment_spans_in_command(
         }
         Command::Binary(_)
         | Command::Compound(_)
-        | Command::Function(_)
-        | Command::AnonymousFunction(_) => {}
+        | Command::Function(_) => {}
     }
 }
 
@@ -2421,11 +2384,7 @@ pub(crate) fn zsh_later_use_is_parameter_subscript_flag(source: &str, span: Span
         return false;
     }
     let subscript_prefix = &source[open_subscript_offset + 1..start - 1];
-    if !subscript_prefix.is_empty() || subscript_prefix.contains(']') {
-        return false;
-    }
-
-    true
+    !(!subscript_prefix.is_empty() || subscript_prefix.contains(']'))
 }
 
 pub(crate) fn nonpersistent_reset_site_covers_later_use(
@@ -3069,25 +3028,11 @@ pub(crate) fn command_runs_in_persistent_shell_context(
 }
 
 pub(crate) fn zsh_pipeline_tail_runs_in_current_shell(
-    command: &CommandFact<'_>,
-    semantic: &SemanticModel,
-    source: &str,
+    _command: &CommandFact<'_>,
+    _semantic: &SemanticModel,
+    _source: &str,
 ) -> bool {
-    if command.shell_behavior().shell_dialect() != shuck_semantic::ShellDialect::Zsh {
-        return false;
-    }
-    if command
-        .shell_behavior()
-        .zsh_options()
-        .is_some_and(|options| {
-            *options == ZshOptionState::for_emulate(shuck_semantic::ZshEmulationMode::Sh)
-        })
-    {
-        return false;
-    }
-
-    command_is_pipeline_tail_operand(semantic, command.id(), source)
-        || command_is_textual_pipeline_tail_operand(command.span(), source)
+    false
 }
 
 pub(crate) fn command_is_pipeline_tail_operand(
@@ -3193,28 +3138,19 @@ pub(crate) fn command_kind_may_skip_child(kind: CommandKind) -> bool {
         CommandKind::Compound(
             CompoundCommandKind::If
             | CompoundCommandKind::For
-            | CompoundCommandKind::Repeat
-            | CompoundCommandKind::Foreach
             | CompoundCommandKind::ArithmeticFor
             | CompoundCommandKind::While
             | CompoundCommandKind::Until
             | CompoundCommandKind::Case
-            | CompoundCommandKind::Select,
+            | CompoundCommandKind::Select
+            | CompoundCommandKind::Repeat
+            | CompoundCommandKind::Foreach,
         ) => true,
         CommandKind::Simple
         | CommandKind::Builtin(_)
         | CommandKind::Decl
-        | CommandKind::Compound(
-            CompoundCommandKind::Subshell
-            | CompoundCommandKind::BraceGroup
-            | CompoundCommandKind::Arithmetic
-            | CompoundCommandKind::Time
-            | CompoundCommandKind::Conditional
-            | CompoundCommandKind::Coproc
-            | CompoundCommandKind::Always,
-        )
-        | CommandKind::Function
-        | CommandKind::AnonymousFunction => false,
+        | CommandKind::Compound(_)
+        | CommandKind::Function => false,
     }
 }
 
@@ -3433,7 +3369,7 @@ pub(crate) fn build_declaration_assignment_probes<'a>(
     normalized: &NormalizedCommand<'a>,
     semantic: &SemanticModel,
     source: &str,
-    behavior: &ShellBehaviorAt<'_>,
+    behavior: &ShellBehaviorAt,
 ) -> Vec<DeclarationAssignmentProbe> {
     if let Some(declaration) = normalized.declaration.as_ref() {
         return declaration
@@ -3596,7 +3532,7 @@ pub(crate) fn part_is_standalone_status_or_pid_capture(part: &WordPart) -> bool 
 pub(crate) fn word_has_command_substitution(
     word: &Word,
     source: &str,
-    behavior: &ShellBehaviorAt<'_>,
+    behavior: &ShellBehaviorAt,
 ) -> bool {
     word_classification_from_analysis(analyze_word(word, source, Some(behavior)))
         .has_command_substitution()
@@ -3660,8 +3596,7 @@ pub(crate) fn word_part_is_zsh_selectorless_subscript_value(
             base_names.push(reference.name.clone());
             true
         }
-        WordPart::ZshQualifiedGlob(_)
-        | WordPart::Variable(_)
+        WordPart::Variable(_)
         | WordPart::CommandSubstitution { .. }
         | WordPart::ArithmeticExpansion { .. }
         | WordPart::ParameterExpansion { .. }
@@ -3704,26 +3639,6 @@ pub(crate) fn parameter_is_zsh_selectorless_subscript_value(
             | BourneParameterExpansion::Slice { .. }
             | BourneParameterExpansion::Transformation { .. },
         ) => false,
-        ParameterExpansionSyntax::Zsh(syntax)
-            if syntax.length_prefix.is_none()
-                && syntax.operation.is_none()
-                && syntax.modifiers.is_empty() =>
-        {
-            match &syntax.target {
-                ZshExpansionTarget::Reference(reference) => {
-                    if !var_ref_has_selectorless_subscript(reference) {
-                        return false;
-                    }
-                    base_names.push(reference.name.clone());
-                    true
-                }
-                ZshExpansionTarget::Nested(parameter) => {
-                    parameter_is_zsh_selectorless_subscript_value(parameter, base_names)
-                }
-                ZshExpansionTarget::Word(_) | ZshExpansionTarget::Empty => false,
-            }
-        }
-        ParameterExpansionSyntax::Zsh(_) => false,
     }
 }
 
@@ -3757,8 +3672,7 @@ pub(crate) fn collect_binding_values<'a>(
         Command::Simple(_)
         | Command::Binary(_)
         | Command::Compound(_)
-        | Command::Function(_)
-        | Command::AnonymousFunction(_) => &[],
+        | Command::Function(_) => &[],
     };
 
     for assignment in assignments {
@@ -3842,18 +3756,6 @@ pub(crate) fn collect_binding_values<'a>(
                         BindingValueFact::from_loop_words(values.clone()),
                     );
                 }
-            }
-        }
-        Command::Compound(CompoundCommand::Foreach(command)) => {
-            if let Some(binding_id) =
-                binding_value_definition_id_for_span(semantic, command.variable_span)
-            {
-                binding_values.insert(
-                    binding_id,
-                    BindingValueFact::from_loop_words(
-                        command.words.iter().collect::<Vec<_>>().into_boxed_slice(),
-                    ),
-                );
             }
         }
         Command::Compound(CompoundCommand::Select(command)) => {

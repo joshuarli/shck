@@ -24,9 +24,7 @@ impl Violation for LeadingZeroArithmetic {
 }
 
 pub fn leading_zero_arithmetic(checker: &mut Checker) {
-    if checker.shell() == ShellDialect::Zsh {
-        return;
-    }
+    // Rule applies to all supported shell dialects.
 
     let source = checker.source();
     let word_facts = checker.facts().words();
@@ -307,22 +305,6 @@ printf '%s\\n' \"))\"
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(diagnostics[0].span.start.line(), 4);
         assert_eq!(diagnostics[0].span.slice(source), "08");
-    }
-
-    #[test]
-    fn ignores_zsh_arithmetic_literals() {
-        let source = "\
-#!/bin/zsh
-: $((08 + 000))
-setopt octal_zeroes
-: $((09))
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::LeadingZeroArithmetic).with_shell(ShellDialect::Zsh),
-        );
-
-        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
     }
 
     #[test]

@@ -1,29 +1,15 @@
 use super::*;
-use shuck_ast::{
-    AnonymousFunctionCommand as AstAnonymousFunctionCommand, ArithmeticAssignOp,
+use shuck_ast::{ArithmeticAssignOp,
     ArithmeticBinaryOp, ArithmeticPostfixOp, ArithmeticUnaryOp, BackgroundOperator, BinaryCommand,
     BourneParameterExpansion, BuiltinCommand as AstBuiltinCommand, Command as AstCommand,
-    CompoundCommand as AstCompoundCommand, ForSyntax, ForeachSyntax, FunctionDef as AstFunctionDef,
-    HeredocBody, HeredocBodyMode, IfSyntax, Name, ParameterExpansion, ParameterExpansionSyntax,
-    ParameterOp, PrefixMatchKind, RepeatSyntax, SimpleCommand as AstSimpleCommand, SourceText,
-    StmtTerminator, ZshDefaultingOp, ZshExpansionOperation, ZshExpansionTarget, ZshPatternOp,
-    ZshReplacementOp, ZshTrimOp,
+    CompoundCommand as AstCompoundCommand, ForSyntax, FunctionDef as AstFunctionDef,
+    HeredocBody, HeredocBodyMode, Name, ParameterExpansion, ParameterExpansionSyntax,
+    ParameterOp, PrefixMatchKind, SimpleCommand as AstSimpleCommand, SourceText,
+    StmtTerminator
 };
 
 fn is_fully_quoted(word: &Word) -> bool {
     word.is_fully_quoted()
-}
-
-fn zsh_profile_with_options(update: impl FnOnce(&mut ZshOptionState)) -> ShellProfile {
-    let mut options = ZshOptionState::zsh_default();
-    update(&mut options);
-    ShellProfile::with_zsh_options(ShellDialect::Zsh, options)
-}
-
-fn parse_zsh_with_options(input: &str, update: impl FnOnce(&mut ZshOptionState)) -> ParseResult {
-    Parser::with_profile(input, zsh_profile_with_options(update))
-        .parse()
-        .unwrap()
 }
 
 fn heredoc_body_is_literal(body: &HeredocBody) -> bool {
@@ -99,7 +85,6 @@ fn collect_command_comments(command: &AstCommand, comments: &mut Vec<Comment>) {
         }
         AstCommand::Compound(command) => collect_compound_comments(command, comments),
         AstCommand::Function(function) => collect_stmt_comments(&function.body, comments),
-        AstCommand::AnonymousFunction(function) => collect_stmt_comments(&function.body, comments),
         AstCommand::Simple(_) | AstCommand::Builtin(_) | AstCommand::Decl(_) => {}
     }
 }
@@ -142,20 +127,15 @@ fn collect_compound_comments(command: &AstCompoundCommand, comments: &mut Vec<Co
         AstCompoundCommand::Subshell(body) | AstCompoundCommand::BraceGroup(body) => {
             collect_stmt_seq_comments(body, comments);
         }
-        AstCompoundCommand::Always(command) => {
-            collect_stmt_seq_comments(&command.body, comments);
-            collect_stmt_seq_comments(&command.always_body, comments);
+        AstCompoundCommand::Time(command) => {
+            if let Some(body) = &command.command {
+                collect_stmt_comments(body, comments);
+            }
         }
-        AstCompoundCommand::Repeat(command) => {
-            collect_stmt_seq_comments(&command.body, comments);
+        AstCompoundCommand::Coproc(command) => {
+            collect_stmt_comments(&command.body, comments);
         }
-        AstCompoundCommand::Foreach(command) => {
-            collect_stmt_seq_comments(&command.body, comments);
-        }
-        AstCompoundCommand::Conditional(_)
-        | AstCompoundCommand::Arithmetic(_)
-        | AstCompoundCommand::Time(_)
-        | AstCompoundCommand::Coproc(_) => {}
+        AstCompoundCommand::Conditional(_) | AstCompoundCommand::Arithmetic(_) => {}
     }
 }
 
@@ -193,13 +173,6 @@ fn assert_comment_ranges_valid(source: &str, output: &ParseResult) {
 fn expect_function(stmt: &Stmt) -> &AstFunctionDef {
     let AstCommand::Function(function) = &stmt.command else {
         panic!("expected function definition");
-    };
-    function
-}
-
-fn expect_anonymous_function(stmt: &Stmt) -> &AstAnonymousFunctionCommand {
-    let AstCommand::AnonymousFunction(function) = &stmt.command else {
-        panic!("expected anonymous function");
     };
     function
 }
@@ -281,55 +254,6 @@ fn expect_parameter(word: &Word) -> &ParameterExpansion {
         panic!("expected parameter part, got {:?}", part.kind);
     };
     parameter
-}
-
-fn expect_zsh_qualified_glob(word: &Word) -> &ZshQualifiedGlob {
-    let [part] = word.parts.as_slice() else {
-        panic!("expected single qualified glob part");
-    };
-    let WordPart::ZshQualifiedGlob(glob) = &part.kind else {
-        panic!("expected qualified glob part, got {:?}", part.kind);
-    };
-    glob
-}
-
-fn expect_zsh_glob_qualifiers(glob: &ZshQualifiedGlob) -> &ZshGlobQualifierGroup {
-    glob.qualifiers
-        .as_ref()
-        .expect("expected zsh glob qualifiers")
-}
-
-fn expect_zsh_glob_pattern_segment(segment: &ZshGlobSegment) -> &Pattern {
-    let ZshGlobSegment::Pattern(pattern) = segment else {
-        panic!("expected pattern segment");
-    };
-    pattern
-}
-
-fn pattern_has_zsh_qualified_glob(pattern: &Pattern) -> bool {
-    pattern.parts.iter().any(|part| {
-        matches!(
-            &part.kind,
-            PatternPart::Word(word)
-                if matches!(
-                    word.parts.as_slice(),
-                    [WordPartNode {
-                        kind: WordPart::ZshQualifiedGlob(_),
-                        ..
-                    }]
-                )
-        )
-    })
-}
-
-fn expect_pattern_zsh_qualified_glob(pattern: &Pattern) -> &ZshQualifiedGlob {
-    let [part] = pattern.parts.as_slice() else {
-        panic!("expected single pattern word part");
-    };
-    let PatternPart::Word(word) = &part.kind else {
-        panic!("expected pattern word part, got {:?}", part.kind);
-    };
-    expect_zsh_qualified_glob(word)
 }
 
 fn expect_array_length_part(part: &WordPart) -> &VarRef {
@@ -521,61 +445,6 @@ fn ordinary_subscripts_keep_word_asts_while_selectors_do_not() {
     let selector = expect_array_access(&command.args[1]);
     let selector_subscript = expect_subscript(selector, input, "@");
     assert!(selector_subscript.word_ast().is_none());
-}
-
-#[test]
-fn parser_backed_parameter_fragments_keep_word_asts() {
-    let bash_input = "echo ${name:-$fallback}\n";
-    let bash_output = Parser::new(bash_input).parse().unwrap();
-    let bash_command = expect_simple(&bash_output.file.body.stmts[0]);
-    let bash_parameter = expect_parameter(&bash_command.args[0]);
-    let ParameterExpansionSyntax::Bourne(BourneParameterExpansion::Operation {
-        operand_word_ast,
-        ..
-    }) = &bash_parameter.syntax
-    else {
-        panic!("expected parameter operation");
-    };
-    assert_eq!(
-        operand_word_ast
-            .as_ref()
-            .expect("expected operand word AST")
-            .render_syntax(bash_input),
-        "$fallback"
-    );
-
-    let zsh_input = "echo ${(j.:.)name//foo/$bar}\n";
-    let zsh_output = Parser::with_dialect(zsh_input, ShellDialect::Zsh)
-        .parse()
-        .unwrap();
-    let zsh_command = expect_simple(&zsh_output.file.body.stmts[0]);
-    let zsh_parameter = expect_parameter(&zsh_command.args[0]);
-    let ParameterExpansionSyntax::Zsh(syntax) = &zsh_parameter.syntax else {
-        panic!("expected zsh parameter expansion");
-    };
-    assert_eq!(
-        syntax.modifiers[0]
-            .argument_word_ast()
-            .expect("expected zsh modifier argument word AST")
-            .render_syntax(zsh_input),
-        ":"
-    );
-    let Some(ZshExpansionOperation::ReplacementOperation {
-        pattern_word_ast,
-        replacement_word_ast,
-        ..
-    }) = syntax.operation.as_ref()
-    else {
-        panic!("expected zsh replacement operation");
-    };
-    assert_eq!(pattern_word_ast.render_syntax(zsh_input), "foo");
-    assert_eq!(
-        replacement_word_ast
-            .as_ref()
-            .expect("expected zsh replacement word AST")
-            .render_syntax(zsh_input),
-        "$bar"
-    );
 }
 
 mod commands;

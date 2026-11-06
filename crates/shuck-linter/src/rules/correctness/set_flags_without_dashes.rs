@@ -127,17 +127,6 @@ set OFFLINE_PATH \"$PWD\"
     }
 
     #[test]
-    fn ignores_unsupported_known_shells() {
-        let source = "set foo bar\n";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::SetFlagsWithoutDashes).with_shell(ShellDialect::Zsh),
-        );
-
-        assert!(diagnostics.is_empty());
-    }
-
-    #[test]
     fn applies_safe_fix_to_bare_set_operands() {
         let source = "\
 set euox pipefail

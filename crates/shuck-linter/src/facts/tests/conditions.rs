@@ -1505,41 +1505,6 @@ for entry in $(find . -type f -exec grep -Pl '\\r$' {} \\;); do :; done
 }
 
 #[test]
-fn zsh_for_headers_only_track_iteration_words() {
-    let source = "\
-#!/usr/bin/env zsh
-for key value in $(printf '%s\\n' a b) literal; do :; done
-for version ($versions); do :; done
-";
-
-    with_facts_dialect(
-        source,
-        Some(Path::new("script.zsh")),
-        ParseShellDialect::Zsh,
-        ShellDialect::Zsh,
-        |_, facts| {
-            assert_eq!(facts.command_facts().for_headers().len(), 2);
-
-            let first = &facts.command_facts().for_headers()[0];
-            assert_eq!(first.words().len(), 2);
-            assert!(first.words()[0].has_command_substitution());
-            assert_eq!(
-                first
-                    .words()
-                    .iter()
-                    .map(|word| word.word().span.slice(source))
-                    .collect::<Vec<_>>(),
-                vec!["$(printf '%s\\n' a b)", "literal"]
-            );
-
-            let second = &facts.command_facts().for_headers()[1];
-            assert_eq!(second.words().len(), 1);
-            assert_eq!(second.words()[0].word().span.slice(source), "$versions");
-        },
-    );
-}
-
-#[test]
 fn builds_conditional_facts_with_root_normalization_and_nested_inventory() {
     let source = "\
 #!/bin/bash

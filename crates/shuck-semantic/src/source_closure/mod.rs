@@ -7,29 +7,26 @@
 //! focused plugin-manager implementations.
 
 use std::cell::RefCell;
-use std::env;
 use std::fs;
 use std::io::Read;
 use std::path::{Component, Path, PathBuf};
 
 use rustc_hash::{FxHashMap, FxHashSet};
 use shuck_ast::{
-    ArithmeticExpr, ArithmeticExprNode, ArrayElem, Assignment, AssignmentValue,
-    BourneParameterExpansion, Command, DeclOperand, File, Name, ParameterExpansion,
-    ParameterExpansionSyntax, SimpleCommand, Span, StmtSeq, VarRef, Word, WordPart, WordPartNode,
-    ZshDefaultingOp, ZshExpansionOperation, ZshExpansionTarget, ZshParameterExpansion,
+    ArithmeticExpr, ArithmeticExprNode,
+    BourneParameterExpansion, Command, File, Name, ParameterExpansion,
+    ParameterExpansionSyntax, Span, StmtSeq, VarRef, Word, WordPart, WordPartNode,
     static_word_text,
 };
 use shuck_indexer::Indexer;
 use shuck_parser::parser::Parser;
-use shuck_parser::{ShellDialect as ParseShellDialect, ShellProfile, ZshOptionState};
+use shuck_parser::{ShellDialect as ParseShellDialect, ShellProfile};
 
 use crate::function_resolution::{
     call_payloads_by_callee_scope, lexically_visible_function_binding_in_scope,
 };
 mod plugin_managers;
 
-pub use plugin_managers::{layout_for_plugin_framework, zsh_plugin_frameworks};
 
 use plugin_managers::{
     collect_plugin_requests, deferred_zsh_entrypoint_required_reads, sorted_dependency_paths,
@@ -38,7 +35,7 @@ use plugin_managers::{
 use crate::{
     Binding, BindingAttributes, BindingKind, ContractCertainty, FileContract,
     FileEntryContractCollector, FileEntryContractCollectorFactory, FunctionContract,
-    FunctionScopeKind, PluginFramework, PluginRequest, PluginRequestKind, PluginResolver,
+    FunctionScopeKind, PluginResolver,
     ProvidedBinding, ProvidedBindingKind, ScopeId, ScopeKind, SemanticModel, SourcePathResolver,
     SourceRefDiagnosticClass, SourceRefKind, SourceRefResolution, SpanKey, SyntheticRead,
     build_semantic_model_base, dataflow::binding_initializes_name,
@@ -123,14 +120,12 @@ struct HelperSummaryKey {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct ShellProfileKey {
     dialect: ParseShellDialect,
-    options: Option<ZshOptionState>,
 }
 
 impl ShellProfileKey {
     fn from_profile(profile: &ShellProfile) -> Self {
         Self {
             dialect: profile.dialect,
-            options: profile.options,
         }
     }
 }
@@ -224,7 +219,7 @@ pub(crate) fn collect_source_ref_metadata(
             .as_ref()
             .is_some_and(template_has_current_source_anchor);
         if has_current_source_anchor
-            && (resolved || model.shell_profile().dialect == ParseShellDialect::Zsh)
+            && resolved
         {
             explicit = true;
         }
@@ -293,7 +288,7 @@ fn collect_source_closure_contracts_with_cache(
             .as_ref()
             .is_some_and(template_has_current_source_anchor);
         if has_current_source_anchor
-            && (resolved || model.shell_profile().dialect == ParseShellDialect::Zsh)
+            && resolved
         {
             explicit = true;
         }
@@ -452,7 +447,7 @@ fn collect_source_closure_contracts_with_cache(
         imported_bindings: dedup_imported_bindings(imported_bindings),
         imported_functions,
         requesting_file_contract,
-        dependency_paths: sorted_dependency_paths(&context.dependency_paths.borrow()),
+        dependency_paths: sorted_dependency_paths(context.dependency_paths.borrow().iter().cloned().collect()),
         source_ref_resolutions,
         source_ref_explicitness,
         source_ref_diagnostic_classes,
@@ -904,6 +899,7 @@ pub(crate) fn source_path_template(
     word: &Word,
     source: &str,
     bash_runtime_vars_enabled: bool,
+    #[allow(dead_code)]
     zsh_runtime_vars_enabled: bool,
 ) -> Option<ResolvedSourcePathTemplate> {
     if static_word_text(word, source).is_some() {
@@ -923,6 +919,7 @@ pub(crate) fn assignment_source_path_template(
     word: &Word,
     source: &str,
     bash_runtime_vars_enabled: bool,
+    #[allow(dead_code)]
     zsh_runtime_vars_enabled: bool,
     resolve_variable_template: impl FnMut(&Name, Span) -> Option<SourcePathTemplate>,
 ) -> Option<SourcePathTemplate> {
@@ -945,6 +942,7 @@ fn source_path_template_with_resolver(
     word: &Word,
     source: &str,
     bash_runtime_vars_enabled: bool,
+    #[allow(dead_code)]
     zsh_runtime_vars_enabled: bool,
     resolve_variable_template: impl FnMut(&Name, Span) -> Option<SourcePathTemplate>,
 ) -> Option<ResolvedSourcePathTemplate> {
@@ -986,6 +984,7 @@ fn source_path_template_with_resolver(
 struct SourceTemplateContext<'a, F> {
     source: &'a str,
     bash_runtime_vars_enabled: bool,
+    #[allow(dead_code)]
     zsh_runtime_vars_enabled: bool,
     resolve_variable_template: F,
 }
@@ -1045,12 +1044,7 @@ where
                 *saw_dynamic = true;
                 parts.push(TemplatePart::SourceFile);
             }
-            WordPart::Parameter(parameter)
-                if context.zsh_runtime_vars_enabled
-                    && append_zsh_parameter_template(parameter, context, parts) =>
-            {
-                *saw_dynamic = true;
-            }
+
             WordPart::ArrayAccess(reference)
                 if context.bash_runtime_vars_enabled
                     && is_bash_source_index_ref(reference, context.source) =>
@@ -1107,120 +1101,11 @@ fn template_with_literal_tail(template: &SourcePathTemplate, tail: &str) -> Sour
     SourcePathTemplate::Interpolated(parts)
 }
 
-fn append_zsh_parameter_template<F>(
-    parameter: &ParameterExpansion,
-    context: &mut SourceTemplateContext<'_, F>,
-    parts: &mut Vec<TemplatePart>,
-) -> bool
-where
-    F: FnMut(&Name, Span) -> Option<SourcePathTemplate>,
-{
-    let expansion_span = parameter.span;
-    let ParameterExpansionSyntax::Zsh(parameter) = &parameter.syntax else {
-        return false;
-    };
-    let Some(template) = zsh_parameter_source_template(parameter, expansion_span, context) else {
-        return false;
-    };
-    append_template_parts(parts, &template);
-    true
-}
 
-fn zsh_parameter_source_template<F>(
-    parameter: &ZshParameterExpansion,
-    expansion_span: Span,
-    context: &mut SourceTemplateContext<'_, F>,
-) -> Option<SourcePathTemplate>
-where
-    F: FnMut(&Name, Span) -> Option<SourcePathTemplate>,
-{
-    let mut template = match &parameter.target {
-        ZshExpansionTarget::Reference(reference)
-            if reference.subscript.is_none() && reference.name.as_str() == "0" =>
-        {
-            SourcePathTemplate::Interpolated(vec![TemplatePart::SourceFile])
-        }
-        ZshExpansionTarget::Reference(reference) => {
-            let span = if reference.name_span.start.offset() == 0
-                && reference.name_span.end.offset() == 0
-            {
-                expansion_span
-            } else {
-                reference.name_span
-            };
-            (context.resolve_variable_template)(&reference.name, span)?
-        }
-        ZshExpansionTarget::Nested(nested_expansion) => {
-            let ParameterExpansionSyntax::Zsh(nested) = &nested_expansion.syntax else {
-                return None;
-            };
-            zsh_parameter_source_template(nested, nested_expansion.span, context)?
-        }
-        ZshExpansionTarget::Empty if zsh_empty_prompt_current_script(parameter, context.source) => {
-            SourcePathTemplate::Interpolated(vec![TemplatePart::SourceFile])
-        }
-        ZshExpansionTarget::Word(_) | ZshExpansionTarget::Empty => return None,
-    };
 
-    for modifier in zsh_path_modifier_names(parameter, context.source)? {
-        template = match modifier {
-            'a' | 'A' => template,
-            'h' => dirname_source_path_template(&template)?,
-            _ => return None,
-        };
-    }
 
-    Some(template)
-}
 
-fn zsh_path_modifier_names(parameter: &ZshParameterExpansion, source: &str) -> Option<Vec<char>> {
-    let mut names = parameter
-        .modifiers
-        .iter()
-        .filter(|modifier| modifier.name != '%')
-        .map(|modifier| modifier.name)
-        .collect::<Vec<_>>();
-
-    if let Some(ZshExpansionOperation::Unknown { text, .. }) = &parameter.operation {
-        let text = text.slice(source);
-        let suffix = text.strip_prefix(':')?;
-        if suffix.is_empty() {
-            return None;
-        }
-        for modifier in suffix.split(':') {
-            let mut chars = modifier.chars();
-            let name = chars.next()?;
-            if chars.next().is_some() {
-                return None;
-            }
-            names.push(name);
-        }
-    }
-
-    Some(names)
-}
-
-fn zsh_empty_prompt_current_script(parameter: &ZshParameterExpansion, source: &str) -> bool {
-    if !matches!(parameter.target, ZshExpansionTarget::Empty) {
-        return false;
-    }
-    if !parameter
-        .modifiers
-        .iter()
-        .any(|modifier| modifier.name == '%')
-    {
-        return false;
-    }
-    matches!(
-        &parameter.operation,
-        Some(ZshExpansionOperation::Defaulting {
-            kind: ZshDefaultingOp::UseDefault,
-            operand,
-            ..
-        }) if matches!(operand.slice(source), "%x" | "%N")
-    )
-}
-
+#[allow(dead_code)]
 fn dirname_source_path_template(template: &SourcePathTemplate) -> Option<SourcePathTemplate> {
     match template {
         SourcePathTemplate::Interpolated(parts) => match parts.as_slice() {
@@ -1245,16 +1130,7 @@ fn parameter_is_current_source_file(parameter: &ParameterExpansion, source: &str
         ParameterExpansionSyntax::Bourne(BourneParameterExpansion::Access { reference }) => {
             is_current_source_reference(reference, source)
         }
-        ParameterExpansionSyntax::Bourne(
-            BourneParameterExpansion::Length { .. }
-            | BourneParameterExpansion::Indices { .. }
-            | BourneParameterExpansion::Indirect { .. }
-            | BourneParameterExpansion::PrefixMatch { .. }
-            | BourneParameterExpansion::Slice { .. }
-            | BourneParameterExpansion::Operation { .. }
-            | BourneParameterExpansion::Transformation { .. },
-        )
-        | ParameterExpansionSyntax::Zsh(_) => false,
+        _ => false,
     }
 }
 
@@ -1508,10 +1384,10 @@ fn looks_like_local_helper_command(name: &str) -> bool {
 
 fn unresolved_zsh_reply_bindings_for_call(
     source_path: &Path,
-    shell_profile: &ShellProfile,
+    _shell_profile: &ShellProfile,
     name: &Name,
 ) -> Option<[ProvidedBinding; 2]> {
-    if shell_profile.dialect != ParseShellDialect::Zsh
+    if true
         || !looks_like_zsh_runtime_path(source_path)
         || !looks_like_zsh_reply_helper_command(name.as_str())
     {
@@ -1676,7 +1552,7 @@ fn resolve_helper_paths(
         }
     }
 
-    if context.shell_profile.dialect == ParseShellDialect::Zsh
+    if false
         && let Some(plugin_paths) = context.plugin_resolver.map(|resolver| {
             resolver
                 .resolve_source_path(source_path, candidate)
@@ -2011,7 +1887,7 @@ fn summarize_helper_uncached(
             &provided_functions,
         ));
     }
-    if semantic.shell_profile().dialect == ParseShellDialect::Zsh {
+    if false {
         let facts = collect_ast_facts(&semantic);
         for name in deferred_zsh_entrypoint_required_reads(
             &semantic,
@@ -2033,6 +1909,7 @@ fn helper_shell_profile(source: &str, path: &Path, inherited: &ShellProfile) -> 
         .unwrap_or_else(|| inherited.clone())
 }
 
+#[allow(dead_code)]
 fn summarize_scope_body_contract(
     semantic: &SemanticModel,
     analysis: &crate::SemanticAnalysis<'_>,
@@ -2222,6 +2099,7 @@ fn build_scope_function_contracts(
     functions
 }
 
+#[allow(dead_code)]
 fn scope_members_excluding_functions(scopes: &[crate::Scope], root: ScopeId) -> FxHashSet<ScopeId> {
     let mut children: FxHashMap<ScopeId, Vec<ScopeId>> = FxHashMap::default();
     for scope in scopes {
@@ -2256,26 +2134,7 @@ mod tests {
     use std::fs;
     use tempfile::tempdir;
 
-    #[test]
-    fn zsh_operation_operands_are_walked_when_collecting_ast_facts() {
-        let source = "print ${(m)foo#$(printf '%s' \"$needle\")} ${(S)foo/$pattern/$(dirname \"$1\")} ${(m)foo:$(source \"$2\"):${length}}\n";
-        let output = Parser::with_dialect(source, ShellDialect::Zsh)
-            .parse()
-            .unwrap();
-        let indexer = Indexer::new(source, &output);
-        let model = SemanticModel::build(&output.file, source, &indexer);
-        let facts = collect_ast_facts(&model);
-        let call_names = facts
-            .calls
-            .iter()
-            .map(|call| call.name.to_string())
-            .collect::<Vec<_>>();
-
-        assert!(call_names.iter().any(|name| name == "printf"));
-        assert!(call_names.iter().any(|name| name == "dirname"));
-        assert!(call_names.iter().any(|name| name == "source"));
-    }
-
+    
     #[test]
     fn candidate_path_variants_preserve_leading_parent_segments() {
         let variants = candidate_path_variants("../../helper.sh");
@@ -2358,31 +2217,6 @@ outer() {
         );
     }
 
-    #[test]
-    fn resolve_literal_call_args_by_scope_tracks_wrapper_expanded_calls() {
-        let source = "\
-load_helper() { . \"$1\"; }
-noglob load_helper ./helper.sh
-";
-        let output = Parser::new(source).parse().unwrap();
-        let indexer = Indexer::new(source, &output);
-        let model = SemanticModel::build(&output.file, source, &indexer);
-        let facts = collect_ast_facts(&model);
-        let args_by_scope = resolve_literal_call_args_by_scope(&model, &facts.calls);
-        let name = Name::from("load_helper");
-        let binding = model.function_definitions(&name)[0];
-        let scope = model
-            .analysis()
-            .function_scope_for_binding(binding)
-            .expect("expected function scope");
-
-        assert_eq!(
-            args_by_scope.get(&scope),
-            Some(&vec![vec![Some(compact_str::CompactString::from(
-                "./helper.sh"
-            ))]])
-        );
-    }
 
     #[test]
     fn resolve_literal_call_args_by_scope_ignores_calls_before_function_definition() {
@@ -2553,51 +2387,7 @@ set_flag() {
         assert!(!dependency_paths.contains(&std::fs::canonicalize(&helper_target).unwrap()));
     }
 
-    #[test]
-    fn dedup_plugin_requests_preserves_first_request_order_when_replacing_duplicates() {
-        let mut alpha_implicit = PluginRequest {
-            framework: PluginFramework::OhMyZsh,
-            kind: PluginRequestKind::Plugin,
-            name: "alpha".to_owned(),
-            span: Span::new(),
-            explicit: false,
-            root_hint: None,
-        };
-        alpha_implicit.span.start = shuck_ast::Position::at(
-            alpha_implicit.span.start.line(),
-            alpha_implicit.span.start.column(),
-            7,
-        );
-
-        let mut beta_explicit = PluginRequest {
-            framework: PluginFramework::OhMyZsh,
-            kind: PluginRequestKind::Plugin,
-            name: "beta".to_owned(),
-            span: Span::new(),
-            explicit: true,
-            root_hint: None,
-        };
-        beta_explicit.span.start = shuck_ast::Position::at(
-            beta_explicit.span.start.line(),
-            beta_explicit.span.start.column(),
-            7,
-        );
-
-        let mut alpha_explicit = alpha_implicit.clone();
-        alpha_explicit.explicit = true;
-
-        let deduped = plugin_managers::dedup_plugin_requests(vec![
-            alpha_implicit,
-            beta_explicit.clone(),
-            alpha_explicit,
-        ]);
-
-        assert_eq!(deduped.len(), 2);
-        assert_eq!(deduped[0].name, "alpha");
-        assert!(deduped[0].explicit);
-        assert_eq!(deduped[1], beta_explicit);
-    }
-
+    
     #[cfg(windows)]
     #[test]
     fn source_dir_templates_render_windows_paths_with_shell_separators() {

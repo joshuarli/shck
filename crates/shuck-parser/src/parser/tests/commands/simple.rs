@@ -247,3 +247,8 @@ fn test_parse_coproc_with_non_plain_name_candidate_defaults_to_coproc_name() {
     assert_eq!(simple.name.render_syntax(source), "'roc'");
     assert_eq!(simple.args[0].render(source), "cat");
 }
+
+
+
+
+

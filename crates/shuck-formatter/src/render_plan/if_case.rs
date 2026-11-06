@@ -56,9 +56,7 @@ pub(crate) enum ExpandedIfLayout {
 
 impl IfLayoutPlan {
     pub(crate) fn then_fi(command: &IfCommand, context: RenderContext<'_, '_>) -> Self {
-        let IfSyntax::ThenFi { then_span, .. } = command.syntax else {
-            unreachable!("brace if cannot be planned as then/fi");
-        };
+        let IfSyntax::ThenFi { then_span, .. } = command.syntax;
         let fi_span = context.facts.if_close_span(command);
         let style = then_fi_if_style(command, then_span, fi_span, context);
 

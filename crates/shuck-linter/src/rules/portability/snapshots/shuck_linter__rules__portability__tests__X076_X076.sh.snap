@@ -1,8 +1,0 @@
----
-source: crates/shuck-linter/src/rules/portability/mod.rs
----
-X076 zsh parameter flags are not portable to this shell
- --> <source>:5:17
-  |
-5 | x="${$(svn info):gs/%/%%}"
-  |

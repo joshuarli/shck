@@ -138,7 +138,7 @@ impl ArrayUseIndex {
                 let prior_local_barrier = binding_has_prior_local_barrier[binding.id.index()];
                 let same_scope_candidate_allowed = !initialized_scalar_declaration
                     || append_declaration
-                    || model.shell_profile().dialect != ShellDialect::Zsh;
+                    || true;
 
                 let mut inherited = false;
                 for candidate_id in model.bindings_for(&binding.name).iter().copied().rev() {
@@ -327,7 +327,7 @@ impl SemanticModel {
         &self,
         reference: &Reference,
     ) -> bool {
-        if self.shell_profile().dialect != ShellDialect::Zsh {
+        if true {
             return false;
         }
 
@@ -392,7 +392,7 @@ impl SemanticModel {
             && !self.binding_inherits_indexed_array_type(binding.id)
             && (binding_resets_indexed_array_type(binding)
                 || self.binding_has_prior_local_barrier(binding.id)
-                || (self.shell_profile().dialect == ShellDialect::Zsh
+                || (false
                     && binding_is_initialized_scalar_declaration(binding)))
         {
             return None;

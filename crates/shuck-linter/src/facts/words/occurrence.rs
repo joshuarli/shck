@@ -386,11 +386,11 @@ impl<'facts, 'a> WordOccurrenceRef<'facts, 'a> {
     }
 
     pub fn expansion_span_is_zsh_force_glob_parameter(self, span: Span) -> bool {
-        shuck_ast::word_span_is_zsh_force_glob_parameter(self.word(), span)
+        false
     }
 
     pub fn expansion_span_is_zsh_presence_test(self, span: Span) -> bool {
-        shuck_ast::word_span_is_zsh_presence_test(self.word(), span)
+        false
     }
 
     pub fn expansion_span_is_plain_parameter_reference(self, span: Span) -> bool {
@@ -576,7 +576,7 @@ impl<'facts, 'a> WordOccurrenceRef<'facts, 'a> {
         !self.unquoted_glob_pattern_spans(source).is_empty()
             || self
                 .parts_with_spans()
-                .any(|(part, _)| matches!(part, WordPart::ZshQualifiedGlob(_)))
+                .any(|(part, _)| false)
     }
 
     pub fn active_literal_glob_spans(self, source: &str) -> Vec<Span> {
@@ -610,11 +610,7 @@ impl<'facts, 'a> WordOccurrenceRef<'facts, 'a> {
             return true;
         }
 
-        self.facts.command_facts().command(self.command_id())
-            .shell_behavior()
-            .shell_dialect()
-            != shuck_semantic::ShellDialect::Zsh
-            && self.starts_with_extglob()
+        self.starts_with_extglob()
     }
 
     pub fn suspicious_bracket_glob_spans(self, source: &str) -> Vec<Span> {
@@ -686,15 +682,15 @@ impl<'facts, 'a> WordOccurrenceRef<'facts, 'a> {
     }
 
     pub fn zsh_flag_modifier_spans(self) -> Vec<Span> {
-        word_spans::word_zsh_flag_modifier_spans(self.word())
+        Vec::new()
     }
 
     pub fn zsh_nested_expansion_spans(self) -> Vec<Span> {
-        word_spans::word_zsh_nested_expansion_spans(self.word())
+        Vec::new()
     }
 
     pub fn nested_zsh_substitution_spans(self) -> Vec<Span> {
-        word_spans::word_nested_zsh_substitution_spans(self.word())
+        Vec::new()
     }
 
     pub fn brace_expansion_spans(self) -> Vec<Span> {
@@ -1046,10 +1042,9 @@ fn safe_value_plain_scalar_reference_name_from_part(part: &WordPart) -> Option<N
             {
                 Some(reference.name.clone())
             }
-            ParameterExpansionSyntax::Bourne(_) | ParameterExpansionSyntax::Zsh(_) => None,
+            ParameterExpansionSyntax::Bourne(_) => None,
         },
         WordPart::Literal(_)
-        | WordPart::ZshQualifiedGlob(_)
         | WordPart::SingleQuoted { .. }
         | WordPart::Variable(_)
         | WordPart::CommandSubstitution { .. }
@@ -1109,20 +1104,6 @@ pub(crate) fn parameter_is_plain_reference(
         {
             true
         }
-        ParameterExpansionSyntax::Zsh(syntax)
-            if syntax.length_prefix.is_none()
-                && syntax.operation.is_none()
-                && syntax.modifiers.is_empty()
-                && matches!(
-                    &syntax.target,
-                    ZshExpansionTarget::Reference(reference)
-                        if reference.subscript.is_none()
-                            && (allow_all_elements_parameters
-                                || !matches!(reference.name.as_str(), "@" | "*"))
-                ) =>
-        {
-            true
-        }
         _ => false,
     }
 }
@@ -1151,7 +1132,6 @@ pub(crate) fn word_part_is_direct_numeric_expansion(part: &WordPart) -> bool {
 pub(crate) fn parameter_is_direct_numeric_expansion(parameter: &ParameterExpansion) -> bool {
     match &parameter.syntax {
         ParameterExpansionSyntax::Bourne(BourneParameterExpansion::Length { .. }) => true,
-        ParameterExpansionSyntax::Zsh(syntax) => syntax.length_prefix.is_some(),
         _ => false,
     }
 }
@@ -1178,7 +1158,6 @@ fn safe_value_special_parameter_access_from_part(part: &WordPart) -> bool {
                 if safe_value_special_parameter(&reference.name) && reference.subscript.is_none()
         ),
         WordPart::Literal(_)
-        | WordPart::ZshQualifiedGlob(_)
         | WordPart::SingleQuoted { .. }
         | WordPart::CommandSubstitution { .. }
         | WordPart::ArithmeticExpansion { .. }
@@ -1217,7 +1196,6 @@ fn safe_value_part_contains_special_parameter_slice(part: &WordPart) -> bool {
             safe_value_parameter_contains_special_parameter_slice(parameter)
         }
         WordPart::Literal(_)
-        | WordPart::ZshQualifiedGlob(_)
         | WordPart::SingleQuoted { .. }
         | WordPart::Variable(_)
         | WordPart::CommandSubstitution { .. }
@@ -1240,7 +1218,7 @@ fn safe_value_parameter_contains_special_parameter_slice(parameter: &ParameterEx
         ParameterExpansionSyntax::Bourne(BourneParameterExpansion::Slice { reference, .. }) => {
             safe_value_special_parameter_slice_reference(reference)
         }
-        ParameterExpansionSyntax::Bourne(_) | ParameterExpansionSyntax::Zsh(_) => false,
+        ParameterExpansionSyntax::Bourne(_) => false,
     }
 }
 
@@ -1273,17 +1251,8 @@ fn zsh_parameter_targets_visible_array(
     context: ZshArrayFanoutContext<'_, '_, '_>,
 ) -> bool {
     match &parameter.syntax {
-        ParameterExpansionSyntax::Bourne(BourneParameterExpansion::Access { reference })
-        | ParameterExpansionSyntax::Zsh(ZshParameterExpansion {
-            target: ZshExpansionTarget::Reference(reference),
-            length_prefix: None,
-            ..
-        }) if reference.subscript.is_none() => visible_name_is_array_like(
-            &reference.name,
-            reference.name_span,
-            context,
-        ),
-        _ => false,
+        ParameterExpansionSyntax::Bourne(BourneParameterExpansion::Access { reference }) => false,
+                _ => false,
     }
 }
 
@@ -1316,7 +1285,7 @@ pub(crate) fn build_word_facts_for_command<'a>(
     semantic: &'a SemanticModel,
     context: WordFactCommandContext,
     normalized: &NormalizedCommand<'a>,
-    command_shell_behavior: ShellBehaviorAt<'a>,
+    command_shell_behavior: ShellBehaviorAt,
     outputs: WordFactOutputs<'_, 'a>,
 ) {
     let mut collector = WordFactCollector::new(
@@ -1655,7 +1624,6 @@ impl DerivedWordTraversalVisitor<'_, '_, '_, '_> {
                 self.spans.active_expansion_spans.push(part.span);
             }
             WordPart::Variable(_)
-            | WordPart::ZshQualifiedGlob(_)
             | WordPart::CommandSubstitution { .. }
             | WordPart::ArithmeticExpansion { .. }
             | WordPart::Parameter(_)
@@ -1687,7 +1655,6 @@ impl DerivedWordTraversalVisitor<'_, '_, '_, '_> {
         match &part.kind {
             WordPart::Literal(_) | WordPart::SingleQuoted { .. } | WordPart::DoubleQuoted { .. } => {
             }
-            WordPart::ZshQualifiedGlob(_) => {}
             WordPart::CommandSubstitution { .. } | WordPart::ProcessSubstitution { .. } => {}
             WordPart::Parameter(parameter) => {
                 self.collect_zsh_parameter_array_fanout(parameter, quoted);
@@ -1774,8 +1741,7 @@ impl DerivedWordTraversalVisitor<'_, '_, '_, '_> {
             | WordPart::IndirectExpansion { .. }
             | WordPart::PrefixMatch { .. }
             | WordPart::ProcessSubstitution { .. }
-            | WordPart::Transformation { .. }
-            | WordPart::ZshQualifiedGlob(_) => {
+            | WordPart::Transformation { .. } => {
                 self.spans.double_quoted_expansion_spans.push(part.span);
             }
             WordPart::Literal(_) | WordPart::SingleQuoted { .. } | WordPart::DoubleQuoted { .. } => {
@@ -1920,8 +1886,7 @@ pub(crate) fn trailing_literal_char_in_parts(parts: &[WordPartNode], source: &st
         | WordPart::IndirectExpansion { .. }
         | WordPart::PrefixMatch { .. }
         | WordPart::ProcessSubstitution { .. }
-        | WordPart::Transformation { .. }
-        | WordPart::ZshQualifiedGlob(_) => None,
+        | WordPart::Transformation { .. } => None,
     }
 }
 
@@ -1934,7 +1899,7 @@ pub(crate) struct WordFactCollector<'out, 'a, 'norm> {
     command_scope: ScopeId,
     surface_command_name: Option<&'norm str>,
     surface_body_arg_start_offset: Option<usize>,
-    command_shell_behavior: ShellBehaviorAt<'a>,
+    command_shell_behavior: ShellBehaviorAt,
     command_visits_by_id: &'out [Option<CommandVisit<'a>>],
     word_nodes: &'out mut Vec<WordNode<'a>>,
     word_spans: &'out mut ListArena<Span>,
@@ -1993,7 +1958,7 @@ fn conditional_binary_op_is_arithmetic(op: ConditionalBinaryOp) -> bool {
 fn collect_split_sensitive_unquoted_command_substitution_spans(
     word: &Word,
     source: &str,
-    behavior: &ShellBehaviorAt<'_>,
+    behavior: &ShellBehaviorAt,
     spans: &mut Vec<Span>,
 ) {
     let mut visitor = SplitSensitiveCommandSubstitutionVisitor {
@@ -2014,7 +1979,7 @@ fn collect_split_sensitive_unquoted_command_substitution_spans(
 
 struct SplitSensitiveCommandSubstitutionVisitor<'spans, 'behavior, 'source> {
     source: &'source str,
-    behavior: &'behavior ShellBehaviorAt<'source>,
+    behavior: &'behavior ShellBehaviorAt,
     spans: &'spans mut Vec<Span>,
 }
 
@@ -2051,8 +2016,8 @@ impl<'out, 'a, 'norm> WordSubtreeVisitor<'a>
                 WordTraversalOrigin::ParameterPattern,
                 Some(WordTraversalPatternContext::ParameterOperator)
             ) | (
-                WordTraversalOrigin::ZshQualifiedGlobPattern,
-                Some(WordTraversalPatternContext::ZshQualifiedGlob)
+                _,
+                Some(WordTraversalPatternContext::ParameterOperator)
             )
         ) {
             self.collector.push_word(
@@ -2090,7 +2055,7 @@ impl<'out, 'a, 'norm> WordSubtreeVisitor<'a>
     ) {
         if matches!(
             state.origin,
-            WordTraversalOrigin::ParameterPattern | WordTraversalOrigin::ZshQualifiedGlobPattern
+            WordTraversalOrigin::ParameterPattern
         ) {
             return;
         }
@@ -2131,7 +2096,7 @@ impl<'out, 'a, 'norm> WordFactCollector<'out, 'a, 'norm> {
         nested_word_command: bool,
         command_scope: ScopeId,
         normalized: &'norm NormalizedCommand<'a>,
-        command_shell_behavior: ShellBehaviorAt<'a>,
+        command_shell_behavior: ShellBehaviorAt,
         outputs: WordFactOutputs<'out, 'a>,
     ) -> Self {
         let value_flow = outputs.semantic_analysis.value_flow();
@@ -2220,24 +2185,6 @@ impl<'out, 'a, 'norm> WordFactCollector<'out, 'a, 'norm> {
                         }
                     }
                 }
-                CompoundCommand::Repeat(command) => {
-                    self.push_word_with_surface(
-                        &command.count,
-                        WordFactContext::Expansion(ExpansionContext::CommandArgument),
-                        WordFactHostKind::Direct,
-                        surface_context,
-                    );
-                }
-                CompoundCommand::Foreach(command) => {
-                    for word in &command.words {
-                        self.push_word_with_surface(
-                            word,
-                            WordFactContext::Expansion(ExpansionContext::ForList),
-                            WordFactHostKind::Direct,
-                            surface_context,
-                        );
-                    }
-                }
                 CompoundCommand::Select(command) => {
                     for word in &command.words {
                         self.push_word_with_surface(
@@ -2315,7 +2262,6 @@ impl<'out, 'a, 'norm> WordFactCollector<'out, 'a, 'norm> {
                 | CompoundCommand::Until(_)
                 | CompoundCommand::Subshell(_)
                 | CompoundCommand::BraceGroup(_)
-                | CompoundCommand::Always(_)
                 | CompoundCommand::Coproc(_)
                 | CompoundCommand::Time(_) => {}
             }
@@ -2411,8 +2357,7 @@ impl<'out, 'a, 'norm> WordFactCollector<'out, 'a, 'norm> {
             Command::Builtin(_)
             | Command::Decl(_)
             | Command::Binary(_)
-            | Command::Compound(_)
-            | Command::AnonymousFunction(_) => {}
+            | Command::Compound(_) => {}
         }
     }
 
@@ -2655,17 +2600,6 @@ impl<'out, 'a, 'norm> WordFactCollector<'out, 'a, 'norm> {
                 }
             }
             Command::Binary(_) | Command::Compound(_) | Command::Function(_) => {}
-            Command::AnonymousFunction(function) => {
-                self.collect_words_with_context(
-                    &function.args,
-                    WordFactContext::Expansion(ExpansionContext::CommandArgument),
-                    SurfaceScanContext::new(
-                        None,
-                        self.nested_word_command,
-                        self.semantic.shell_profile().dialect,
-                    ),
-                );
-            }
         }
     }
 
@@ -3152,7 +3086,7 @@ impl<'out, 'a, 'norm> WordFactCollector<'out, 'a, 'norm> {
         let mut analysis = analyze_word(word, self.source, Some(&self.command_shell_behavior));
         let array_reference_policy = self.command_shell_behavior.array_reference_policy();
         let zsh_array_fanout = (self.semantic.shell_profile().dialect
-            == shuck_parser::parser::ShellDialect::Zsh
+            == shuck_parser::parser::ShellDialect::Bash
             && !matches!(
                 array_reference_policy,
                 ArrayReferencePolicy::RequiresExplicitSelector
@@ -3416,7 +3350,7 @@ impl<'out, 'a, 'norm> WordFactCollector<'out, 'a, 'norm> {
             return true;
         }
 
-        if self.semantic.shell_profile().dialect == shuck_parser::parser::ShellDialect::Zsh
+        if self.semantic.shell_profile().dialect == shuck_parser::parser::ShellDialect::Bash
             && owner_name.is_some_and(|name| {
                 super::zsh_option_map_binding_permits_implicit_assoc_key(
                     self.semantic,
@@ -3437,28 +3371,11 @@ impl<'out, 'a, 'norm> WordFactCollector<'out, 'a, 'norm> {
     }
 
     fn zsh_assignment_target_subscript_is_bare_literal_key(
-        dialect: shuck_parser::parser::ShellDialect,
-        subscript: Option<&Subscript>,
-        source: &str,
+        _dialect: shuck_parser::parser::ShellDialect,
+        _subscript: Option<&Subscript>,
+        _source: &str,
     ) -> bool {
-        if dialect != shuck_parser::parser::ShellDialect::Zsh {
-            return false;
-        }
-        let Some(subscript) = subscript else {
-            return false;
-        };
-        if subscript.selector().is_some() {
-            return false;
-        }
-        let text = subscript.syntax_text(source);
-        text.contains('_')
-            && text
-                .chars()
-                .next()
-                .is_some_and(|ch| ch.is_ascii_alphabetic() || ch == '_')
-            && text
-                .chars()
-                .all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+        false
     }
 
     fn assoc_binding_visible_for_subscript(
@@ -3542,7 +3459,7 @@ fn zsh_dynamic_builtin_wrapper_literal_argument(
     word: &Word,
     source: &str,
 ) -> bool {
-    if shell_dialect != shuck_parser::ShellDialect::Zsh || command_name != Some("builtin") {
+    if shell_dialect != shuck_parser::ShellDialect::Bash || command_name != Some("builtin") {
         return false;
     }
 

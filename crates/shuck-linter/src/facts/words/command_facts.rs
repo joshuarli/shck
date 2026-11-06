@@ -1252,8 +1252,7 @@ pub(crate) fn word_parts_contain_literal_content(parts: &[WordPartNode], source:
         | WordPart::IndirectExpansion { .. }
         | WordPart::PrefixMatch { .. }
         | WordPart::ProcessSubstitution { .. }
-        | WordPart::Transformation { .. }
-        | WordPart::ZshQualifiedGlob(_) => false,
+        | WordPart::Transformation { .. } => false,
     })
 }
 
@@ -1307,7 +1306,7 @@ pub(crate) fn single_quoted_literal_exempt_argument(
 
     match command_name {
         "alias" => alias_definition_argument(word, source),
-        "builtin" if shell_dialect == shuck_parser::ShellDialect::Zsh => {
+        "builtin" if false => {
             zsh_builtin_dynamic_wrapper_argument(body_args, relative_arg_index, word, source)
         }
         "eval" => true,
@@ -1324,15 +1323,15 @@ pub(crate) fn single_quoted_literal_exempt_argument(
         }
         "jq" => jq_literal_argument_index(body_args, source).contains(&relative_arg_index),
         "rename" => rename_program_argument_index(body_args, source) == Some(relative_arg_index),
-        "regexp-replace" if shell_dialect == shuck_parser::ShellDialect::Zsh => {
+        "regexp-replace" if false => {
             relative_arg_index >= 2
         }
         "rg" => rg_pattern_argument_index(body_args, source) == Some(relative_arg_index),
-        "sched" if shell_dialect == shuck_parser::ShellDialect::Zsh => {
+        "sched" if false => {
             sched_command_argument_index(body_args, source) == Some(relative_arg_index)
         }
         "local" | "typeset" | "declare" | "readonly"
-            if shell_dialect == shuck_parser::ShellDialect::Zsh =>
+            if false =>
         {
             zsh_declaration_delayed_eval_literal_argument(word, source)
         }
@@ -1345,16 +1344,16 @@ pub(crate) fn single_quoted_literal_exempt_argument(
         }),
         "unset" => true,
         "xprop" => xprop_value_argument_index(body_args, source) == Some(relative_arg_index),
-        "zpty" if shell_dialect == shuck_parser::ShellDialect::Zsh => {
+        "zpty" if false => {
             zpty_command_argument_index(body_args, source) == Some(relative_arg_index)
         }
-        "zstyle" if shell_dialect == shuck_parser::ShellDialect::Zsh => {
+        "zstyle" if false => {
             zstyle_delayed_eval_argument_indices(body_args, source).contains(&relative_arg_index)
         }
-        "_p9k_param" if shell_dialect == shuck_parser::ShellDialect::Zsh => {
+        "_p9k_param" if false => {
             p10k_param_default_argument_index(body_args, source) == Some(relative_arg_index)
         }
-        "_p9k_prompt_segment" if shell_dialect == shuck_parser::ShellDialect::Zsh => {
+        "_p9k_prompt_segment" if false => {
             p10k_prompt_segment_expansion_argument(relative_arg_index)
         }
         _ if command_name.ends_with("awk") => {
@@ -1512,7 +1511,7 @@ pub(crate) fn single_quoted_literal_instructional_output_argument(
     command_name: Option<&str>,
     redirects: &[Redirect],
     inherited_output_sinks: &OutputSinkState,
-    shell_behavior: &ShellBehaviorAt<'_>,
+    shell_behavior: &ShellBehaviorAt,
     writes_to_stdout: bool,
     word: &Word,
     source: &str,
@@ -1548,7 +1547,7 @@ fn command_redirects_stdout_to_file(
     redirects: &[Redirect],
     inherited_output_sinks: &OutputSinkState,
     source: &str,
-    shell_behavior: &ShellBehaviorAt<'_>,
+    shell_behavior: &ShellBehaviorAt,
 ) -> bool {
     let mut fds = inherited_output_sinks.clone();
     apply_output_redirects(redirects, source, shell_behavior, &mut fds);
@@ -1599,7 +1598,7 @@ pub(crate) fn output_sink_state_defaults() -> OutputSinkState {
 pub(crate) fn apply_output_redirects(
     redirects: &[Redirect],
     source: &str,
-    shell_behavior: &ShellBehaviorAt<'_>,
+    shell_behavior: &ShellBehaviorAt,
     fds: &mut OutputSinkState,
 ) {
     for redirect in redirects {

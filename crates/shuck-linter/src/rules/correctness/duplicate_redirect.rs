@@ -19,9 +19,7 @@ impl Violation for DuplicateRedirect {
 }
 
 pub fn duplicate_redirect(checker: &mut Checker) {
-    if checker.shell() == ShellDialect::Zsh {
-        return;
-    }
+    // Rule applies to all supported shell dialects.
 
     for fact in checker.facts().command_facts().duplicate_redirect_facts() {
         let diagnostic = Diagnostic::new(DuplicateRedirect, fact.diagnostic_span());

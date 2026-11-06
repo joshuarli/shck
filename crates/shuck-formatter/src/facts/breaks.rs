@@ -6,8 +6,7 @@ use super::FactSpan;
 pub(super) struct BreakFacts {
     pub(super) pipeline: HashSet<FactSpan>,
     pub(super) list_item: HashSet<FactSpan>,
-    pub(super) background: HashSet<FactSpan>,
-}
+    pub(super) background: HashSet<FactSpan> }
 
 impl BreakFacts {
     #[cfg(feature = "benchmarking")]

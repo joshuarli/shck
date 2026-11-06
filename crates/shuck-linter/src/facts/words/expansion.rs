@@ -290,7 +290,7 @@ fn default_glob_pattern_behavior() -> GlobPatternBehavior {
     ShellBehaviorAt::for_dialect(shuck_semantic::ShellDialect::Bash).glob_pattern()
 }
 
-fn default_shell_behavior() -> ShellBehaviorAt<'static> {
+fn default_shell_behavior() -> ShellBehaviorAt {
     ShellBehaviorAt::for_dialect(shuck_semantic::ShellDialect::Bash)
 }
 
@@ -368,7 +368,7 @@ pub(crate) struct AnalysisSummary {
 pub(crate) fn analyze_word(
     word: &Word,
     source: &str,
-    behavior: Option<&ShellBehaviorAt<'_>>,
+    behavior: Option<&ShellBehaviorAt>,
 ) -> ExpansionAnalysis {
     let default_behavior;
     let behavior = if let Some(behavior) = behavior {
@@ -429,7 +429,7 @@ pub(crate) fn analyze_literal_runtime(
     word: &Word,
     source: &str,
     context: ExpansionContext,
-    behavior: Option<&ShellBehaviorAt<'_>>,
+    behavior: Option<&ShellBehaviorAt>,
 ) -> RuntimeLiteralAnalysis {
     let default_behavior;
     let behavior = if let Some(behavior) = behavior {
@@ -470,7 +470,7 @@ pub(crate) fn analyze_literal_runtime_parts(
     parts: &[WordPartNode],
     source: &str,
     context: ExpansionContext,
-    behavior: &ShellBehaviorAt<'_>,
+    behavior: &ShellBehaviorAt,
     state: &mut RuntimeLiteralState,
     analysis: &mut RuntimeLiteralAnalysis,
 ) {
@@ -509,7 +509,7 @@ pub(crate) fn analyze_literal_runtime_parts(
 pub(crate) fn scan_literal_runtime_text(
     text: &str,
     context: ExpansionContext,
-    behavior: &ShellBehaviorAt<'_>,
+    behavior: &ShellBehaviorAt,
     state: &mut RuntimeLiteralState,
     analysis: &mut RuntimeLiteralAnalysis,
 ) {
@@ -642,7 +642,7 @@ pub(crate) fn analyze_parts(
     parts: &[WordPartNode],
     source: &str,
     in_double_quotes: bool,
-    behavior: &ShellBehaviorAt<'_>,
+    behavior: &ShellBehaviorAt,
     summary: &mut AnalysisSummary,
 ) {
     for part in parts {
@@ -685,36 +685,12 @@ pub(crate) fn analyze_part(
     part: &WordPart,
     source: &str,
     in_double_quotes: bool,
-    behavior: &ShellBehaviorAt<'_>,
+    behavior: &ShellBehaviorAt,
 ) -> PartAnalysis {
     let field_splitting_behavior = behavior.field_splitting();
     let pathname_expansion_behavior = behavior.pathname_expansion();
 
     match part {
-        WordPart::ZshQualifiedGlob(glob) => {
-            let pathname_matching = !in_double_quotes
-                && pathname_expansion_behavior.literal_globs_can_expand()
-                && !word_spans::zsh_qualified_glob_active_pattern_spans(
-                    glob,
-                    source,
-                    behavior.glob_pattern(),
-                )
-                .is_empty();
-
-            PartAnalysis {
-                value_shape: PartValueShape::Unknown,
-                array_valued: false,
-                can_expand_to_multiple_fields: pathname_matching,
-                field_splitting_behavior,
-                pathname_expansion_behavior,
-                hazards: ExpansionHazards {
-                    pathname_matching,
-                    ..ExpansionHazards::default()
-                },
-                command_substitution: false,
-                process_substitution: false,
-            }
-        }
         WordPart::Parameter(parameter) => {
             analyze_parameter_part(parameter, in_double_quotes, behavior)
         }
@@ -904,7 +880,7 @@ pub(crate) fn analyze_part(
 pub(crate) fn analyze_parameter_part(
     parameter: &ParameterExpansion,
     in_double_quotes: bool,
-    behavior: &ShellBehaviorAt<'_>,
+    behavior: &ShellBehaviorAt,
 ) -> PartAnalysis {
     let field_splitting_behavior = behavior.field_splitting();
     let pathname_expansion_behavior = behavior.pathname_expansion();
@@ -1090,44 +1066,12 @@ pub(crate) fn analyze_parameter_part(
                 false,
             ),
         },
-        ParameterExpansionSyntax::Zsh(syntax) => {
-            let effective_behavior = zsh_modifier_behavior(behavior, syntax);
-            let field_splitting_behavior = effective_behavior.field_splitting();
-            let pathname_expansion_behavior = effective_behavior.pathname_expansion();
-            PartAnalysis {
-                value_shape: PartValueShape::Unknown,
-                array_valued: false,
-                can_expand_to_multiple_fields: substitution_can_expand_to_multiple_fields(
-                    in_double_quotes,
-                    &effective_behavior,
-                ),
-                field_splitting_behavior,
-                pathname_expansion_behavior,
-                hazards: ExpansionHazards {
-                    field_splitting: substitution_field_splitting_hazard(
-                        in_double_quotes,
-                        &effective_behavior,
-                    ),
-                    pathname_matching: substitution_pathname_matching_hazard(
-                        in_double_quotes,
-                        &effective_behavior,
-                    ),
-                    runtime_pattern: syntax
-                        .operation
-                        .as_ref()
-                        .is_some_and(zsh_operation_uses_pattern),
-                    ..ExpansionHazards::default()
-                },
-                command_substitution: false,
-                process_substitution: false,
-            }
-        }
     }
 }
 
 pub(crate) fn substitution_can_expand_to_multiple_fields(
     in_double_quotes: bool,
-    behavior: &ShellBehaviorAt<'_>,
+    behavior: &ShellBehaviorAt,
 ) -> bool {
     !in_double_quotes
         && (behavior.field_splitting().unquoted_results_can_split()
@@ -1138,14 +1082,14 @@ pub(crate) fn substitution_can_expand_to_multiple_fields(
 
 pub(crate) fn substitution_field_splitting_hazard(
     in_double_quotes: bool,
-    behavior: &ShellBehaviorAt<'_>,
+    behavior: &ShellBehaviorAt,
 ) -> bool {
     !in_double_quotes && behavior.field_splitting().unquoted_results_can_split()
 }
 
 pub(crate) fn substitution_pathname_matching_hazard(
     in_double_quotes: bool,
-    behavior: &ShellBehaviorAt<'_>,
+    behavior: &ShellBehaviorAt,
 ) -> bool {
     !in_double_quotes
         && behavior
@@ -1154,43 +1098,18 @@ pub(crate) fn substitution_pathname_matching_hazard(
 }
 
 pub(crate) fn zsh_modifier_behavior<'model>(
-    behavior: &ShellBehaviorAt<'model>,
-    syntax: &shuck_ast::ZshParameterExpansion,
-) -> ShellBehaviorAt<'model> {
-    let field_split_toggles = syntax
-        .modifiers
-        .iter()
-        .filter(|modifier| modifier.name == '=')
-        .count();
-    let glob_subst_toggles = syntax
-        .modifiers
-        .iter()
-        .filter(|modifier| modifier.name == '~')
-        .count();
-    let rc_expand_toggles = syntax
-        .modifiers
-        .iter()
-        .filter(|modifier| modifier.name == '^')
-        .count();
-
-    behavior.clone().with_zsh_option_overlay(|options| {
-        apply_toggle_override(&mut options.sh_word_split, field_split_toggles);
-        apply_toggle_override(&mut options.glob_subst, glob_subst_toggles);
-        apply_toggle_override(&mut options.rc_expand_param, rc_expand_toggles);
-    })
+    behavior: &ShellBehaviorAt,
+    _syntax: &(),
+) -> ShellBehaviorAt {
+    behavior.clone()
 }
 
-pub(crate) fn apply_toggle_override(value: &mut OptionValue, count: usize) {
-    if count == 0 {
-        return;
+pub(crate) fn apply_toggle_override(value: &mut bool, count: usize) {
+    if count % 2 == 1 {
+        *value = !*value;
     }
-
-    *value = if count % 2 == 1 {
-        OptionValue::On
-    } else {
-        OptionValue::Off
-    };
 }
+
 
 pub(crate) fn scalar_part(
     can_expand_to_multiple_fields: bool,
@@ -1249,12 +1168,12 @@ pub(crate) fn parameter_operator_uses_pattern(operator: &shuck_ast::ParameterOp)
     )
 }
 
-pub(crate) fn zsh_operation_uses_pattern(operation: &ZshExpansionOperation) -> bool {
+pub(crate) fn zsh_operation_uses_pattern(operation: &()) -> bool {
     matches!(
         operation,
-        ZshExpansionOperation::PatternOperation { .. }
-            | ZshExpansionOperation::TrimOperation { .. }
-            | ZshExpansionOperation::ReplacementOperation { .. }
+        _
+            | _
+            | _
     )
 }
 

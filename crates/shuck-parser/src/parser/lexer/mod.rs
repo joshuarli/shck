@@ -8,7 +8,7 @@ use memchr::{memchr, memchr_iter, memrchr};
 use shuck_ast::{Position, Span, TokenKind};
 use smallvec::SmallVec;
 
-use super::{ShellDialect, ShellProfile, ZshOptionState, ZshOptionTimeline};
+use super::{ShellDialect, ShellProfile};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) struct TokenFlags(u8);
@@ -755,9 +755,6 @@ pub struct Lexer<'a> {
     expansion_nesting: usize,
     /// Whether a run of several digits can prefix a redirect (`10>out`).
     multi_digit_fd_prefix: bool,
-    initial_zsh_options: Option<ZshOptionState>,
-    zsh_timeline: Option<Arc<ZshOptionTimeline>>,
-    zsh_timeline_index: usize,
     #[cfg(feature = "benchmarking")]
     benchmark_counters: Option<LexerBenchmarkCounters>,
 }

@@ -13,11 +13,7 @@ impl<'a> Parser<'a> {
                 span: Span::from_positions(base, base),
             };
         };
-        let nested_profile = self
-            .current_zsh_options()
-            .cloned()
-            .map(|options| ShellProfile::with_zsh_options(self.dialect, options))
-            .unwrap_or_else(|| self.shell_profile.clone());
+        let nested_profile = self.shell_profile.clone();
         let inner_parser = Parser::with_nested_limits(source, limits, nested_profile);
         let mut output = inner_parser.parse();
         if output.is_ok() {
@@ -244,23 +240,6 @@ impl<'a> Parser<'a> {
                 }
                 Self::rebase_stmt(function.body.as_mut(), base);
             }
-            AstCommand::AnonymousFunction(function) => {
-                function.span = function.span.rebased(base);
-                function.surface = match function.surface {
-                    AnonymousFunctionSurface::FunctionKeyword {
-                        function_keyword_span,
-                    } => AnonymousFunctionSurface::FunctionKeyword {
-                        function_keyword_span: function_keyword_span.rebased(base),
-                    },
-                    AnonymousFunctionSurface::Parens { parens_span } => {
-                        AnonymousFunctionSurface::Parens {
-                            parens_span: parens_span.rebased(base),
-                        }
-                    }
-                };
-                Self::rebase_stmt(function.body.as_mut(), base);
-                Self::rebase_words(&mut function.args, base);
-            }
         }
     }
 
@@ -307,13 +286,6 @@ impl<'a> Parser<'a> {
                         then_span: then_span.rebased(base),
                         fi_span: fi_span.rebased(base),
                     },
-                    IfSyntax::Brace {
-                        left_brace_span,
-                        right_brace_span,
-                    } => IfSyntax::Brace {
-                        left_brace_span: left_brace_span.rebased(base),
-                        right_brace_span: right_brace_span.rebased(base),
-                    },
                 };
                 Self::rebase_stmt_seq(&mut command.condition, base);
                 Self::rebase_stmt_seq(&mut command.then_branch, base);
@@ -346,91 +318,6 @@ impl<'a> Parser<'a> {
                     },
                     ForSyntax::InDirect { in_span } => ForSyntax::InDirect {
                         in_span: in_span.map(|span| span.rebased(base)),
-                    },
-                    ForSyntax::InBrace {
-                        in_span,
-                        left_brace_span,
-                        right_brace_span,
-                    } => ForSyntax::InBrace {
-                        in_span: in_span.map(|span| span.rebased(base)),
-                        left_brace_span: left_brace_span.rebased(base),
-                        right_brace_span: right_brace_span.rebased(base),
-                    },
-                    ForSyntax::ParenDoDone {
-                        left_paren_span,
-                        right_paren_span,
-                        do_span,
-                        done_span,
-                    } => ForSyntax::ParenDoDone {
-                        left_paren_span: left_paren_span.rebased(base),
-                        right_paren_span: right_paren_span.rebased(base),
-                        do_span: do_span.rebased(base),
-                        done_span: done_span.rebased(base),
-                    },
-                    ForSyntax::ParenDirect {
-                        left_paren_span,
-                        right_paren_span,
-                    } => ForSyntax::ParenDirect {
-                        left_paren_span: left_paren_span.rebased(base),
-                        right_paren_span: right_paren_span.rebased(base),
-                    },
-                    ForSyntax::ParenBrace {
-                        left_paren_span,
-                        right_paren_span,
-                        left_brace_span,
-                        right_brace_span,
-                    } => ForSyntax::ParenBrace {
-                        left_paren_span: left_paren_span.rebased(base),
-                        right_paren_span: right_paren_span.rebased(base),
-                        left_brace_span: left_brace_span.rebased(base),
-                        right_brace_span: right_brace_span.rebased(base),
-                    },
-                };
-                Self::rebase_stmt_seq(&mut command.body, base);
-            }
-            CompoundCommand::Repeat(command) => {
-                command.span = command.span.rebased(base);
-                Self::rebase_word(&mut command.count, base);
-                command.syntax = match command.syntax {
-                    RepeatSyntax::DoDone { do_span, done_span } => RepeatSyntax::DoDone {
-                        do_span: do_span.rebased(base),
-                        done_span: done_span.rebased(base),
-                    },
-                    RepeatSyntax::Direct => RepeatSyntax::Direct,
-                    RepeatSyntax::Brace {
-                        left_brace_span,
-                        right_brace_span,
-                    } => RepeatSyntax::Brace {
-                        left_brace_span: left_brace_span.rebased(base),
-                        right_brace_span: right_brace_span.rebased(base),
-                    },
-                };
-                Self::rebase_stmt_seq(&mut command.body, base);
-            }
-            CompoundCommand::Foreach(command) => {
-                command.span = command.span.rebased(base);
-                command.variable_span = command.variable_span.rebased(base);
-                Self::rebase_words(&mut command.words, base);
-                command.syntax = match command.syntax {
-                    ForeachSyntax::ParenBrace {
-                        left_paren_span,
-                        right_paren_span,
-                        left_brace_span,
-                        right_brace_span,
-                    } => ForeachSyntax::ParenBrace {
-                        left_paren_span: left_paren_span.rebased(base),
-                        right_paren_span: right_paren_span.rebased(base),
-                        left_brace_span: left_brace_span.rebased(base),
-                        right_brace_span: right_brace_span.rebased(base),
-                    },
-                    ForeachSyntax::InDoDone {
-                        in_span,
-                        do_span,
-                        done_span,
-                    } => ForeachSyntax::InDoDone {
-                        in_span: in_span.rebased(base),
-                        do_span: do_span.rebased(base),
-                        done_span: done_span.rebased(base),
                     },
                 };
                 Self::rebase_stmt_seq(&mut command.body, base);
@@ -513,11 +400,6 @@ impl<'a> Parser<'a> {
                 command.name_span = command.name_span.map(|span| span.rebased(base));
                 Self::rebase_stmt(command.body.as_mut(), base);
             }
-            CompoundCommand::Always(command) => {
-                command.span = command.span.rebased(base);
-                Self::rebase_stmt_seq(&mut command.body, base);
-                Self::rebase_stmt_seq(&mut command.always_body, base);
-            }
         }
     }
 
@@ -547,9 +429,6 @@ impl<'a> Parser<'a> {
             AstCommand::Function(function) => {
                 Self::materialize_stmt_source_backing(function.body.as_mut(), source);
             }
-            AstCommand::AnonymousFunction(function) => {
-                Self::materialize_stmt_source_backing(function.body.as_mut(), source);
-            }
         }
     }
 
@@ -570,12 +449,6 @@ impl<'a> Parser<'a> {
                 }
             }
             CompoundCommand::For(command) => {
-                Self::materialize_stmt_seq_source_backing(&mut command.body, source)
-            }
-            CompoundCommand::Repeat(command) => {
-                Self::materialize_stmt_seq_source_backing(&mut command.body, source)
-            }
-            CompoundCommand::Foreach(command) => {
                 Self::materialize_stmt_seq_source_backing(&mut command.body, source)
             }
             CompoundCommand::ArithmeticFor(command) => {
@@ -609,10 +482,6 @@ impl<'a> Parser<'a> {
             CompoundCommand::Conditional(_) => {}
             CompoundCommand::Coproc(command) => {
                 Self::materialize_stmt_source_backing(command.body.as_mut(), source);
-            }
-            CompoundCommand::Always(command) => {
-                Self::materialize_stmt_seq_source_backing(&mut command.body, source);
-                Self::materialize_stmt_seq_source_backing(&mut command.always_body, source);
             }
         }
     }
@@ -690,9 +559,6 @@ impl<'a> Parser<'a> {
         match &mut part.kind {
             WordPart::Literal(text) => {
                 Self::materialize_literal_text_source_backing(text, part.span, source);
-            }
-            WordPart::ZshQualifiedGlob(glob) => {
-                Self::materialize_zsh_qualified_glob_source_backing(glob, source);
             }
             WordPart::SingleQuoted { value, .. } => {
                 Self::materialize_source_text_source_backing(value, source);
@@ -824,36 +690,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub(super) fn materialize_zsh_qualified_glob_source_backing(
-        glob: &mut ZshQualifiedGlob,
-        source: &str,
-    ) {
-        for segment in &mut glob.segments {
-            match segment {
-                ZshGlobSegment::Pattern(pattern) => {
-                    Self::materialize_pattern_source_backing(pattern, source);
-                }
-                ZshGlobSegment::InlineControl(_) => {}
-            }
-        }
-        if let Some(qualifiers) = &mut glob.qualifiers {
-            for fragment in &mut qualifiers.fragments {
-                match fragment {
-                    ZshGlobQualifier::LetterSequence { text, .. } => {
-                        Self::materialize_source_text_source_backing(text, source);
-                    }
-                    ZshGlobQualifier::NumericArgument { start, end, .. } => {
-                        Self::materialize_source_text_source_backing(start, source);
-                        if let Some(end) = end {
-                            Self::materialize_source_text_source_backing(end, source);
-                        }
-                    }
-                    ZshGlobQualifier::Negation { .. } | ZshGlobQualifier::Flag { .. } => {}
-                }
-            }
-        }
-    }
-
     pub(super) fn materialize_parameter_expansion_syntax_source_backing(
         syntax: &mut ParameterExpansionSyntax,
         source: &str,
@@ -927,92 +763,6 @@ impl<'a> Parser<'a> {
                     }
                 }
             },
-            ParameterExpansionSyntax::Zsh(syntax) => {
-                match &mut syntax.target {
-                    ZshExpansionTarget::Reference(reference) => {
-                        Self::materialize_var_ref_source_backing(reference, source);
-                    }
-                    ZshExpansionTarget::Word(word) => {
-                        Self::materialize_word_source_backing(word, source);
-                    }
-                    ZshExpansionTarget::Nested(parameter) => {
-                        Self::materialize_source_text_source_backing(
-                            &mut parameter.raw_body,
-                            source,
-                        );
-                        Self::materialize_parameter_expansion_syntax_source_backing(
-                            &mut parameter.syntax,
-                            source,
-                        );
-                    }
-                    ZshExpansionTarget::Empty => {}
-                }
-                for modifier in &mut syntax.modifiers {
-                    if let Some(argument) = &mut modifier.argument {
-                        Self::materialize_source_text_source_backing(argument, source);
-                    }
-                    if let Some(argument_word_ast) = &mut modifier.argument_word_ast {
-                        Self::materialize_word_source_backing(argument_word_ast, source);
-                    }
-                }
-                if let Some(operation) = &mut syntax.operation {
-                    match operation {
-                        ZshExpansionOperation::PatternOperation {
-                            operand,
-                            operand_word_ast,
-                            ..
-                        }
-                        | ZshExpansionOperation::Defaulting {
-                            operand,
-                            operand_word_ast,
-                            ..
-                        }
-                        | ZshExpansionOperation::TrimOperation {
-                            operand,
-                            operand_word_ast,
-                            ..
-                        } => {
-                            Self::materialize_source_text_source_backing(operand, source);
-                            Self::materialize_word_source_backing(operand_word_ast, source);
-                        }
-                        ZshExpansionOperation::Unknown { text, word_ast } => {
-                            Self::materialize_source_text_source_backing(text, source);
-                            Self::materialize_word_source_backing(word_ast, source);
-                        }
-                        ZshExpansionOperation::ReplacementOperation {
-                            pattern,
-                            pattern_word_ast,
-                            replacement,
-                            replacement_word_ast,
-                            ..
-                        } => {
-                            Self::materialize_source_text_source_backing(pattern, source);
-                            Self::materialize_word_source_backing(pattern_word_ast, source);
-                            if let Some(replacement) = replacement {
-                                Self::materialize_source_text_source_backing(replacement, source);
-                            }
-                            if let Some(replacement_word_ast) = replacement_word_ast {
-                                Self::materialize_word_source_backing(replacement_word_ast, source);
-                            }
-                        }
-                        ZshExpansionOperation::Slice {
-                            offset,
-                            offset_word_ast,
-                            length,
-                            length_word_ast,
-                        } => {
-                            Self::materialize_source_text_source_backing(offset, source);
-                            Self::materialize_word_source_backing(offset_word_ast, source);
-                            if let Some(length) = length {
-                                Self::materialize_source_text_source_backing(length, source);
-                            }
-                            if let Some(length_word_ast) = length_word_ast {
-                                Self::materialize_word_source_backing(length_word_ast, source);
-                            }
-                        }
-                    }
-                }
-            }
         }
     }
 
@@ -1171,7 +921,6 @@ impl<'a> Parser<'a> {
     pub(super) fn rebase_word_part(part: &mut WordPartNode, base: Position) {
         part.span = part.span.rebased(base);
         match &mut part.kind {
-            WordPart::ZshQualifiedGlob(glob) => Self::rebase_zsh_qualified_glob(glob, base),
             WordPart::SingleQuoted { value, .. } => value.rebased(base),
             WordPart::DoubleQuoted { parts, .. } => Self::rebase_word_parts(parts, base),
             WordPart::Parameter(parameter) => {
@@ -1300,64 +1049,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub(super) fn rebase_zsh_qualified_glob(glob: &mut ZshQualifiedGlob, base: Position) {
-        glob.span = glob.span.rebased(base);
-        for segment in &mut glob.segments {
-            Self::rebase_zsh_glob_segment(segment, base);
-        }
-        if let Some(qualifiers) = &mut glob.qualifiers {
-            Self::rebase_zsh_glob_qualifier_group(qualifiers, base);
-        }
-    }
-
-    pub(super) fn rebase_zsh_glob_segment(segment: &mut ZshGlobSegment, base: Position) {
-        match segment {
-            ZshGlobSegment::Pattern(pattern) => Self::rebase_pattern(pattern, base),
-            ZshGlobSegment::InlineControl(control) => {
-                Self::rebase_zsh_inline_glob_control(control, base)
-            }
-        }
-    }
-
-    pub(super) fn rebase_zsh_inline_glob_control(
-        control: &mut ZshInlineGlobControl,
-        base: Position,
-    ) {
-        match control {
-            ZshInlineGlobControl::CaseInsensitive { span }
-            | ZshInlineGlobControl::Backreferences { span }
-            | ZshInlineGlobControl::StartAnchor { span }
-            | ZshInlineGlobControl::EndAnchor { span } => {
-                *span = span.rebased(base);
-            }
-        }
-    }
-
-    pub(super) fn rebase_zsh_glob_qualifier_group(
-        group: &mut ZshGlobQualifierGroup,
-        base: Position,
-    ) {
-        group.span = group.span.rebased(base);
-        for fragment in &mut group.fragments {
-            match fragment {
-                ZshGlobQualifier::Negation { span } | ZshGlobQualifier::Flag { span, .. } => {
-                    *span = span.rebased(base);
-                }
-                ZshGlobQualifier::LetterSequence { text, span } => {
-                    *span = span.rebased(base);
-                    text.rebased(base);
-                }
-                ZshGlobQualifier::NumericArgument { span, start, end } => {
-                    *span = span.rebased(base);
-                    start.rebased(base);
-                    if let Some(end) = end {
-                        end.rebased(base);
-                    }
-                }
-            }
-        }
-    }
-
     pub(super) fn rebase_parameter_expansion_syntax(
         syntax: &mut ParameterExpansionSyntax,
         base: Position,
@@ -1431,89 +1122,6 @@ impl<'a> Parser<'a> {
                     }
                 }
             },
-            ParameterExpansionSyntax::Zsh(syntax) => {
-                match &mut syntax.target {
-                    ZshExpansionTarget::Reference(reference) => {
-                        Self::rebase_var_ref(reference, base)
-                    }
-                    ZshExpansionTarget::Word(word) => Self::rebase_word(word, base),
-                    ZshExpansionTarget::Nested(parameter) => {
-                        parameter.span = parameter.span.rebased(base);
-                        parameter.raw_body.rebased(base);
-                        Self::rebase_parameter_expansion_syntax(&mut parameter.syntax, base);
-                    }
-                    ZshExpansionTarget::Empty => {}
-                }
-                for modifier in &mut syntax.modifiers {
-                    modifier.span = modifier.span.rebased(base);
-                    if let Some(argument) = &mut modifier.argument {
-                        argument.rebased(base);
-                    }
-                    if let Some(argument_word_ast) = &mut modifier.argument_word_ast {
-                        Self::rebase_word(argument_word_ast, base);
-                    }
-                }
-                if let Some(length_prefix) = &mut syntax.length_prefix {
-                    *length_prefix = length_prefix.rebased(base);
-                }
-                if let Some(operation) = &mut syntax.operation {
-                    match operation {
-                        ZshExpansionOperation::PatternOperation {
-                            operand,
-                            operand_word_ast,
-                            ..
-                        }
-                        | ZshExpansionOperation::Defaulting {
-                            operand,
-                            operand_word_ast,
-                            ..
-                        }
-                        | ZshExpansionOperation::TrimOperation {
-                            operand,
-                            operand_word_ast,
-                            ..
-                        } => {
-                            operand.rebased(base);
-                            Self::rebase_word(operand_word_ast, base);
-                        }
-                        ZshExpansionOperation::Unknown { text, word_ast } => {
-                            text.rebased(base);
-                            Self::rebase_word(word_ast, base);
-                        }
-                        ZshExpansionOperation::ReplacementOperation {
-                            pattern,
-                            pattern_word_ast,
-                            replacement,
-                            replacement_word_ast,
-                            ..
-                        } => {
-                            pattern.rebased(base);
-                            Self::rebase_word(pattern_word_ast, base);
-                            if let Some(replacement) = replacement {
-                                replacement.rebased(base);
-                            }
-                            if let Some(replacement_word_ast) = replacement_word_ast {
-                                Self::rebase_word(replacement_word_ast, base);
-                            }
-                        }
-                        ZshExpansionOperation::Slice {
-                            offset,
-                            offset_word_ast,
-                            length,
-                            length_word_ast,
-                        } => {
-                            offset.rebased(base);
-                            Self::rebase_word(offset_word_ast, base);
-                            if let Some(length) = length {
-                                length.rebased(base);
-                            }
-                            if let Some(length_word_ast) = length_word_ast {
-                                Self::rebase_word(length_word_ast, base);
-                            }
-                        }
-                    }
-                }
-            }
         }
     }
 

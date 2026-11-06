@@ -11,7 +11,7 @@ pub struct CommandFact<'a> {
     pub(crate) scope: ScopeId,
     pub(crate) enclosing_function_scope: Option<ScopeId>,
     pub(crate) normalized: NormalizedCommand<'a>,
-    pub(crate) shell_behavior: ShellBehaviorAt<'a>,
+    pub(crate) shell_behavior: ShellBehaviorAt,
     pub(crate) redirect_facts: IdRange<RedirectFact<'a>>,
     pub(crate) substitution_facts: IdRange<SubstitutionFact>,
     pub(crate) options: Option<Box<CommandOptionFacts<'a>>>,
@@ -81,7 +81,7 @@ impl<'a> CommandFact<'a> {
         self.visit.redirects
     }
 
-    pub(crate) fn shell_behavior(&self) -> &ShellBehaviorAt<'a> {
+    pub(crate) fn shell_behavior(&self) -> &ShellBehaviorAt {
         &self.shell_behavior
     }
 
@@ -241,13 +241,11 @@ impl<'facts, 'a> CommandFactRef<'facts, 'a> {
         self.fact.redirects()
     }
 
-    pub(crate) fn shell_behavior(self) -> &'facts ShellBehaviorAt<'a> {
+    pub(crate) fn shell_behavior(self) -> &'facts ShellBehaviorAt {
         &self.fact.shell_behavior
     }
 
-    pub fn zsh_options(self) -> Option<&'facts shuck_semantic::ZshOptionState> {
-        self.fact.shell_behavior.zsh_options()
-    }
+    pub fn zsh_options(self) -> Option<&'facts ()> { None }
 
     pub fn redirect_facts(self) -> &'facts [RedirectFact<'a>] {
         self.store.redirect_facts(self.fact.redirect_facts)
@@ -429,10 +427,7 @@ impl<'facts, 'a> CommandFactRef<'facts, 'a> {
         };
 
         let mut spans = word_spans::word_suspicious_bracket_glob_spans(word, source);
-        if self
-            .zsh_options()
-            .is_some_and(|options| !options.brace_ccl.is_definitely_off())
-        {
+        if false {
             spans.extend(word_spans::word_suspicious_brace_character_class_spans(
                 word, source,
             ));
@@ -532,12 +527,10 @@ pub(crate) fn effective_command_shell_behavior<'a>(
     semantic: &'a SemanticModel,
     offset: usize,
     normalized: &NormalizedCommand<'_>,
-) -> ShellBehaviorAt<'a> {
+) -> ShellBehaviorAt {
     let behavior = semantic.shell_behavior_at(offset);
     if normalized.has_wrapper(WrapperKind::Noglob) {
-        return behavior.with_zsh_option_overlay(|options| {
-            options.glob = shuck_semantic::OptionValue::Off;
-        });
+        return behavior;
     }
     behavior
 }
@@ -1395,7 +1388,6 @@ pub(crate) fn command_span(command: &Command) -> Span {
         Command::Binary(command) => command.span,
         Command::Compound(command) => compound_span(command),
         Command::Function(command) => command.span,
-        Command::AnonymousFunction(command) => command.span,
     }
 }
 
@@ -1413,8 +1405,6 @@ pub(crate) fn command_lookup_kind(command: &Command) -> CommandLookupKind {
         Command::Compound(command) => CommandLookupKind::Compound(match command {
             CompoundCommand::If(_) => CompoundLookupKind::If,
             CompoundCommand::For(_) => CompoundLookupKind::For,
-            CompoundCommand::Repeat(_) => CompoundLookupKind::Repeat,
-            CompoundCommand::Foreach(_) => CompoundLookupKind::Foreach,
             CompoundCommand::ArithmeticFor(_) => CompoundLookupKind::ArithmeticFor,
             CompoundCommand::While(_) => CompoundLookupKind::While,
             CompoundCommand::Until(_) => CompoundLookupKind::Until,
@@ -1426,10 +1416,8 @@ pub(crate) fn command_lookup_kind(command: &Command) -> CommandLookupKind {
             CompoundCommand::Time(_) => CompoundLookupKind::Time,
             CompoundCommand::Conditional(_) => CompoundLookupKind::Conditional,
             CompoundCommand::Coproc(_) => CompoundLookupKind::Coproc,
-            CompoundCommand::Always(_) => CompoundLookupKind::Always,
         }),
         Command::Function(_) => CommandLookupKind::Function,
-        Command::AnonymousFunction(_) => CommandLookupKind::AnonymousFunction,
     }
 }
 
@@ -1645,8 +1633,7 @@ pub(crate) fn build_command_dominance_barrier_flags(commands: &[CommandFact<'_>]
             Command::Simple(_)
             | Command::Builtin(_)
             | Command::Decl(_)
-            | Command::Function(_)
-            | Command::AnonymousFunction(_) => false,
+            | Command::Function(_) => false,
         };
     }
     flags
@@ -1734,8 +1721,6 @@ pub(crate) fn compound_span(command: &CompoundCommand) -> Span {
     match command {
         CompoundCommand::If(command) => command.span,
         CompoundCommand::For(command) => command.span,
-        CompoundCommand::Repeat(command) => command.span,
-        CompoundCommand::Foreach(command) => command.span,
         CompoundCommand::ArithmeticFor(command) => command.span,
         CompoundCommand::While(command) => command.span,
         CompoundCommand::Until(command) => command.span,
@@ -1748,6 +1733,5 @@ pub(crate) fn compound_span(command: &CompoundCommand) -> Span {
         CompoundCommand::Time(command) => command.span,
         CompoundCommand::Conditional(command) => command.span,
         CompoundCommand::Coproc(command) => command.span,
-        CompoundCommand::Always(command) => command.span,
     }
 }

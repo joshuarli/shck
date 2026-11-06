@@ -959,7 +959,6 @@ pub(crate) fn nearest_structural_parent_command(
             semantic.command_kind(parent),
             shuck_semantic::CommandKind::Compound(_)
                 | shuck_semantic::CommandKind::Function
-                | shuck_semantic::CommandKind::AnonymousFunction
         ) {
             return Some(parent);
         }
@@ -1751,8 +1750,7 @@ pub(crate) fn function_body_without_braces_span(function: &FunctionDef) -> Optio
         | Command::Decl(_)
         | Command::Builtin(_)
         | Command::Binary(_)
-        | Command::Function(_)
-        | Command::AnonymousFunction(_) => None,
+        | Command::Function(_) => None,
     }
 }
 

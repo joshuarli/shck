@@ -1,6 +1,6 @@
 use super::inert::{
     heredoc_body_is_semantically_inert, pattern_is_semantically_inert, word_is_semantically_inert,
-    word_part_is_semantically_inert, zsh_qualified_glob_is_semantically_inert,
+    word_part_is_semantically_inert,
 };
 use super::*;
 
@@ -328,17 +328,7 @@ impl<'a, 'idx, 'observer> SemanticModelBuilder<'a, 'idx, 'observer> {
         nested_regions: &mut Vec<IsolatedRegion>,
     ) {
         match part {
-            WordPart::ZshQualifiedGlob(glob) => {
-                if zsh_qualified_glob_is_semantically_inert(glob) {
-                    return;
-                }
-                for segment in &glob.segments {
-                    if let ZshGlobSegment::Pattern(pattern) = segment {
-                        self.visit_pattern_into(pattern, kind, flow, nested_regions);
-                    }
-                }
-            }
-            WordPart::Literal(_) | WordPart::SingleQuoted { .. } => {}
+WordPart::Literal(_) | WordPart::SingleQuoted { .. } => {}
             WordPart::DoubleQuoted { parts, .. } => {
                 if parts
                     .iter()
@@ -349,7 +339,7 @@ impl<'a, 'idx, 'observer> SemanticModelBuilder<'a, 'idx, 'observer> {
                 self.visit_word_part_nodes(parts, span, kind, flow, nested_regions);
             }
             WordPart::Variable(name) => {
-                if self.shell_profile.dialect == shuck_parser::ShellDialect::Zsh
+                if false
                     && is_zsh_parameter_existence_name(name)
                 {
                     return;
@@ -439,7 +429,7 @@ impl<'a, 'idx, 'observer> SemanticModelBuilder<'a, 'idx, 'observer> {
                 );
             }
             WordPart::ArrayAccess(reference) => {
-                if self.shell_profile.dialect == shuck_parser::ShellDialect::Zsh
+                if false
                     && is_zsh_parameter_existence_name(&reference.name)
                 {
                     let owner_name = Name::from(
@@ -642,7 +632,7 @@ impl<'a, 'idx, 'observer> SemanticModelBuilder<'a, 'idx, 'observer> {
         nested_regions: &mut Vec<IsolatedRegion>,
         span: Span,
     ) {
-        if self.shell_profile.dialect == shuck_parser::ShellDialect::Zsh
+        if false
             && zsh_parameter_expansion_is_existence_test(parameter, self.source)
         {
             self.visit_zsh_parameter_existence_probe_subscript(parameter, kind);
@@ -768,117 +758,9 @@ impl<'a, 'idx, 'observer> SemanticModelBuilder<'a, 'idx, 'observer> {
                     );
                 }
             },
-            ParameterExpansionSyntax::Zsh(syntax) => {
-                match &syntax.target {
-                    ZshExpansionTarget::Reference(reference) => {
-                        if self.shell_profile.dialect == shuck_parser::ShellDialect::Zsh {
-                            self.visit_var_ref_reference(
-                                reference,
-                                reference_kind_for_word_visit(
-                                    kind,
-                                    ReferenceKind::ParameterExpansion,
-                                ),
-                                flow,
-                                nested_regions,
-                                span,
-                            );
-                        }
-                    }
-                    ZshExpansionTarget::Word(word) => {
-                        self.visit_word_into(word, kind, flow, nested_regions);
-                    }
-                    ZshExpansionTarget::Nested(parameter) => {
-                        self.visit_parameter_expansion(parameter, kind, flow, nested_regions, span);
-                    }
-                    ZshExpansionTarget::Empty => {}
-                }
-
-                for modifier in &syntax.modifiers {
-                    self.visit_fragment_word(
-                        modifier.argument_word_ast(),
-                        modifier.argument.as_ref(),
-                        kind,
-                        flow,
-                        nested_regions,
-                    );
-                }
-
-                if let Some(operation) = &syntax.operation {
-                    match operation {
-                        ZshExpansionOperation::PatternOperation { operand, .. }
-                        | ZshExpansionOperation::TrimOperation { operand, .. } => self
-                            .visit_fragment_word(
-                                operation.operand_word_ast(),
-                                Some(operand),
-                                kind,
-                                flow,
-                                nested_regions,
-                            ),
-                        ZshExpansionOperation::Defaulting { operand, .. } => {
-                            self.guarded_parameter_operand_depth += 1;
-                            self.defaulting_parameter_operand_depth += 1;
-                            self.visit_fragment_word(
-                                operation.operand_word_ast(),
-                                Some(operand),
-                                kind,
-                                flow,
-                                nested_regions,
-                            );
-                            self.guarded_parameter_operand_depth -= 1;
-                            self.defaulting_parameter_operand_depth -= 1;
-                        }
-                        ZshExpansionOperation::ReplacementOperation {
-                            pattern,
-                            replacement,
-                            ..
-                        } => {
-                            self.visit_fragment_word(
-                                operation.pattern_word_ast(),
-                                Some(pattern),
-                                WordVisitKind::ParameterPattern,
-                                flow,
-                                nested_regions,
-                            );
-                            self.visit_fragment_word(
-                                operation.replacement_word_ast(),
-                                replacement.as_ref(),
-                                kind,
-                                flow,
-                                nested_regions,
-                            );
-                        }
-                        ZshExpansionOperation::Slice { offset, length, .. } => {
-                            self.visit_fragment_word(
-                                operation.offset_word_ast(),
-                                Some(offset),
-                                kind,
-                                flow,
-                                nested_regions,
-                            );
-                            self.visit_fragment_word(
-                                operation.length_word_ast(),
-                                length.as_ref(),
-                                kind,
-                                flow,
-                                nested_regions,
-                            );
-                        }
-                        ZshExpansionOperation::Unknown { text, .. } => {
-                            self.visit_zsh_unknown_operation_references(text, kind);
-                            self.visit_fragment_word(
-                                operation.operand_word_ast(),
-                                Some(text),
-                                kind,
-                                flow,
-                                nested_regions,
-                            );
-                        }
-                    }
-                }
-            }
-        }
+}
     }
-
+    #[allow(dead_code)]
     fn visit_zsh_unknown_operation_references(
         &mut self,
         text: &shuck_ast::SourceText,
@@ -887,7 +769,7 @@ impl<'a, 'idx, 'observer> SemanticModelBuilder<'a, 'idx, 'observer> {
         // Some valid zsh parameter forms are still represented as unknown
         // operations by the parser. `${=name}` is one of those: `=` controls
         // word splitting, but `name` is still the parameter being read.
-        if self.shell_profile.dialect != shuck_parser::ShellDialect::Zsh {
+        if true {
             return;
         }
 

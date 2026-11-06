@@ -4,7 +4,7 @@ use crate::dataflow;
 use crate::reachability::{block_reaches_unless, block_reaches_without};
 use shuck_ast::{
     BourneParameterExpansion, BuiltinCommand, CompoundCommand, ParameterExpansionSyntax, Pattern,
-    PatternPart, StmtSeq, StmtTerminator, Word, WordPart, WordPartNode, ZshExpansionTarget,
+    PatternPart, StmtSeq, StmtTerminator, Word, WordPart, WordPartNode,
     static_word_text,
 };
 
@@ -632,8 +632,7 @@ fn first_positional_dispatch_in_command(command: &Command) -> Option<Span> {
         | Command::Compound(_)
         | Command::Builtin(_)
         | Command::Decl(_)
-        | Command::Function(_)
-        | Command::AnonymousFunction(_) => None,
+        | Command::Function(_) => None,
         Command::Simple(command) => {
             word_is_plain_positional_parameter(&command.name, "1").then_some(command.name.span)
         }
@@ -661,18 +660,7 @@ fn word_part_is_plain_positional_parameter(part: &WordPart, target: &str) -> boo
             ParameterExpansionSyntax::Bourne(BourneParameterExpansion::Access { reference }) => {
                 reference.subscript.is_none() && reference.name.as_str() == target
             }
-            ParameterExpansionSyntax::Zsh(syntax) => {
-                syntax.length_prefix.is_none()
-                    && syntax.operation.is_none()
-                    && syntax.modifiers.is_empty()
-                    && matches!(
-                        &syntax.target,
-                        ZshExpansionTarget::Reference(reference)
-                            if reference.subscript.is_none()
-                                && reference.name.as_str() == target
-                    )
-            }
-            _ => false,
+_ => false,
         },
         _ => false,
     }

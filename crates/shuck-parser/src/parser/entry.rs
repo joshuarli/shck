@@ -21,17 +21,11 @@ impl<'a> Parser<'a> {
     }
 
     /// Create a new parser for the given input and shell dialect.
-    ///
-    /// This uses [`ShellProfile::native`] for the selected dialect. Use
-    /// [`Parser::with_profile`] when zsh option state is known.
     pub fn with_dialect(input: &'a str, dialect: ShellDialect) -> Self {
         Self::with_profile(input, ShellProfile::native(dialect))
     }
 
-    /// Create a new parser for the given input and full shell profile.
-    ///
-    /// Profiles allow callers to provide parser-visible zsh option state in
-    /// addition to the broad shell dialect.
+    /// Create a new parser for the given input and shell profile.
     pub fn with_profile(input: &'a str, shell_profile: ShellProfile) -> Self {
         Self::with_limits_and_profile(
             input,
@@ -42,9 +36,6 @@ impl<'a> Parser<'a> {
     }
 
     /// Create a new bash parser with a custom fuel limit.
-    ///
-    /// Fuel bounds the number of parser operations. Exhaustion produces a
-    /// terminal parse error in the returned [`ParseResult`].
     pub fn with_fuel(input: &'a str, max_fuel: usize) -> Self {
         Self::with_limits_and_profile(
             input,
@@ -55,9 +46,6 @@ impl<'a> Parser<'a> {
     }
 
     /// Create a new parser with custom depth, fuel, and shell-profile settings.
-    ///
-    /// This is the most explicit constructor for embedders that need both
-    /// resource limits and parser-visible shell option state.
     pub fn with_limits_and_profile(
         input: &'a str,
         max_depth: usize,
@@ -117,15 +105,10 @@ impl<'a> Parser<'a> {
         let oversized_input = oversized_input_error(input.len());
         let input = if oversized_input.is_some() { "" } else { input };
 
-        let zsh_timeline = (shell_profile.dialect == ShellDialect::Zsh)
-            .then(|| ZshOptionTimeline::build(input, &shell_profile))
-            .flatten()
-            .map(Arc::new);
         let mut lexer = Lexer::with_max_subst_depth_and_profile(
             input,
             max_depth.saturating_sub(base_depth),
             &shell_profile,
-            zsh_timeline.clone(),
         );
         #[cfg(feature = "benchmarking")]
         if benchmark_counters_enabled {
@@ -176,7 +159,6 @@ impl<'a> Parser<'a> {
             syntax_facts: SyntaxFacts::default(),
             dialect: shell_profile.dialect,
             shell_profile,
-            zsh_timeline,
             brace_scan_chars: std::cell::RefCell::new(Vec::new()),
             #[cfg(feature = "benchmarking")]
             benchmark_counters: benchmark_counters_enabled.then(ParserBenchmarkCounters::default),
@@ -200,10 +182,6 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse a standalone shell word string.
-    ///
-    /// This handles shell word constructs such as parameter expansion, command
-    /// substitution, arithmetic expansion, and quoting. The returned word is
-    /// positioned as if `input` started at the beginning of a file.
     pub fn parse_word_string(input: &str) -> Word {
         let mut parser = Parser::new(input);
         let start = Position::new();
@@ -216,10 +194,6 @@ impl<'a> Parser<'a> {
     }
 
     /// Classify a contiguous group of already-parsed words as a shell assignment.
-    ///
-    /// Some shell syntax, such as process substitution inside an array subscript,
-    /// can produce multiple AST words while still occupying one contiguous
-    /// assignment operand in the source.
     pub fn parse_assignment_word_group(
         source: &str,
         words: &[&Word],

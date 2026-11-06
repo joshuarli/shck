@@ -135,8 +135,7 @@ pub(crate) fn mixed_quote_double_quoted_parts_contain_literal_content(parts: &[W
         | WordPart::IndirectExpansion { .. }
         | WordPart::PrefixMatch { .. }
         | WordPart::ProcessSubstitution { .. }
-        | WordPart::Transformation { .. }
-        | WordPart::ZshQualifiedGlob(_) => false,
+        | WordPart::Transformation { .. } => false,
     })
 }
 
@@ -384,10 +383,9 @@ pub(crate) fn mixed_quote_trailing_line_join_between_double_quotes_span(
     let text = word.span.slice(source);
     let (prefix, suffix) = if let Some(prefix) = text.strip_suffix("\\\n") {
         (prefix, "\\\n")
-    } else if let Some(prefix) = text.strip_suffix("\\\r\n") {
-        (prefix, "\\\r\n")
     } else {
-        return None;
+        let prefix = text.strip_suffix("\\\r\n")?;
+        (prefix, "\\\r\n")
     };
 
     if !mixed_quote_text_ends_with_unescaped_double_quote(prefix)
@@ -778,8 +776,7 @@ pub(crate) fn word_part_is_arithmetic_only(part: &WordPartNode) -> bool {
         | WordPart::IndirectExpansion { .. }
         | WordPart::PrefixMatch { .. }
         | WordPart::ProcessSubstitution { .. }
-        | WordPart::Transformation { .. }
-        | WordPart::ZshQualifiedGlob(_) => false,
+        | WordPart::Transformation { .. } => false,
     }
 }
 
@@ -813,8 +810,7 @@ pub(crate) fn standalone_variable_name_from_word_parts(parts: &[WordPartNode]) -
         | WordPart::IndirectExpansion { .. }
         | WordPart::PrefixMatch { .. }
         | WordPart::ProcessSubstitution { .. }
-        | WordPart::Transformation { .. }
-        | WordPart::ZshQualifiedGlob(_) => None,
+        | WordPart::Transformation { .. } => None,
     }
 }
 
@@ -996,8 +992,7 @@ impl<'a> WordSubtreeVisitor<'a> for DoubleQuotedExpansionSpanVisitor<'_> {
             | WordPart::IndirectExpansion { .. }
             | WordPart::PrefixMatch { .. }
             | WordPart::ProcessSubstitution { .. }
-            | WordPart::Transformation { .. }
-            | WordPart::ZshQualifiedGlob(_) => self.spans.push(part.span),
+            | WordPart::Transformation { .. } => self.spans.push(part.span),
             WordPart::Literal(_) | WordPart::SingleQuoted { .. } | WordPart::DoubleQuoted { .. } => {
             }
         }

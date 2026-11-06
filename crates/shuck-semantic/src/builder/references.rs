@@ -155,10 +155,9 @@ impl<'a, 'idx, 'observer> SemanticModelBuilder<'a, 'idx, 'observer> {
                 (2, name.as_str().len())
             } else if let Some(start) = syntax.find(name.as_str()) {
                 (start, name.as_str().len())
-            } else if let Some(stripped) = name.as_str().strip_prefix('+') {
-                (syntax.find(stripped)?, stripped.len())
             } else {
-                return None;
+                let stripped = name.as_str().strip_prefix('+')?;
+                (syntax.find(stripped)?, stripped.len())
             };
         let start_offset = span.start.offset() + relative_start;
         let end_offset = start_offset + name_len;

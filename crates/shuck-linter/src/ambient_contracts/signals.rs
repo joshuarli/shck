@@ -63,7 +63,6 @@ pub(super) struct SourceSignals<'a> {
     zmodload_lines: Vec<&'a str>,
     has_probable_function_definition: bool,
     has_source_command: bool,
-    loads_zsh_colors: bool,
 }
 
 impl<'a> SourceSignals<'a> {
@@ -72,7 +71,6 @@ impl<'a> SourceSignals<'a> {
         let mut zmodload_lines = Vec::new();
         let mut has_probable_function_definition = false;
         let mut has_source_command = false;
-        let mut loads_zsh_colors = false;
 
         let source_mentions_zmodload = source.contains("zmodload");
         for line in source.lines() {
@@ -81,9 +79,7 @@ impl<'a> SourceSignals<'a> {
             let trim_start = code.trim_start();
             code_lines.push(trimmed);
             has_probable_function_definition |= probable_function_definition(trimmed);
-            has_source_command |= source_command_line(trimmed);
-            loads_zsh_colors |= line_autoloads_zsh_colors(trim_start);
-            if source_mentions_zmodload && code.contains("zmodload") {
+            has_source_command |= source_command_line(trimmed);            if source_mentions_zmodload && code.contains("zmodload") {
                 zmodload_lines.push(code);
             }
         }
@@ -95,9 +91,7 @@ impl<'a> SourceSignals<'a> {
             code_lines,
             zmodload_lines,
             has_probable_function_definition,
-            has_source_command,
-            loads_zsh_colors,
-        }
+            has_source_command,        }
     }
 
     pub(super) fn contains(&self, pattern: &str) -> bool {
@@ -128,10 +122,6 @@ impl<'a> SourceSignals<'a> {
 
     pub(super) fn loads_zsh_module(&self, module: &str) -> bool {
         self.zmodload_lines.iter().any(|code| code.contains(module))
-    }
-
-    pub(super) fn loads_zsh_colors(&self) -> bool {
-        self.loads_zsh_colors
     }
 
     pub(super) fn static_assignment_value(&self, name: &str) -> Option<String> {
@@ -279,27 +269,6 @@ fn source_command_line(trimmed: &str) -> bool {
         || trimmed.starts_with("\\. ")
 }
 
-fn line_autoloads_zsh_colors(code: &str) -> bool {
-    // The command must be the first word of the first segment, so a cheap
-    // first-token check avoids the separator searches on ordinary lines.
-    if !matches!(
-        code.split_whitespace().next(),
-        Some("autoload" | "builtin" | "command")
-    ) {
-        return false;
-    }
-    let code = first_shell_command_segment(code);
-    let mut words = code.split_whitespace();
-    let mut command = words.next();
-    while matches!(command, Some("builtin" | "command")) {
-        command = words.next();
-    }
-    if command != Some("autoload") {
-        return false;
-    }
-
-    words.any(|word| word == "colors")
-}
 
 fn first_shell_command_segment(code: &str) -> &str {
     ["&&", "||", ";", "|"]

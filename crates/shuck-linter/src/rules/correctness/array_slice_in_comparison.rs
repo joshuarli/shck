@@ -218,50 +218,6 @@ if [ \"${sel[@]:1}\" = \"HELP\" ]; then :; fi
     }
 
     #[test]
-    fn ignores_zsh_indexed_and_sliced_positional_parameter_tests() {
-        let source = "\
-#!/bin/zsh
-set -- alpha --scope tail
-_i=2
-if [[ \"${@[_i]}\" == --scope ]]; then :; fi
-if [[ \"$@[_i]\" == --scope ]]; then :; fi
-if [[ \"${@[2,-1]}\" == \"--scope tail\" ]]; then :; fi
-if [[ \"${@[5,-1]:-fallback}\" == fallback ]]; then :; fi
-if [[ ${@: -1} == /* ]]; then :; fi
-if [[ -d ${@: -1} ]]; then :; fi
-if [[ \"${@:2:1}\" == tail ]]; then :; fi
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::ArraySliceInComparison).with_shell(ShellDialect::Zsh),
-        );
-
-        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
-    }
-
-    #[test]
-    fn reports_zsh_positional_star_selector_tests() {
-        let source = "\
-#!/bin/zsh
-set -- alpha --scope tail
-if [[ \"${@[*]}\" == \"alpha --scope tail\" ]]; then :; fi
-if [[ \"$@[*]\" == \"alpha --scope tail\" ]]; then :; fi
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::ArraySliceInComparison).with_shell(ShellDialect::Zsh),
-        );
-
-        assert_eq!(
-            diagnostics
-                .iter()
-                .map(|diagnostic| diagnostic.span.slice(source))
-                .collect::<Vec<_>>(),
-            vec!["\"${@[*]}\"", "\"$@[*]\""]
-        );
-    }
-
-    #[test]
     fn applies_unsafe_fix_to_all_elements_expansions_in_double_bracket_tests() {
         let source = "\
 #!/bin/bash

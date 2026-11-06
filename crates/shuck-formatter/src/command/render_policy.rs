@@ -15,7 +15,7 @@ where
     F: Fn(&Stmt) -> bool + Copy,
 {
     match &stmt.command {
-        Command::Function(_) | Command::AnonymousFunction(_) => {
+        Command::Function(_) => {
             span_render_end_line(stmt_span(stmt), source, source_map)
         }
         _ if stmt_contains_heredoc(stmt) => span_render_end_line(
@@ -140,8 +140,6 @@ where
         stmt_verbatim_span_with_source_map(stmt, source_map)
     } else if let Command::Function(command) = &stmt.command {
         function_attachment_span(command)
-    } else if let Command::AnonymousFunction(command) = &stmt.command {
-        anonymous_function_attachment_span(command)
     } else if let Some((commands, open)) = command_group_commands(&stmt.command) {
         stmt.redirects.iter().fold(
             stmt_group_base_span_with_heredoc(
@@ -229,8 +227,7 @@ pub(crate) fn compound_close_span(
                 ))
             }),
         _ => CompoundBodySite::single_body_command(command, source_map)
-            .and_then(|site| site.close_span()),
-    }
+            .and_then(|site| site.close_span()) }
 }
 
 pub(crate) fn if_close_span(
@@ -240,14 +237,10 @@ pub(crate) fn if_close_span(
 ) -> Span {
     let (syntax_close, keyword) = match command.syntax {
         IfSyntax::ThenFi { fi_span, .. } => (fi_span, "fi"),
-        IfSyntax::Brace {
-            right_brace_span, ..
-        } => (right_brace_span, "}"),
-    };
+};
     let kind = match command.syntax {
         IfSyntax::ThenFi { .. } => CloseDelimiterKind::Fi,
-        IfSyntax::Brace { .. } => CloseDelimiterKind::RightBrace,
-    };
+};
     if let Some(indexed_close) = source_map.close_delimiter_span(command.span, kind) {
         return indexed_close;
     }
@@ -334,8 +327,7 @@ where
             options,
             stmt_contains_heredoc,
         )),
-        _ => command_format_span(command),
-    }
+        _ => command_format_span(command) }
 }
 
 pub(crate) fn stmt_render_start_line_with_heredoc<F>(
@@ -463,8 +455,7 @@ fn command_token_spans(command: &Command) -> Vec<Span> {
             spans.extend(command.operands.iter().map(|operand| match operand {
                 DeclOperand::Flag(word) | DeclOperand::Dynamic(word) => word.span,
                 DeclOperand::Name(name) => name.span,
-                DeclOperand::Assignment(assignment) => assignment.span,
-            }));
+                DeclOperand::Assignment(assignment) => assignment.span }));
             spans
         }
         Command::Binary(command) => vec![command.span],
@@ -473,14 +464,6 @@ fn command_token_spans(command: &Command) -> Vec<Span> {
             function_header_span(command),
             stmt_format_span(&command.body),
         ],
-        Command::AnonymousFunction(command) => {
-            let mut spans = vec![
-                anonymous_function_header_span(command),
-                stmt_format_span(&command.body),
-            ];
-            spans.extend(command.args.iter().map(|argument| argument.span));
-            spans
-        }
     }
 }
 

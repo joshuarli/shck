@@ -1,16 +1,13 @@
 use shuck_ast::{
-    AnonymousFunctionCommand, ArithmeticExpr, ArithmeticExprNode, ArithmeticLvalue, Assignment,
+    ArithmeticExpr, ArithmeticExprNode, ArithmeticLvalue, Assignment,
     AssignmentValue, BourneParameterExpansion, Command, CompoundCommand, ConditionalExpr,
     DeclClause, DeclOperand, File, FunctionDef, Heredoc, HeredocBody, HeredocBodyPart,
     HeredocBodyPartNode, ParameterExpansion, ParameterExpansionSyntax, ParameterOp, Pattern,
     PatternPart, PatternPartNode, Redirect, RedirectTarget, SourceText, Stmt, StmtSeq, Subscript,
-    VarRef, Word, WordPart, WordPartNode, ZshExpansionOperation, ZshExpansionTarget,
-    ZshGlobQualifier, ZshGlobQualifierGroup, ZshGlobSegment, ZshParameterExpansion,
-};
+    VarRef, Word, WordPart, WordPartNode };
 
 use crate::command::{
-    array_elem_parts, array_elem_value_word_mut, builtin_like_parts, builtin_like_parts_mut,
-};
+    array_elem_parts, array_elem_value_word_mut, builtin_like_parts, builtin_like_parts_mut };
 
 pub(crate) trait AstVisitor {
     fn visit_stmt_seq(&mut self, sequence: &StmtSeq) {
@@ -33,9 +30,6 @@ pub(crate) trait AstVisitor {
         walk_function(self, function);
     }
 
-    fn visit_anonymous_function(&mut self, function: &AnonymousFunctionCommand) {
-        walk_anonymous_function(self, function);
-    }
 
     fn visit_redirect(&mut self, redirect: &Redirect) {
         walk_redirect(self, redirect);
@@ -133,9 +127,6 @@ pub(crate) trait AstVisitorMut {
         walk_function_mut(self, function)
     }
 
-    fn visit_anonymous_function(&mut self, function: &mut AnonymousFunctionCommand) -> usize {
-        walk_anonymous_function_mut(self, function)
-    }
 
     fn visit_redirect(&mut self, redirect: &mut Redirect) -> usize {
         walk_redirect_mut(self, redirect)

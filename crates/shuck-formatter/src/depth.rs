@@ -18,16 +18,14 @@ pub(crate) const MAX_STATEMENT_NESTING: usize = 1000;
 pub(crate) fn exceeds_statement_nesting(file: &File) -> bool {
     let mut probe = DepthProbe {
         depth: 0,
-        exceeded: false,
-    };
+        exceeded: false };
     probe.visit_stmt_seq(&file.body);
     probe.exceeded
 }
 
 struct DepthProbe {
     depth: usize,
-    exceeded: bool,
-}
+    exceeded: bool }
 
 impl AstVisitor for DepthProbe {
     fn visit_stmt(&mut self, stmt: &Stmt) {

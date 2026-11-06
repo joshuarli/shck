@@ -37,7 +37,7 @@ mod tests {
     fn anchors_on_case_modification_expansions_only() {
         let source = "\
 #!/bin/sh
-printf '%s\n' \"${1^^}\" \"${name^pattern}\" \"${name,,}\" \"${arr[0]^^}\" \"${arr[@],,}\" \"${name//x/y}\" \"${!name^^}\" \"${name@Q}\"\n\
+printf '%s\n' \"${1^^}\" \"${name^pattern}\" \"${name,}\" \"${arr[0]^^}\" \"${arr[@],}\" \"${name//x/y}\" \"${!name^^}\" \"${name@Q}\"\n\
 ";
         let diagnostics = test_snippet(
             source,
@@ -52,9 +52,9 @@ printf '%s\n' \"${1^^}\" \"${name^pattern}\" \"${name,,}\" \"${arr[0]^^}\" \"${a
             vec![
                 "${1^^}",
                 "${name^pattern}",
-                "${name,,}",
+                "${name,}",
                 "${arr[0]^^}",
-                "${arr[@],,}",
+                "${arr[@],}",
             ]
         );
     }

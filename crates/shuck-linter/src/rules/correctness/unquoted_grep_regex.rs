@@ -236,33 +236,6 @@ done
     }
 
     #[test]
-    fn respects_zsh_glob_activation_for_grep_patterns() {
-        let source = "\
-#!/usr/bin/env zsh
-setopt no_glob
-grep start* out.txt
-setopt glob extended_glob
-grep foo^bar out.txt
-grep foo~bar out.txt
-grep foo~bar* out.txt
-unsetopt extended_glob
-grep foo^bar out.txt
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::UnquotedGrepRegex).with_shell(crate::ShellDialect::Zsh),
-        );
-
-        assert_eq!(
-            diagnostics
-                .iter()
-                .map(|diagnostic| diagnostic.span.slice(source))
-                .collect::<Vec<_>>(),
-            vec!["foo^bar", "foo~bar*"]
-        );
-    }
-
-    #[test]
     fn snapshots_unsafe_fix_output_for_fixture() -> anyhow::Result<()> {
         let result = test_path_with_fix(
             Path::new("correctness").join("C084.sh").as_path(),

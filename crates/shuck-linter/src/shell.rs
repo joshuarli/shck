@@ -9,14 +9,12 @@ pub enum ShellDialect {
     Dash,
     Ksh,
     Mksh,
-    Zsh,
 }
 
 impl ShellDialect {
     pub fn parser_dialect(self) -> shuck_parser::ShellDialect {
         match self {
             Self::Mksh => shuck_parser::ShellDialect::Mksh,
-            Self::Zsh => shuck_parser::ShellDialect::Zsh,
             Self::Unknown | Self::Sh | Self::Bash | Self::Dash | Self::Ksh => {
                 shuck_parser::ShellDialect::Bash
             }
@@ -27,7 +25,6 @@ impl ShellDialect {
         match self {
             Self::Sh | Self::Dash | Self::Ksh => shuck_parser::ShellDialect::Posix,
             Self::Mksh => shuck_parser::ShellDialect::Mksh,
-            Self::Zsh => shuck_parser::ShellDialect::Zsh,
             Self::Unknown | Self::Bash => shuck_parser::ShellDialect::Bash,
         }
     }
@@ -43,7 +40,6 @@ impl ShellDialect {
             "dash" => Self::Dash,
             "ksh" => Self::Ksh,
             "mksh" => Self::Mksh,
-            "zsh" => Self::Zsh,
             _ => Self::Unknown,
         }
     }
@@ -57,7 +53,6 @@ impl ShellDialect {
             Self::Dash => "dash",
             Self::Ksh => "ksh",
             Self::Mksh => "mksh",
-            Self::Zsh => "zsh",
         }
     }
 
@@ -65,9 +60,6 @@ impl ShellDialect {
         let path_dialect = path.map_or(Self::Unknown, Self::infer_from_path);
         let shebang_dialect = Self::infer_from_shebang(source);
         Self::infer_from_shellcheck_header(source)
-            .or_else(|| {
-                Self::zsh_extension_compat_shebang_override(source, path_dialect, shebang_dialect)
-            })
             .or(shebang_dialect)
             .or_else(|| match path_dialect {
                 Self::Unknown | Self::Sh => Self::infer_from_source_markers(source),
@@ -88,7 +80,6 @@ impl ShellDialect {
             Some("dash") => Self::Dash,
             Some("ksh") => Self::Ksh,
             Some("mksh") => Self::Mksh,
-            Some("zsh") => Self::Zsh,
             _ => path
                 .file_name()
                 .and_then(|name| name.to_str())
@@ -98,19 +89,8 @@ impl ShellDialect {
 
     fn infer_from_shebang(source: &str) -> Option<Self> {
         let interpreter = shuck_parser::shebang::interpreter_name(source.lines().next()?)?;
-        Some(Self::from_name(interpreter))
-    }
-
-    fn zsh_extension_compat_shebang_override(
-        source: &str,
-        extension_dialect: Self,
-        shebang_dialect: Option<Self>,
-    ) -> Option<Self> {
-        if extension_dialect != Self::Zsh || shebang_dialect != Some(Self::Bash) {
-            return None;
-        }
-
-        (Self::infer_from_source_markers(source) == Some(Self::Zsh)).then_some(Self::Zsh)
+        let dialect = Self::from_name(interpreter);
+        (dialect != Self::Unknown).then_some(dialect)
     }
 
     fn infer_from_shellcheck_header(source: &str) -> Option<Self> {
@@ -139,8 +119,6 @@ impl ShellDialect {
 
     fn infer_from_source_markers(source: &str) -> Option<Self> {
         let mut saw_bash_marker = false;
-        let mut saw_zsh_marker = false;
-        let mut at_directive_prefix = true;
         let mut heredoc_delimiters: Vec<(String, bool)> = Vec::new();
 
         for line in source.lines() {
@@ -156,48 +134,20 @@ impl ShellDialect {
                 }
                 continue;
             }
-            if trimmed.is_empty() || trimmed.starts_with("#!") {
-                continue;
-            }
-            if trimmed.starts_with('#') {
-                if at_directive_prefix && Self::is_zsh_autoload_tag_line(trimmed) {
-                    saw_zsh_marker = true;
-                }
-                at_directive_prefix = false;
+            if trimmed.is_empty() || trimmed.starts_with("#!") || trimmed.starts_with('#') {
                 continue;
             }
 
             let code = code_before_comment(trimmed);
             saw_bash_marker |= line_has_bash_marker(code);
-            saw_zsh_marker |= line_has_zsh_marker(code);
             heredoc_delimiters.extend(line_heredoc_delimiters(code));
-            at_directive_prefix = false;
 
-            if saw_bash_marker && saw_zsh_marker {
-                return None;
+            if saw_bash_marker {
+                return Some(Self::Bash);
             }
         }
 
-        match (saw_bash_marker, saw_zsh_marker) {
-            (true, false) => Some(Self::Bash),
-            (false, true) => Some(Self::Zsh),
-            _ => None,
-        }
-    }
-
-    /// Returns `true` when `line` is a zsh autoload/completion tag comment
-    /// (`#compdef …` or `#autoload …`).
-    ///
-    /// compinit requires this tag on the *first* line of a completion/autoload
-    /// function file, so such files lead with the tag instead of a shebang and
-    /// are typically extensionless. Shared by dialect inference and by file
-    /// discovery (`shuck-discover`) so these files are recognized as zsh shell
-    /// scripts. The tag must directly follow `#` (no space), matching compinit.
-    #[must_use]
-    pub fn is_zsh_autoload_tag_line(line: &str) -> bool {
-        line.trim_start().strip_prefix('#').is_some_and(|comment| {
-            comment.starts_with("compdef") || comment.starts_with("autoload")
-        })
+        None
     }
 }
 
@@ -207,29 +157,6 @@ fn line_has_bash_marker(line: &str) -> bool {
         || contains_unquoted_parameter(line, "PROMPT_COMMAND")
         || starts_with_assignment(line, "PROMPT_COMMAND")
         || starts_with_shell_word(line, "shopt")
-}
-
-fn line_has_zsh_marker(line: &str) -> bool {
-    contains_unquoted_parameter(line, "ZSH_VERSION")
-        || contains_unquoted_parameter(line, "ZSH_EVAL_CONTEXT")
-        || starts_with_shell_word(line, "zstyle")
-        || starts_with_shell_word(line, "zmodload")
-        || line_has_zsh_emulate_marker(line)
-        || line_has_zsh_autoload_marker(line)
-        || contains_unquoted_literal(line, "${${")
-        || contains_unquoted_literal(line, "${(%):-%x}")
-        || contains_unquoted_literal(line, "${+commands[")
-}
-
-fn line_has_zsh_emulate_marker(line: &str) -> bool {
-    let words = shell_words(line);
-    words.first().is_some_and(|word| *word == "emulate")
-        && words.iter().skip(1).any(|word| *word == "zsh")
-}
-
-fn line_has_zsh_autoload_marker(line: &str) -> bool {
-    let trimmed = line.trim_start();
-    trimmed.starts_with("autoload ") && trimmed.split_whitespace().any(|word| word.starts_with('-'))
 }
 
 fn code_before_comment(line: &str) -> &str {
@@ -516,14 +443,6 @@ fn contains_unquoted_parameter(line: &str, name: &str) -> bool {
     })
 }
 
-fn contains_unquoted_literal(line: &str, literal: &str) -> bool {
-    contains_unquoted_marker(line, |bytes, index| {
-        bytes
-            .get(index..index + literal.len())
-            .is_some_and(|candidate| candidate == literal.as_bytes())
-    })
-}
-
 fn contains_unquoted_marker(line: &str, mut matches_at: impl FnMut(&[u8], usize) -> bool) -> bool {
     let bytes = line.as_bytes();
     let mut index = 0;
@@ -574,8 +493,6 @@ fn infer_from_known_shell_filename(name: &str) -> ShellDialect {
     match name.to_ascii_lowercase().as_str() {
         ".bashrc" | "bashrc" => ShellDialect::Bash,
         ".profile" | "profile" => ShellDialect::Sh,
-        ".zshrc" | "zshrc" | ".zshenv" | "zshenv" | ".zprofile" | "zprofile" | ".zlogin"
-        | "zlogin" | ".zlogout" | "zlogout" => ShellDialect::Zsh,
         _ => ShellDialect::Unknown,
     }
 }
@@ -609,277 +526,14 @@ mod tests {
     }
 
     #[test]
-    fn infers_known_zsh_dotfiles_without_source_markers() {
-        let inferred = ShellDialect::infer(
-            "plugins=(git)\nsource \"$ZDOTDIR/oh-my-zsh.sh\"\n",
-            Some(Path::new("/tmp/.zshrc")),
-        );
-        assert_eq!(inferred, ShellDialect::Zsh);
-    }
-
-    #[test]
     fn infers_known_shell_filenames_without_extensions() {
         for (path, expected) in [
             ("/tmp/PKGBUILD", ShellDialect::Bash),
             ("/tmp/.bashrc", ShellDialect::Bash),
             ("/tmp/.profile", ShellDialect::Sh),
-            ("/tmp/.zshrc", ShellDialect::Zsh),
         ] {
             assert_eq!(ShellDialect::infer_from_path(Path::new(path)), expected);
         }
-    }
-
-    #[test]
-    fn explicit_bash_extension_wins_over_embedded_zsh_guards() {
-        let source = "\
-if [[ -n ${ZSH_VERSION-} ]]; then
-  emulate -L zsh
-fi
-";
-        let inferred = ShellDialect::infer(source, Some(Path::new("/tmp/git-completion.bash")));
-        assert_eq!(inferred, ShellDialect::Bash);
-    }
-
-    #[test]
-    fn infers_zsh_from_source_markers_before_sh_extension() {
-        let source = r#"
-[[ -n "$ZSH" ]] || export ZSH="${${(%):-%x}:a:h}"
-zstyle -s ':omz:update' mode update_mode
-autoload -U compaudit compinit
-"#;
-        let inferred = ShellDialect::infer(source, Some(Path::new("/tmp/oh-my-zsh.sh")));
-        assert_eq!(inferred, ShellDialect::Zsh);
-    }
-
-    #[test]
-    fn zsh_extension_and_markers_win_over_bash_compat_shebang() {
-        let source = r#"#!/usr/bin/bash
-0="${${ZERO:-${0:#$ZSH_ARGZERO}}:-${(%):-%N}}"
-"#;
-        let inferred = ShellDialect::infer(
-            source,
-            Some(Path::new("/tmp/plugin/shell-proxy.plugin.zsh")),
-        );
-        assert_eq!(inferred, ShellDialect::Zsh);
-    }
-
-    #[test]
-    fn infers_zsh_from_compdef_comment_before_sh_extension() {
-        let inferred = ShellDialect::infer(
-            "#compdef git\n_arguments '*:: :->args'\n",
-            Some(Path::new("/tmp/_git.sh")),
-        );
-        assert_eq!(inferred, ShellDialect::Zsh);
-    }
-
-    #[test]
-    fn ignores_late_compdef_comment_markers_after_real_content() {
-        let inferred = ShellDialect::infer(
-            "printf '%s\\n' ok\n#compdef git\n",
-            Some(Path::new("/tmp/example.sh")),
-        );
-        assert_eq!(inferred, ShellDialect::Sh);
-    }
-
-    #[test]
-    fn ignores_free_form_comments_that_mention_zsh_directive_words() {
-        let inferred = ShellDialect::infer(
-            "# autoload helper cache\n# compdef examples live elsewhere\nprintf '%s\\n' ok\n",
-            Some(Path::new("/tmp/example.sh")),
-        );
-        assert_eq!(inferred, ShellDialect::Sh);
-    }
-
-    #[test]
-    fn ignores_quoted_dialect_marker_names_without_shell_usage() {
-        let inferred = ShellDialect::infer(
-            "printf '%s\\n' \"ZSH_VERSION\" \"BASH_VERSION\" \"PROMPT_COMMAND\"\n",
-            Some(Path::new("/tmp/example.sh")),
-        );
-        assert_eq!(inferred, ShellDialect::Sh);
-    }
-
-    #[test]
-    fn ignores_single_literal_dialect_marker_names_without_dollar_prefix() {
-        let inferred =
-            ShellDialect::infer("echo ZSH_VERSION\n", Some(Path::new("/tmp/example.sh")));
-        assert_eq!(inferred, ShellDialect::Sh);
-    }
-
-    #[test]
-    fn ignores_literal_or_escaped_dialect_parameter_markers() {
-        let inferred = ShellDialect::infer(
-            "printf '%s\\n' '${ZSH_VERSION}' \"\\$BASH_VERSION\" \"$ZSH_VERSIONED\"\n",
-            Some(Path::new("/tmp/example.sh")),
-        );
-        assert_eq!(inferred, ShellDialect::Sh);
-    }
-
-    #[test]
-    fn ignores_literal_or_escaped_zsh_expansion_markers() {
-        let inferred = ShellDialect::infer(
-            "printf '%s\\n' '${${(%):-%x}:a:h}' \"\\${+commands[git]}\"\n",
-            Some(Path::new("/tmp/example.sh")),
-        );
-        assert_eq!(inferred, ShellDialect::Sh);
-    }
-
-    #[test]
-    fn ignores_dialect_markers_inside_heredoc_bodies() {
-        let source = "\
-cat <<'EOF'
-$ZSH_VERSION
-${BASH_SOURCE[0]}
-EOF
-";
-        let inferred = ShellDialect::infer(source, Some(Path::new("/tmp/example.sh")));
-        assert_eq!(inferred, ShellDialect::Sh);
-    }
-
-    #[test]
-    fn here_strings_do_not_hide_later_source_markers() {
-        let source = "\
-cat <<< \"$value\"
-zstyle -s ':omz:update' mode update_mode
-";
-        let inferred = ShellDialect::infer(source, Some(Path::new("/tmp/example.sh")));
-        assert_eq!(inferred, ShellDialect::Zsh);
-    }
-
-    #[test]
-    fn arithmetic_shifts_do_not_hide_later_source_markers() {
-        let source = "\
-((x<<1))
-value=$((1<<2))
-zstyle -s ':omz:update' mode update_mode
-";
-        let inferred = ShellDialect::infer(source, Some(Path::new("/tmp/example.sh")));
-        assert_eq!(inferred, ShellDialect::Zsh);
-    }
-
-    #[test]
-    fn hash_expansions_do_not_hide_later_source_markers_on_the_same_line() {
-        let source = "\
-prefix=${name#refs/heads/}; printf '%s\\n' \"$ZSH_VERSION\"
-";
-        let inferred = ShellDialect::infer(source, Some(Path::new("/tmp/example.sh")));
-        assert_eq!(inferred, ShellDialect::Zsh);
-    }
-
-    #[test]
-    fn comments_after_separators_do_not_count_as_source_markers() {
-        let source = "\
-printf '%s\\n' ok;# \"$ZSH_VERSION\"
-";
-        let inferred = ShellDialect::infer(source, Some(Path::new("/tmp/example.sh")));
-        assert_eq!(inferred, ShellDialect::Sh);
-    }
-
-    #[test]
-    fn heredoc_delimiters_stop_before_shell_separators() {
-        let source = "\
-cat <<EOF; printf '%s\\n' done
-$ZSH_VERSION
-EOF
-printf '%s\\n' \"$ZSH_VERSION\"
-";
-        let inferred = ShellDialect::infer(source, Some(Path::new("/tmp/example.sh")));
-        assert_eq!(inferred, ShellDialect::Zsh);
-    }
-
-    #[test]
-    fn multiple_heredoc_bodies_stay_inert_during_source_marker_inference() {
-        let source = "\
-cat <<EOF <<BAR
-plain text
-EOF
-$ZSH_VERSION
-BAR
-";
-        let inferred = ShellDialect::infer(source, Some(Path::new("/tmp/example.sh")));
-        assert_eq!(inferred, ShellDialect::Sh);
-    }
-
-    #[test]
-    fn heredoc_terminators_do_not_allow_trailing_blanks() {
-        let source = "cat <<EOF\nEOF   \n$ZSH_VERSION\nEOF\n";
-        let inferred = ShellDialect::infer(source, Some(Path::new("/tmp/example.sh")));
-        assert_eq!(inferred, ShellDialect::Sh);
-    }
-
-    #[test]
-    fn heredoc_delimiters_allow_blanks_after_redirect_operator() {
-        let source = "\
-cat << EOF
-$ZSH_VERSION
-EOF
-cat <<- \tBAR
-\t$ZSH_VERSION
-\tBAR
-";
-        let inferred = ShellDialect::infer(source, Some(Path::new("/tmp/example.sh")));
-        assert_eq!(inferred, ShellDialect::Sh);
-    }
-
-    #[test]
-    fn heredoc_delimiter_quote_removal_preserves_escaped_backslash() {
-        let source = "cat <<\\\\EOF\n$ZSH_VERSION\n\\EOF\n";
-        let inferred = ShellDialect::infer(source, Some(Path::new("/tmp/example.sh")));
-        assert_eq!(inferred, ShellDialect::Sh);
-    }
-
-    #[test]
-    fn quoted_heredoc_delimiter_separators_do_not_stick_scanner() {
-        let source = "\
-cat <<'EOF)'
-$ZSH_VERSION
-EOF)
-printf '%s\\n' \"$ZSH_VERSION\"
-";
-        let inferred = ShellDialect::infer(source, Some(Path::new("/tmp/example.sh")));
-        assert_eq!(inferred, ShellDialect::Zsh);
-    }
-
-    #[test]
-    fn heredoc_delimiter_stops_before_following_redirection() {
-        let source = "\
-cat <<EOF>/tmp/out
-$ZSH_VERSION
-EOF
-printf '%s\\n' \"$ZSH_VERSION\"
-";
-        let inferred = ShellDialect::infer(source, Some(Path::new("/tmp/example.sh")));
-        assert_eq!(inferred, ShellDialect::Zsh);
-    }
-
-    #[test]
-    fn escaped_whitespace_before_hash_does_not_start_a_comment() {
-        let source = "\
-printf '%s\\n' foo\\ # \"$ZSH_VERSION\"
-";
-        let inferred = ShellDialect::infer(source, Some(Path::new("/tmp/example.sh")));
-        assert_eq!(inferred, ShellDialect::Zsh);
-    }
-
-    #[test]
-    fn infers_from_executed_dialect_parameter_markers() {
-        let zsh = ShellDialect::infer(
-            "printf '%s\\n' \"$ZSH_VERSION\"\n",
-            Some(Path::new("/tmp/example.sh")),
-        );
-        assert_eq!(zsh, ShellDialect::Zsh);
-
-        let zsh_after_apostrophe = ShellDialect::infer(
-            "printf '%s\\n' \"can't\" \"$ZSH_VERSION\"\n",
-            Some(Path::new("/tmp/example.sh")),
-        );
-        assert_eq!(zsh_after_apostrophe, ShellDialect::Zsh);
-
-        let bash = ShellDialect::infer(
-            "printf '%s\\n' \"${BASH_SOURCE[0]}\"\n",
-            Some(Path::new("/tmp/example.sh")),
-        );
-        assert_eq!(bash, ShellDialect::Bash);
     }
 
     #[test]
@@ -904,11 +558,23 @@ fi
     }
 
     #[test]
-    fn ambiguous_bash_and_zsh_markers_fall_back_to_extension() {
+    fn ignores_quoted_dialect_marker_names_without_shell_usage() {
         let inferred = ShellDialect::infer(
-            "echo \"$BASH_VERSION $ZSH_VERSION\"\n",
+            "printf '%s\\n' \"ZSH_VERSION\" \"BASH_VERSION\" \"PROMPT_COMMAND\"\n",
             Some(Path::new("/tmp/example.sh")),
         );
+        assert_eq!(inferred, ShellDialect::Sh);
+    }
+
+    #[test]
+    fn ignores_dialect_markers_inside_heredoc_bodies() {
+        let source = "\
+cat <<'EOF'
+$ZSH_VERSION
+${BASH_SOURCE[0]}
+EOF
+";
+        let inferred = ShellDialect::infer(source, Some(Path::new("/tmp/example.sh")));
         assert_eq!(inferred, ShellDialect::Sh);
     }
 
@@ -956,10 +622,6 @@ fi
             ShellDialect::Mksh.parser_dialect(),
             shuck_parser::ShellDialect::Mksh
         );
-        assert_eq!(
-            ShellDialect::Zsh.parser_dialect(),
-            shuck_parser::ShellDialect::Zsh
-        );
     }
 
     #[test]
@@ -987,10 +649,6 @@ fi
         assert_eq!(
             ShellDialect::Mksh.semantic_dialect(),
             shuck_parser::ShellDialect::Mksh
-        );
-        assert_eq!(
-            ShellDialect::Zsh.semantic_dialect(),
-            shuck_parser::ShellDialect::Zsh
         );
     }
 }

@@ -40,23 +40,10 @@ fn compound_close_key(command: &CompoundCommand) -> Option<FactSpan> {
     let span = match command {
         CompoundCommand::If(command) => command.span,
         CompoundCommand::For(command) => match command.syntax {
-            shuck_ast::ForSyntax::InDoDone { .. }
-            | shuck_ast::ForSyntax::ParenDoDone { .. }
-            | shuck_ast::ForSyntax::InBrace { .. }
-            | shuck_ast::ForSyntax::ParenBrace { .. } => command.span,
-            shuck_ast::ForSyntax::InDirect { .. } | shuck_ast::ForSyntax::ParenDirect { .. } => {
+            shuck_ast::ForSyntax::InDoDone { .. } => command.span,
+            shuck_ast::ForSyntax::InDirect { .. } => {
                 return None;
             }
-        },
-        CompoundCommand::Repeat(command) => match command.syntax {
-            shuck_ast::RepeatSyntax::DoDone { .. } | shuck_ast::RepeatSyntax::Brace { .. } => {
-                command.span
-            }
-            shuck_ast::RepeatSyntax::Direct => return None,
-        },
-        CompoundCommand::Foreach(command) => match command.syntax {
-            shuck_ast::ForeachSyntax::InDoDone { .. }
-            | shuck_ast::ForeachSyntax::ParenBrace { .. } => command.span,
         },
         CompoundCommand::ArithmeticFor(command) => command.span,
         CompoundCommand::While(command) => command.span,
@@ -68,8 +55,7 @@ fn compound_close_key(command: &CompoundCommand) -> Option<FactSpan> {
         | CompoundCommand::Arithmetic(_)
         | CompoundCommand::Time(_)
         | CompoundCommand::Conditional(_)
-        | CompoundCommand::Coproc(_)
-        | CompoundCommand::Always(_) => return None,
+        | CompoundCommand::Coproc(_) => return None,
     };
     Some(FactSpan::from(span))
 }

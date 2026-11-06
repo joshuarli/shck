@@ -852,7 +852,7 @@ fn formatter_oracle_config(source: &str, path: &Path) -> Option<FormatterOracleC
             shfmt_language: "bash",
             options: ShellFormatOptions::default().with_dialect(ShellDialect::Bash),
         }),
-        shuck_linter::ShellDialect::Zsh => None,
+        
     }
 }
 

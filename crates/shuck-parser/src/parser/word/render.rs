@@ -25,14 +25,6 @@ impl<'a> Parser<'a> {
         span.end.offset() <= self.input.len()
             && match part {
                 WordPart::Literal(text) => text.is_source_backed(),
-                WordPart::ZshQualifiedGlob(glob) => {
-                    glob.segments
-                        .iter()
-                        .all(Self::zsh_glob_segment_is_source_backed)
-                        && glob.qualifiers.as_ref().is_none_or(|group| {
-                            self.zsh_glob_qualifier_group_is_source_backed(group)
-                        })
-                }
                 WordPart::SingleQuoted { value, .. } => value.is_source_backed(),
                 WordPart::DoubleQuoted { parts, .. } => parts
                     .iter()
@@ -110,43 +102,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub(in crate::parser) fn zsh_glob_qualifier_group_is_source_backed(
-        &self,
-        group: &ZshGlobQualifierGroup,
-    ) -> bool {
-        group
-            .fragments
-            .iter()
-            .all(Self::zsh_glob_qualifier_is_source_backed)
-    }
-
-    pub(in crate::parser) fn zsh_glob_segment_is_source_backed(segment: &ZshGlobSegment) -> bool {
-        match segment {
-            ZshGlobSegment::Pattern(pattern) => pattern.is_source_backed(),
-            ZshGlobSegment::InlineControl(control) => {
-                Self::zsh_inline_glob_control_is_source_backed(control)
-            }
-        }
-    }
-
-    pub(in crate::parser) fn zsh_inline_glob_control_is_source_backed(
-        _control: &ZshInlineGlobControl,
-    ) -> bool {
-        true
-    }
-
-    pub(in crate::parser) fn zsh_glob_qualifier_is_source_backed(
-        fragment: &ZshGlobQualifier,
-    ) -> bool {
-        match fragment {
-            ZshGlobQualifier::Negation { .. } | ZshGlobQualifier::Flag { .. } => true,
-            ZshGlobQualifier::LetterSequence { text, .. } => text.is_source_backed(),
-            ZshGlobQualifier::NumericArgument { start, end, .. } => {
-                start.is_source_backed() && end.as_ref().is_none_or(SourceText::is_source_backed)
-            }
-        }
-    }
-
     pub(in crate::parser) fn word_part_syntax_text<'b>(
         &'b self,
         part: &'b WordPartNode,
@@ -208,14 +163,6 @@ impl<'a> Parser<'a> {
 
         match part {
             WordPart::Literal(text) => out.push_str(text.as_str(self.input, span)),
-            WordPart::ZshQualifiedGlob(glob) => {
-                for segment in &glob.segments {
-                    self.push_zsh_glob_segment_syntax(out, segment);
-                }
-                if let Some(qualifiers) = &glob.qualifiers {
-                    self.push_zsh_glob_qualifier_group_syntax(out, qualifiers);
-                }
-            }
             WordPart::SingleQuoted { value, dollar } => {
                 if *dollar {
                     out.push('$');
@@ -362,52 +309,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub(in crate::parser) fn push_zsh_glob_qualifier_group_syntax(
-        &self,
-        out: &mut String,
-        group: &ZshGlobQualifierGroup,
-    ) {
-        match group.kind {
-            ZshGlobQualifierKind::Classic => out.push('('),
-            ZshGlobQualifierKind::HashQ => out.push_str("(#q"),
-        }
-        for fragment in &group.fragments {
-            match fragment {
-                ZshGlobQualifier::Negation { .. } => out.push('^'),
-                ZshGlobQualifier::Flag { name, .. } => out.push(*name),
-                ZshGlobQualifier::LetterSequence { text, .. } => {
-                    out.push_str(text.slice(self.input));
-                }
-                ZshGlobQualifier::NumericArgument { start, end, .. } => {
-                    out.push('[');
-                    out.push_str(start.slice(self.input));
-                    if let Some(end) = end {
-                        out.push(',');
-                        out.push_str(end.slice(self.input));
-                    }
-                    out.push(']');
-                }
-            }
-        }
-        out.push(')');
-    }
-
-    pub(in crate::parser) fn push_zsh_glob_segment_syntax(
-        &self,
-        out: &mut String,
-        segment: &ZshGlobSegment,
-    ) {
-        match segment {
-            ZshGlobSegment::Pattern(pattern) => self.push_pattern_syntax(out, pattern),
-            ZshGlobSegment::InlineControl(control) => match control {
-                ZshInlineGlobControl::CaseInsensitive { .. } => out.push_str("(#i)"),
-                ZshInlineGlobControl::Backreferences { .. } => out.push_str("(#b)"),
-                ZshInlineGlobControl::StartAnchor { .. } => out.push_str("(#s)"),
-                ZshInlineGlobControl::EndAnchor { .. } => out.push_str("(#e)"),
-            },
-        }
-    }
-
     pub(in crate::parser) fn push_var_ref_syntax(&self, out: &mut String, reference: &VarRef) {
         out.push_str(reference.name.as_str());
         if let Some(subscript) = &reference.subscript {
@@ -493,7 +394,7 @@ impl<'a> Parser<'a> {
             ParameterOp::UpperFirst => out.push('^'),
             ParameterOp::UpperAll => out.push_str("^^"),
             ParameterOp::LowerFirst => out.push(','),
-            ParameterOp::LowerAll => out.push_str(",,"),
+            ParameterOp::LowerAll => out.push(','),
         }
     }
 

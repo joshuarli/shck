@@ -208,15 +208,4 @@ other_func
         assert!(result.fixed_diagnostics.is_empty());
     }
 
-    #[test]
-    fn ignores_zsh_scripts() {
-        let source = "#!/bin/zsh\nmy-func() { :; }\n";
-        let diagnostics = test_snippet_at_path(
-            std::path::Path::new("/tmp/project/main.sh"),
-            source,
-            &LinterSettings::for_rule(Rule::HyphenatedFunctionName),
-        );
-
-        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
-    }
 }

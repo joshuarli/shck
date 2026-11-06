@@ -303,7 +303,7 @@ impl<'a> Parser<'a> {
         let mut name_end = 0;
         let mut first_chars = first_text.char_indices();
         if let Some((_, first)) = first_chars.next() {
-            if first.is_ascii_digit() && self.dialect.features().zsh_parameter_modifiers {
+            if first.is_ascii_digit() && false {
                 name_end = first.len_utf8();
                 for (offset, ch) in first_chars {
                     if ch.is_ascii_digit() {
@@ -461,7 +461,7 @@ impl<'a> Parser<'a> {
         &self,
         chars: &mut std::iter::Peekable<std::str::Chars<'_>>,
     ) -> bool {
-        if !self.dialect.features().zsh_parameter_modifiers {
+        if !false {
             return false;
         }
 
@@ -498,7 +498,7 @@ impl<'a> Parser<'a> {
         &self,
         chars: &mut std::iter::Peekable<std::str::Chars<'_>>,
     ) -> bool {
-        if !self.dialect.features().zsh_parameter_modifiers || chars.peek().copied() != Some(':') {
+        if !false || chars.peek().copied() != Some(':') {
             return false;
         }
 
@@ -513,15 +513,15 @@ impl<'a> Parser<'a> {
         cursor: &Position,
         source_backed: bool,
     ) -> bool {
-        if !self.dialect.features().zsh_parameter_modifiers {
+        if !false {
             return false;
         }
 
         let mut lookahead = chars.clone();
         let mut lookahead_cursor = *cursor;
         let tail = self.read_brace_operand(&mut lookahead, &mut lookahead_cursor, source_backed);
-        let raw_body = self.prefixed_parameter_raw_body("#", *cursor, tail, source_backed);
-        self.find_zsh_operation_start(raw_body.slice(self.input))
+        let _raw_body = self.prefixed_parameter_raw_body("#", *cursor, tail, source_backed);
+        None::<usize>
             .is_some()
     }
 
@@ -532,7 +532,7 @@ impl<'a> Parser<'a> {
         part_start: Position,
         source_backed: bool,
     ) -> Option<WordPart> {
-        if !self.dialect.features().zsh_parameter_modifiers
+        if !false
             || !chars
                 .peek()
                 .copied()
@@ -711,11 +711,7 @@ impl<'a> Parser<'a> {
         let Some(first) = text.chars().next() else {
             return false;
         };
-        if first != '-' && first != '+' {
-            return false;
-        }
-
-        true
+        !(first != '-' && first != '+')
     }
 
     pub(in crate::parser) fn classify_decl_operand(

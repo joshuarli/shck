@@ -1,6 +1,6 @@
 use shuck_ast::{
-    ArithmeticForCommand, CompoundCommand, ForCommand, ForSyntax, ForeachCommand, ForeachSyntax,
-    IfCommand, IfSyntax, RepeatCommand, RepeatSyntax, SelectCommand, Span, Stmt, StmtSeq,
+    ArithmeticForCommand, CompoundCommand, ForCommand, ForSyntax,
+    IfCommand, IfSyntax,  SelectCommand, Span, Stmt, StmtSeq,
     UntilCommand, WhileCommand,
 };
 use shuck_indexer::CloseDelimiterKind;
@@ -31,6 +31,7 @@ impl CompoundBodyBounds {
         }
     }
 
+    #[allow(dead_code)]
     fn split(facts_end: usize, render_end: usize) -> Self {
         Self {
             facts_end,
@@ -67,7 +68,7 @@ impl<'a> CompoundBodySite<'a> {
         cached_close_span: Option<Span>,
     ) -> Self {
         match command.syntax {
-            ForSyntax::InDoDone { done_span, .. } | ForSyntax::ParenDoDone { done_span, .. } => {
+            ForSyntax::InDoDone { done_span, .. } => {
                 Self::do_done(
                     &command.body,
                     command.span,
@@ -76,56 +77,13 @@ impl<'a> CompoundBodySite<'a> {
                     cached_close_span,
                 )
             }
-            ForSyntax::InDirect { .. } | ForSyntax::ParenDirect { .. } => {
+            ForSyntax::InDirect { .. } => {
                 Self::direct(&command.body, command.span)
             }
-            ForSyntax::InBrace {
-                right_brace_span, ..
-            }
-            | ForSyntax::ParenBrace {
-                right_brace_span, ..
-            } => Self::brace(&command.body, command.span, right_brace_span, source_map),
         }
     }
 
-    pub(crate) fn foreach_command(
-        command: &'a ForeachCommand,
-        source_map: &crate::comments::SourceMap<'_>,
-        cached_close_span: Option<Span>,
-    ) -> Self {
-        match command.syntax {
-            ForeachSyntax::InDoDone { done_span, .. } => Self::do_done(
-                &command.body,
-                command.span,
-                Some(done_span),
-                source_map,
-                cached_close_span,
-            ),
-            ForeachSyntax::ParenBrace {
-                right_brace_span, ..
-            } => Self::brace(&command.body, command.span, right_brace_span, source_map),
-        }
-    }
 
-    pub(crate) fn repeat_command(
-        command: &'a RepeatCommand,
-        source_map: &crate::comments::SourceMap<'_>,
-        cached_close_span: Option<Span>,
-    ) -> Self {
-        match command.syntax {
-            RepeatSyntax::DoDone { done_span, .. } => Self::do_done(
-                &command.body,
-                command.span,
-                Some(done_span),
-                source_map,
-                cached_close_span,
-            ),
-            RepeatSyntax::Direct => Self::direct(&command.body, command.span),
-            RepeatSyntax::Brace {
-                right_brace_span, ..
-            } => Self::brace(&command.body, command.span, right_brace_span, source_map),
-        }
-    }
 
     pub(crate) fn while_command(
         command: &'a WhileCommand,
@@ -189,12 +147,6 @@ impl<'a> CompoundBodySite<'a> {
     ) -> Option<Self> {
         match command {
             CompoundCommand::For(command) => Some(Self::for_command(command, source_map, None)),
-            CompoundCommand::Repeat(command) => {
-                Some(Self::repeat_command(command, source_map, None))
-            }
-            CompoundCommand::Foreach(command) => {
-                Some(Self::foreach_command(command, source_map, None))
-            }
             CompoundCommand::ArithmeticFor(command) => {
                 Some(Self::arithmetic_for_command(command, source_map, None))
             }
@@ -214,7 +166,6 @@ impl<'a> CompoundBodySite<'a> {
     ) -> Self {
         let open = match command.syntax {
             IfSyntax::ThenFi { .. } => CompoundBodyOpen::Keyword("then"),
-            IfSyntax::Brace { .. } => CompoundBodyOpen::Group('{'),
         };
         Self::branch(body, command.span, upper_bound, open)
     }
@@ -226,7 +177,6 @@ impl<'a> CompoundBodySite<'a> {
     ) -> Self {
         let open = match command.syntax {
             IfSyntax::ThenFi { .. } => CompoundBodyOpen::Keyword("else"),
-            IfSyntax::Brace { .. } => CompoundBodyOpen::Group('{'),
         };
         Self::branch(body, command.span, upper_bound, open)
     }
@@ -340,6 +290,7 @@ impl<'a> CompoundBodySite<'a> {
         }
     }
 
+    #[allow(dead_code)]
     fn brace(
         body: &'a StmtSeq,
         enclosing_span: Span,

@@ -27,9 +27,6 @@ mod token_stream;
 mod word;
 mod word_tokens;
 mod words;
-mod zsh_features;
-mod zsh_options;
-mod zsh_prescan;
 
 use std::{
     borrow::Cow,
@@ -40,8 +37,7 @@ use std::{
 pub use lexer::{LexedToken, Lexer};
 pub(crate) use lexer::{LexedWordSegment, LexedWordSegmentKind};
 pub use profile::{ShellDialect, ShellProfile};
-pub use result::{ParseDiagnostic, ParseResult, ParseStatus, SyntaxFacts, ZshCaseGroupPart};
-pub use zsh_options::{OptionValue, ZshEmulationMode, ZshOptionState};
+pub use result::{ParseDiagnostic, ParseResult, ParseStatus, SyntaxFacts};
 
 use keywords::*;
 use limits::{ChainLinks, MAX_OPERATOR_CHAIN_LEN, NestedLimits, ParseBudget};
@@ -51,31 +47,25 @@ pub use parser_state::Parser;
 pub use parser_state::ParserBenchmarkCounters;
 use parser_state::*;
 use smallvec::SmallVec;
-use zsh_prescan::ZshOptionTimeline;
-
 use shuck_ast::{
-    AlwaysCommand, AnonymousFunctionCommand, AnonymousFunctionSurface, ArithmeticCommand,
-    ArithmeticExpansionSyntax, ArithmeticExpr, ArithmeticExprNode, ArithmeticForCommand,
-    ArithmeticLvalue, ArrayElem, ArrayExpr, ArrayKind, Assignment, AssignmentValue,
-    BackgroundOperator, BinaryCommand, BinaryOp, BourneParameterExpansion, BraceExpansionKind,
+    ArithmeticCommand, ArithmeticExpansionSyntax, ArithmeticExpr, ArithmeticExprNode,
+    ArithmeticForCommand, ArithmeticLvalue, ArrayElem, ArrayExpr, ArrayKind, Assignment,
+    AssignmentValue, BinaryCommand, BinaryOp, BourneParameterExpansion, BraceExpansionKind,
     BraceQuoteContext, BraceSyntax, BraceSyntaxKind, BreakCommand as AstBreakCommand,
     BuiltinCommand as AstBuiltinCommand, CaseCommand, CaseItem, CaseTerminator,
     Command as AstCommand, CommandSubstitutionSyntax, Comment, CompoundCommand,
     ConditionalBinaryExpr, ConditionalBinaryOp, ConditionalCommand, ConditionalExpr,
     ConditionalParenExpr, ConditionalUnaryExpr, ConditionalUnaryOp,
     ContinueCommand as AstContinueCommand, CoprocCommand, DeclClause as AstDeclClause, DeclOperand,
-    ExitCommand as AstExitCommand, File, ForCommand, ForSyntax, ForTarget, ForeachCommand,
-    ForeachSyntax, FunctionDef, FunctionHeader, FunctionHeaderEntry, Heredoc, HeredocBody,
-    HeredocBodyMode, HeredocBodyPart, HeredocBodyPartNode, HeredocDelimiter, IfCommand, IfSyntax,
-    LiteralText, MAX_SOURCE_LEN, Name, ParameterExpansion, ParameterExpansionSyntax, ParameterOp,
-    Pattern, PatternGroupKind, PatternPart, PatternPartNode, Position, PrefixMatchKind, Redirect,
-    RedirectKind, RedirectTarget, RepeatCommand, RepeatSyntax, ReturnCommand as AstReturnCommand,
-    SelectCommand, SimpleCommand as AstSimpleCommand, SourceText, Span, Stmt, StmtSeq,
-    StmtTerminator, Subscript, SubscriptInterpretation, SubscriptKind, SubscriptSelector, TextSize,
-    TimeCommand, TokenKind, UntilCommand, VarRef, WhileCommand, Word, WordPart, WordPartNode,
-    ZshDefaultingOp, ZshExpansionOperation, ZshExpansionTarget, ZshGlobQualifier,
-    ZshGlobQualifierGroup, ZshGlobQualifierKind, ZshGlobSegment, ZshInlineGlobControl, ZshModifier,
-    ZshParameterExpansion, ZshPatternOp, ZshQualifiedGlob, ZshReplacementOp, ZshTrimOp,
+    ExitCommand as AstExitCommand, File, ForCommand, ForSyntax, ForTarget, FunctionDef,
+    FunctionHeader, FunctionHeaderEntry, Heredoc, HeredocBody, HeredocBodyMode, HeredocBodyPart,
+    HeredocBodyPartNode, HeredocDelimiter, IfCommand, IfSyntax, LiteralText, MAX_SOURCE_LEN, Name,
+    ParameterExpansion, ParameterExpansionSyntax, ParameterOp, Pattern, PatternGroupKind,
+    PatternPart, PatternPartNode, Position, PrefixMatchKind, Redirect, RedirectKind, RedirectTarget,
+    ReturnCommand as AstReturnCommand, SelectCommand, SimpleCommand as AstSimpleCommand, SourceText,
+    Span, Stmt, StmtSeq, StmtTerminator, Subscript, SubscriptInterpretation, SubscriptKind,
+    SubscriptSelector, TextSize, TimeCommand, TokenKind, UntilCommand, VarRef, WhileCommand, Word,
+    WordPart, WordPartNode,
 };
 
 use crate::error::{Error, Result};
@@ -83,17 +73,12 @@ use crate::error::{Error, Result};
 type WordPartBuffer = SmallVec<[WordPartNode; 2]>;
 
 #[derive(Debug, Clone, Copy, Default)]
-struct ZshGlobParseFeatures {
-    classic_qualifiers: bool,
-    extended_glob: bool,
-    ksh_groups: bool,
-    bare_groups: bool,
-}
-
-impl ZshGlobParseFeatures {
-    const fn zsh_word_parsing_enabled(self) -> bool {
-        self.classic_qualifiers || self.extended_glob || self.ksh_groups || self.bare_groups
-    }
+#[allow(dead_code)]
+pub(super) struct ZshGlobParseFeatures {
+    pub(super) classic_qualifiers: bool,
+    pub(super) extended_glob: bool,
+    pub(super) ksh_groups: bool,
+    pub(super) bare_groups: bool,
 }
 
 /// Default maximum AST depth (matches ExecutionLimits default)

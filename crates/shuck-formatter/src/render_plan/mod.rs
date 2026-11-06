@@ -13,34 +13,28 @@ pub(crate) use case_layout::{
     case_item_pattern_body_terminator_was_inline_in_source,
     case_item_pattern_close_paren_on_own_line, case_item_single_body_stmt_can_inline,
     case_item_started_inline_without_terminator, case_prefix_comment_uses_body_indent,
-    comment_looks_like_disabled_case_pattern, trim_trailing_pattern_line_continuation,
-};
+    comment_looks_like_disabled_case_pattern, trim_trailing_pattern_line_continuation };
 pub(crate) use compound_body::{CompoundBodyLayout, CompoundBodyPlan, DoDoneBodyLayout};
 pub(crate) use conditions::{
     condition_keyword_on_previous_non_empty_line, elif_condition_has_explicit_statement_break,
-    loop_condition_starts_after_keyword, stmt_sequence_renders_with_subshell_open,
-};
+    loop_condition_starts_after_keyword, stmt_sequence_renders_with_subshell_open };
 pub(crate) use function_body::{
-    FunctionBodyGroupLayout, FunctionBodyLayout, FunctionBodyPlan, FunctionSubshellLayout,
-};
+    FunctionBodyGroupLayout, FunctionBodyLayout, FunctionBodyPlan, FunctionSubshellLayout };
 pub(crate) use if_case::{
     CaseCloseLayout, CaseLayoutPlan, CaseLayoutStyle, ExpandedIfLayout, IfLayoutPlan,
-    IfLayoutStyle, InlineIfLayout, case_can_format_inline,
-};
+    IfLayoutStyle, InlineIfLayout, case_can_format_inline };
 pub(crate) use shape::{
     can_format_multiline_subshell_inline, can_inline_group, can_inline_source_line_subshell,
-    can_inline_stmt, group_has_inline_source_shape, if_branch_closer_shares_body_line,
-};
+    can_inline_stmt, group_has_inline_source_shape, if_branch_closer_shares_body_line };
 
 #[cfg(test)]
 mod layout_plan_tests {
     use shuck_ast::{
-        Command, CompoundCommand, File, FunctionDef, RepeatCommand, Stmt, WhileCommand,
-    };
+        Command, CompoundCommand, File, FunctionDef, Stmt, WhileCommand };
 
     use super::*;
     use crate::context::RenderContext;
-    use crate::options::{ShellDialect, ShellFormatOptions};
+    use crate::options::ShellFormatOptions;
 
     fn context_for<'source>(
         source: &'source str,
@@ -56,13 +50,6 @@ mod layout_plan_tests {
     fn first_while_command(file: &File) -> &WhileCommand {
         let Command::Compound(CompoundCommand::While(command)) = &file.body[0].command else {
             panic!("expected first statement to be while command");
-        };
-        command
-    }
-
-    fn first_repeat_command(file: &File) -> &RepeatCommand {
-        let Command::Compound(CompoundCommand::Repeat(command)) = &file.body[0].command else {
-            panic!("expected first statement to be repeat command");
         };
         command
     }
@@ -121,8 +108,7 @@ mod layout_plan_tests {
         let CaseLayoutStyle::Multiline {
             header_item_count,
             blank_line_after_in,
-            close,
-        } = plan.style
+            close } = plan.style
         else {
             panic!("expected multiline case plan");
         };
@@ -194,22 +180,6 @@ mod layout_plan_tests {
         );
     }
 
-    #[test]
-    fn layout_plan_plans_direct_repeat_body() {
-        let source = "repeat 3 echo hi\n";
-        let options = ShellFormatOptions::default().with_dialect(ShellDialect::Zsh);
-        let (file, resolved, facts) = context_for(source, &options);
-        let context = RenderContext::new(source, &resolved, &facts);
-        let command = first_repeat_command(&file);
-        let site = CompoundBodySite::repeat_command(
-            command,
-            context.source_map(),
-            facts.compound_close_span_for_span(command.span),
-        );
-        let plan = CompoundBodyPlan::loop_body(site, " ", context);
-
-        assert_eq!(plan.layout(), CompoundBodyLayout::DirectInline);
-    }
 
     #[test]
     fn layout_plan_plans_legacy_inline_do_brace_group_separator() {

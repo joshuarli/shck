@@ -2,48 +2,14 @@ use super::*;
 
 #[cfg_attr(shuck_profiling, inline(never))]
 pub(crate) fn collect_zsh_option_map_arithmetic_suppressed_subscripts(
-    command: &Command,
-    semantic: &SemanticModel,
-    command_scope: ScopeId,
-    source: &str,
-    spans: &mut Vec<Span>,
+    _command: &Command,
+    _semantic: &SemanticModel,
+    _command_scope: ScopeId,
+    _source: &str,
+    _spans: &mut Vec<Span>,
 ) {
-    match command {
-        Command::Compound(CompoundCommand::Arithmetic(command)) => {
-            collect_zsh_option_map_suppressed_subscripts_in_expr(
-                command.expr_ast.as_ref(),
-                semantic,
-                command_scope,
-                source,
-                spans,
-            );
-        }
-        Command::Compound(CompoundCommand::ArithmeticFor(command)) => {
-            collect_zsh_option_map_suppressed_subscripts_in_expr(
-                command.init_ast.as_ref(),
-                semantic,
-                command_scope,
-                source,
-                spans,
-            );
-            collect_zsh_option_map_suppressed_subscripts_in_expr(
-                command.condition_ast.as_ref(),
-                semantic,
-                command_scope,
-                source,
-                spans,
-            );
-            collect_zsh_option_map_suppressed_subscripts_in_expr(
-                command.step_ast.as_ref(),
-                semantic,
-                command_scope,
-                source,
-                spans,
-            );
-        }
-        _ => {}
-    }
 }
+
 
 pub(crate) fn collect_zsh_option_map_suppressed_subscripts_in_expr(
     expression: Option<&ArithmeticExprNode>,
@@ -218,7 +184,7 @@ pub(crate) fn arithmetic_index_uses_zsh_option_map_key_semantics(
         semantic.visible_binding_for_lookup(owner_name, command_scope, index.span),
         owner_name,
         source,
-    ) && semantic.shell_profile().dialect == shuck_parser::parser::ShellDialect::Zsh
+    ) && semantic.shell_profile().dialect == shuck_parser::parser::ShellDialect::Bash
         && zsh_option_map_subscript_key(owner_name.as_str(), index.span.slice(source))
 }
 
@@ -420,14 +386,6 @@ pub(crate) fn collect_base_prefix_spans_in_command_parts(
                     }
                 }
             }
-            CompoundCommand::Repeat(command) => {
-                collect_base_prefix_spans_in_word(&command.count, source, spans);
-            }
-            CompoundCommand::Foreach(command) => {
-                for word in &command.words {
-                    collect_base_prefix_spans_in_word(word, source, spans);
-                }
-            }
             CompoundCommand::Arithmetic(command) => {
                 if let Some(expression) = &command.expr_ast {
                     collect_base_prefix_spans_in_arithmetic(expression, source, spans);
@@ -473,11 +431,10 @@ pub(crate) fn collect_base_prefix_spans_in_command_parts(
             | CompoundCommand::Until(_)
             | CompoundCommand::Subshell(_)
             | CompoundCommand::BraceGroup(_)
-            | CompoundCommand::Always(_)
             | CompoundCommand::Coproc(_)
             | CompoundCommand::Time(_) => {}
         },
-        Command::Binary(_) | Command::Function(_) | Command::AnonymousFunction(_) => {}
+        Command::Binary(_) | Command::Function(_) => {}
     }
 }
 
@@ -566,8 +523,7 @@ fn collect_base_prefix_spans_in_conditional_arithmetic_word_parts(
                     parts, source, spans,
                 );
             }
-            WordPart::ZshQualifiedGlob(_)
-            | WordPart::Variable(_)
+            WordPart::Variable(_)
             | WordPart::CommandSubstitution { .. }
             | WordPart::ArithmeticExpansion { .. }
             | WordPart::Parameter(_)
@@ -697,7 +653,6 @@ pub(crate) fn collect_base_prefix_spans_in_word_part(
             }
         }
         WordPart::Literal(_)
-        | WordPart::ZshQualifiedGlob(_)
         | WordPart::SingleQuoted { .. }
         | WordPart::Variable(_)
         | WordPart::PrefixMatch { .. } => {}
@@ -760,19 +715,6 @@ pub(crate) fn collect_base_prefix_spans_in_parameter_expansion(
             }
             BourneParameterExpansion::PrefixMatch { .. } => {}
         },
-        ParameterExpansionSyntax::Zsh(syntax) => {
-            collect_base_prefix_spans_in_zsh_target(&syntax.target, source, spans);
-            if let Some(operation) = &syntax.operation {
-                match operation {
-                    shuck_ast::ZshExpansionOperation::Slice { .. }
-                    | shuck_ast::ZshExpansionOperation::PatternOperation { .. }
-                    | shuck_ast::ZshExpansionOperation::Defaulting { .. }
-                    | shuck_ast::ZshExpansionOperation::TrimOperation { .. }
-                    | shuck_ast::ZshExpansionOperation::ReplacementOperation { .. }
-                    | shuck_ast::ZshExpansionOperation::Unknown { .. } => {}
-                }
-            }
-        }
     }
 }
 
@@ -831,58 +773,21 @@ pub(crate) fn collect_base_prefix_spans_in_arithmetic_parameter_expansion(
             }
             BourneParameterExpansion::PrefixMatch { .. } => {}
         },
-        ParameterExpansionSyntax::Zsh(syntax) => {
-            collect_base_prefix_spans_in_arithmetic_zsh_target(&syntax.target, source, spans);
-            if let Some(operation) = &syntax.operation {
-                match operation {
-                    shuck_ast::ZshExpansionOperation::Slice { .. }
-                    | shuck_ast::ZshExpansionOperation::PatternOperation { .. }
-                    | shuck_ast::ZshExpansionOperation::Defaulting { .. }
-                    | shuck_ast::ZshExpansionOperation::TrimOperation { .. }
-                    | shuck_ast::ZshExpansionOperation::ReplacementOperation { .. }
-                    | shuck_ast::ZshExpansionOperation::Unknown { .. } => {}
-                }
-            }
-        }
     }
 }
 
 pub(crate) fn collect_base_prefix_spans_in_zsh_target(
-    target: &shuck_ast::ZshExpansionTarget,
-    source: &str,
-    spans: &mut Vec<(Span, ArithmeticLiteralKind)>,
+    _target: &(),
+    _source: &str,
+    _spans: &mut Vec<(Span, ArithmeticLiteralKind)>,
 ) {
-    match target {
-        shuck_ast::ZshExpansionTarget::Reference(reference) => {
-            collect_base_prefix_spans_in_var_ref(reference, source, spans);
-        }
-        shuck_ast::ZshExpansionTarget::Nested(parameter) => {
-            collect_base_prefix_spans_in_parameter_expansion(parameter, source, spans);
-        }
-        shuck_ast::ZshExpansionTarget::Word(word) => {
-            collect_base_prefix_spans_in_word(word, source, spans);
-        }
-        shuck_ast::ZshExpansionTarget::Empty => {}
-    }
 }
 
 pub(crate) fn collect_base_prefix_spans_in_arithmetic_zsh_target(
-    target: &shuck_ast::ZshExpansionTarget,
-    source: &str,
-    spans: &mut Vec<(Span, ArithmeticLiteralKind)>,
+    _target: &(),
+    _source: &str,
+    _spans: &mut Vec<(Span, ArithmeticLiteralKind)>,
 ) {
-    match target {
-        shuck_ast::ZshExpansionTarget::Reference(reference) => {
-            collect_base_prefix_spans_in_var_ref(reference, source, spans);
-        }
-        shuck_ast::ZshExpansionTarget::Nested(parameter) => {
-            collect_base_prefix_spans_in_arithmetic_parameter_expansion(parameter, source, spans);
-        }
-        shuck_ast::ZshExpansionTarget::Word(word) => {
-            collect_base_prefix_spans_in_arithmetic_word(word, source, spans);
-        }
-        shuck_ast::ZshExpansionTarget::Empty => {}
-    }
 }
 
 pub(crate) fn collect_base_prefix_spans_in_pattern(
@@ -1081,8 +986,7 @@ pub(crate) fn collect_base_prefix_spans_in_arithmetic_word_part(
             }
         }
         WordPart::CommandSubstitution { .. } | WordPart::ProcessSubstitution { .. } => {}
-        WordPart::ZshQualifiedGlob(_)
-        | WordPart::SingleQuoted { .. }
+        WordPart::SingleQuoted { .. }
         | WordPart::Variable(_)
         | WordPart::PrefixMatch { .. } => {}
     }
@@ -1422,19 +1326,6 @@ pub(crate) fn collect_arithmetic_update_operator_spans_in_command(
                     }
                 }
             }
-            CompoundCommand::Repeat(command) => {
-                collect_arithmetic_update_operator_spans_in_word(
-                    &command.count,
-                    semantic,
-                    source,
-                    spans,
-                );
-            }
-            CompoundCommand::Foreach(command) => {
-                for word in &command.words {
-                    collect_arithmetic_update_operator_spans_in_word(word, semantic, source, spans);
-                }
-            }
             CompoundCommand::Arithmetic(command) => {
                 collect_arithmetic_update_operator_spans(command.expr_ast.as_ref(), source, spans);
             }
@@ -1480,11 +1371,10 @@ pub(crate) fn collect_arithmetic_update_operator_spans_in_command(
             | CompoundCommand::Until(_)
             | CompoundCommand::Subshell(_)
             | CompoundCommand::BraceGroup(_)
-            | CompoundCommand::Always(_)
             | CompoundCommand::Coproc(_)
             | CompoundCommand::Time(_) => {}
         },
-        Command::Binary(_) | Command::Function(_) | Command::AnonymousFunction(_) => {}
+        Command::Binary(_) | Command::Function(_) => {}
     }
 }
 

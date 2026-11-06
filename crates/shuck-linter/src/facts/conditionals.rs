@@ -72,7 +72,6 @@ pub(crate) fn word_part_is_optional_first_positional_parameter(part: &WordPart) 
                 && matches!(operator.as_ref(), ParameterOp::UseDefault)
         }
         WordPart::Literal(_)
-        | WordPart::ZshQualifiedGlob(_)
         | WordPart::SingleQuoted { .. }
         | WordPart::CommandSubstitution { .. }
         | WordPart::ArithmeticExpansion { .. }
@@ -101,25 +100,6 @@ pub(crate) fn parameter_is_optional_first_positional(parameter: &ParameterExpans
         }) => {
             reference_is_first_positional_parameter(reference)
                 && matches!(operator.as_ref(), ParameterOp::UseDefault)
-        }
-        ParameterExpansionSyntax::Zsh(syntax) => {
-            matches!(
-                &syntax.target,
-                ZshExpansionTarget::Reference(reference)
-                    if reference_is_first_positional_parameter(reference)
-            ) && match &syntax.operation {
-                None => true,
-                Some(ZshExpansionOperation::Defaulting { kind, .. }) => {
-                    matches!(kind, shuck_ast::ZshDefaultingOp::UseDefault)
-                }
-                Some(
-                    ZshExpansionOperation::PatternOperation { .. }
-                    | ZshExpansionOperation::TrimOperation { .. }
-                    | ZshExpansionOperation::ReplacementOperation { .. }
-                    | ZshExpansionOperation::Slice { .. }
-                    | ZshExpansionOperation::Unknown { .. },
-                ) => false,
-            }
         }
         ParameterExpansionSyntax::Bourne(
             BourneParameterExpansion::Length { .. }
@@ -683,14 +663,8 @@ pub(crate) fn collect_condition_status_capture_from_direct_body_sequences(
                 collect_condition_status_capture_from_sequence(body, source, spans);
             }
             CompoundCommand::Time(_) => {}
-            CompoundCommand::Always(command) => {
-                collect_condition_status_capture_from_sequence(&command.body, source, spans);
-                collect_condition_status_capture_from_sequence(&command.always_body, source, spans);
-            }
             CompoundCommand::Case(_)
             | CompoundCommand::Conditional(_)
-            | CompoundCommand::Repeat(_)
-            | CompoundCommand::Foreach(_)
             | CompoundCommand::ArithmeticFor(_)
             | CompoundCommand::Arithmetic(_)
             | CompoundCommand::Coproc(_) => {}
@@ -699,8 +673,7 @@ pub(crate) fn collect_condition_status_capture_from_direct_body_sequences(
         | Command::Builtin(_)
         | Command::Decl(_)
         | Command::Binary(_)
-        | Command::Function(_)
-        | Command::AnonymousFunction(_) => {}
+        | Command::Function(_) => {}
     }
 }
 
@@ -832,11 +805,7 @@ pub(crate) fn branch_body_preserves_status_in_plain_assignment(
     let Some(_) = stmt_plain_assignment_only_name(first_stmt) else {
         return false;
     };
-    if stmt_contains_unquoted_standalone_status_capture(first_stmt, source) || stmt_spans.is_empty()
-    {
-        return false;
-    }
-    true
+    !(stmt_contains_unquoted_standalone_status_capture(first_stmt, source) || stmt_spans.is_empty())
 }
 
 pub(crate) fn branch_body_logs_status_then_immediately_exits(
@@ -936,8 +905,7 @@ fn redundant_return_status_span(stmt: &Stmt, source: &str) -> Option<Span> {
         | Command::Decl(_)
         | Command::Binary(_)
         | Command::Compound(_)
-        | Command::Function(_)
-        | Command::AnonymousFunction(_) => None,
+        | Command::Function(_) => None,
     }
 }
 
@@ -1070,20 +1038,6 @@ pub(crate) fn collect_precise_function_return_guard_suppressions_from_direct_bod
                 );
             }
             CompoundCommand::Time(_) => {}
-            CompoundCommand::Always(command) => {
-                collect_precise_function_return_guard_suppressions_in_seq(
-                    &command.body,
-                    source,
-                    spans,
-                    in_function_like_body,
-                );
-                collect_precise_function_return_guard_suppressions_in_seq(
-                    &command.always_body,
-                    source,
-                    spans,
-                    in_function_like_body,
-                );
-            }
             CompoundCommand::Case(command) => {
                 for case in &command.cases {
                     collect_precise_function_return_guard_suppressions_in_seq(
@@ -1095,8 +1049,6 @@ pub(crate) fn collect_precise_function_return_guard_suppressions_from_direct_bod
                 }
             }
             CompoundCommand::Conditional(_)
-            | CompoundCommand::Repeat(_)
-            | CompoundCommand::Foreach(_)
             | CompoundCommand::ArithmeticFor(_)
             | CompoundCommand::Arithmetic(_)
             | CompoundCommand::Coproc(_) => {}
@@ -1105,8 +1057,7 @@ pub(crate) fn collect_precise_function_return_guard_suppressions_from_direct_bod
         | Command::Builtin(_)
         | Command::Decl(_)
         | Command::Binary(_)
-        | Command::Function(_)
-        | Command::AnonymousFunction(_) => {}
+        | Command::Function(_) => {}
     }
 }
 
@@ -1170,8 +1121,7 @@ pub(crate) fn stmt_is_return_status_command(stmt: &Stmt, source: &str) -> bool {
         | Command::Decl(_)
         | Command::Binary(_)
         | Command::Compound(_)
-        | Command::Function(_)
-        | Command::AnonymousFunction(_) => false,
+        | Command::Function(_) => false,
     }
 }
 
@@ -1208,8 +1158,7 @@ pub(crate) fn stmt_is_simple_unary_test_command(stmt: &Stmt, source: &str) -> bo
         | Command::Decl(_)
         | Command::Binary(_)
         | Command::Compound(_)
-        | Command::Function(_)
-        | Command::AnonymousFunction(_) => false,
+        | Command::Function(_) => false,
     }
 }
 
@@ -1270,7 +1219,6 @@ pub(crate) fn stmt_starts_sequence_barrier(stmt: &Stmt) -> bool {
                 | CompoundCommand::Select(_)
                 | CompoundCommand::While(_)
                 | CompoundCommand::Until(_)
-                | CompoundCommand::Always(_)
         )
     )
 }
@@ -1361,8 +1309,7 @@ pub(crate) fn stmt_is_plain_command_with_standalone_status_argument(stmt: &Stmt)
         Command::Decl(_)
         | Command::Binary(_)
         | Command::Compound(_)
-        | Command::Function(_)
-        | Command::AnonymousFunction(_) => false,
+        | Command::Function(_) => false,
     }
 }
 
@@ -1405,8 +1352,7 @@ pub(crate) fn command_terminals_are_test_commands(command: &Command, source: &st
         Command::Builtin(_)
         | Command::Decl(_)
         | Command::Compound(_)
-        | Command::Function(_)
-        | Command::AnonymousFunction(_) => false,
+        | Command::Function(_) => false,
     }
 }
 
@@ -1529,12 +1475,9 @@ pub(crate) fn collect_unquoted_standalone_status_parameter_spans_in_command(
             | CompoundCommand::For(_)
             | CompoundCommand::Select(_)
             | CompoundCommand::Conditional(_)
-            | CompoundCommand::Repeat(_)
-            | CompoundCommand::Foreach(_)
             | CompoundCommand::ArithmeticFor(_)
             | CompoundCommand::Arithmetic(_)
-            | CompoundCommand::Coproc(_)
-            | CompoundCommand::Always(_) => {}
+            | CompoundCommand::Coproc(_) => {}
         },
         Command::Binary(command) => {
             collect_unquoted_standalone_status_parameter_spans_in_stmt(
@@ -1543,7 +1486,7 @@ pub(crate) fn collect_unquoted_standalone_status_parameter_spans_in_command(
                 spans,
             );
         }
-        Command::Function(_) | Command::AnonymousFunction(_) => {}
+        Command::Function(_) => {}
     }
 }
 
@@ -1691,25 +1634,12 @@ pub(crate) fn collect_status_parameter_spans_in_command(
             CompoundCommand::Coproc(command) => {
                 collect_status_parameter_spans_in_stmt(&command.body, source, spans);
             }
-            CompoundCommand::Always(command) => {
-                if let Some(first_stmt) = command.body.first() {
-                    collect_status_parameter_spans_in_stmt(first_stmt, source, spans);
-                }
-            }
             CompoundCommand::For(_)
-            | CompoundCommand::Repeat(_)
-            | CompoundCommand::Foreach(_)
             | CompoundCommand::ArithmeticFor(_)
             | CompoundCommand::Select(_)
             | CompoundCommand::Arithmetic(_) => {}
         },
         Command::Function(_) => {}
-        Command::AnonymousFunction(command) => {
-            collect_status_parameter_spans_in_stmt(&command.body, source, spans);
-            for word in &command.args {
-                collect_status_parameter_spans_in_word(word, source, spans);
-            }
-        }
     }
 }
 
@@ -1781,7 +1711,7 @@ pub(crate) fn collect_status_parameter_spans_in_word_part(
     spans: &mut Vec<Span>,
 ) {
     match &part.kind {
-        WordPart::Literal(_) | WordPart::SingleQuoted { .. } | WordPart::ZshQualifiedGlob(_) => {}
+        WordPart::Literal(_) | WordPart::SingleQuoted { .. } => {}
         WordPart::DoubleQuoted { parts, .. } => {
             for nested_part in parts {
                 collect_status_parameter_spans_in_word_part(nested_part, source, spans);
@@ -1953,84 +1883,14 @@ pub(crate) fn collect_status_parameter_spans_in_parameter_expansion(
             }
             BourneParameterExpansion::PrefixMatch { .. } => {}
         },
-        ParameterExpansionSyntax::Zsh(syntax) => {
-            collect_status_parameter_spans_in_zsh_target(&syntax.target, source, spans);
-
-            if let Some(operation) = &syntax.operation {
-                match operation {
-                    shuck_ast::ZshExpansionOperation::PatternOperation { operand, .. }
-                    | shuck_ast::ZshExpansionOperation::Defaulting { operand, .. }
-                    | shuck_ast::ZshExpansionOperation::TrimOperation { operand, .. } => {
-                        collect_status_parameter_spans_in_fragment(
-                            operation.operand_word_ast(),
-                            Some(operand),
-                            source,
-                            spans,
-                        );
-                    }
-                    shuck_ast::ZshExpansionOperation::ReplacementOperation {
-                        pattern,
-                        replacement,
-                        ..
-                    } => {
-                        collect_status_parameter_spans_in_fragment(
-                            operation.pattern_word_ast(),
-                            Some(pattern),
-                            source,
-                            spans,
-                        );
-                        collect_status_parameter_spans_in_fragment(
-                            operation.replacement_word_ast(),
-                            replacement.as_ref(),
-                            source,
-                            spans,
-                        );
-                    }
-                    shuck_ast::ZshExpansionOperation::Slice { offset, length, .. } => {
-                        collect_status_parameter_spans_in_fragment(
-                            operation.offset_word_ast(),
-                            Some(offset),
-                            source,
-                            spans,
-                        );
-                        collect_status_parameter_spans_in_fragment(
-                            operation.length_word_ast(),
-                            length.as_ref(),
-                            source,
-                            spans,
-                        );
-                    }
-                    shuck_ast::ZshExpansionOperation::Unknown { text, .. } => {
-                        collect_status_parameter_spans_in_fragment(
-                            operation.operand_word_ast(),
-                            Some(text),
-                            source,
-                            spans,
-                        );
-                    }
-                }
-            }
-        }
     }
 }
 
 pub(crate) fn collect_status_parameter_spans_in_zsh_target(
-    target: &ZshExpansionTarget,
-    source: &str,
-    spans: &mut Vec<Span>,
+    _target: &(),
+    _source: &str,
+    _spans: &mut Vec<Span>,
 ) {
-    match target {
-        ZshExpansionTarget::Reference(reference) => {
-            collect_status_parameter_spans_in_var_ref(reference, source, spans);
-        }
-        ZshExpansionTarget::Nested(parameter) => {
-            collect_status_parameter_spans_in_parameter_expansion(parameter, source, spans);
-        }
-        ZshExpansionTarget::Word(word) => {
-            collect_status_parameter_spans_in_word(word, source, spans);
-        }
-        ZshExpansionTarget::Empty => {}
-    }
 }
 
 pub(crate) fn collect_status_parameter_spans_in_conditional_expr(

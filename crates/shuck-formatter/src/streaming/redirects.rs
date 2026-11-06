@@ -63,8 +63,7 @@ where
             RedirectKind::HereString => "<<<",
             RedirectKind::DupOutput => ">&",
             RedirectKind::DupInput => "<&",
-            RedirectKind::OutputBoth => "&>",
-        });
+            RedirectKind::OutputBoth => "&>" });
 
         self.write_redirect_target(redirect, &options, true);
     }
@@ -151,8 +150,7 @@ where
             self.writer.queue_heredoc(PendingHeredoc {
                 body,
                 delimiter,
-                strip_tabs: matches!(redirect.kind, RedirectKind::HereDocStrip),
-            });
+                strip_tabs: matches!(redirect.kind, RedirectKind::HereDocStrip) });
         }
     }
 }
@@ -241,8 +239,7 @@ fn should_render_explicit_fd(fd: i32, kind: RedirectKind) -> bool {
         | RedirectKind::HereDoc
         | RedirectKind::HereDocStrip
         | RedirectKind::HereString
-        | RedirectKind::DupInput => fd != 0,
-    }
+        | RedirectKind::DupInput => fd != 0 }
 }
 
 /// The descriptor prefix as written in the source (`2`, or `007` for fd 7), so

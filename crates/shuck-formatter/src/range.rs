@@ -17,8 +17,7 @@ pub struct FormattedRange {
     /// containing the requested range.
     pub range: TextRange,
     /// The replacement text for [`FormattedRange::range`].
-    pub formatted: FormattedSource,
-}
+    pub formatted: FormattedSource }
 
 /// Formats the smallest statement in a shell source string covering the requested range.
 ///
@@ -66,8 +65,7 @@ pub fn format_range(
     let FormattedSource::Formatted(formatted) = formatted else {
         return Ok(Some(FormattedRange {
             range: text_range(target),
-            formatted: FormattedSource::Unchanged,
-        }));
+            formatted: FormattedSource::Unchanged }));
     };
 
     // Line hunks are not always independent: the formatter can move text from one line to
@@ -87,8 +85,7 @@ pub fn format_range(
             FormattedSource::Unchanged
         } else {
             FormattedSource::Formatted(formatted)
-        },
-    }))
+        } }))
 }
 
 /// Returns whether applying `edit` to `region` leaves text that formats to `formatted`.
@@ -115,8 +112,7 @@ fn partial_edit_is_consistent(
     }
     Ok(match crate::format_source_resolved(&edited, resolved) {
         Ok(FormattedSource::Formatted(reformatted)) => reformatted == formatted,
-        Ok(FormattedSource::Unchanged) | Err(_) => false,
-    })
+        Ok(FormattedSource::Unchanged) | Err(_) => false })
 }
 
 /// Returns the line-aligned byte range covering `span` and any heredoc bodies that follow it.
@@ -142,8 +138,7 @@ fn extend_over_heredocs(
             }
             let body_end = match heredoc.closing_marker_range {
                 Some(marker) => line_end(source, usize::from(marker.end())),
-                None => usize::from(heredoc.body_range.end()),
-            };
+                None => usize::from(heredoc.body_range.end()) };
             end = end.max(body_end);
         }
         if end == lines.end {
@@ -196,8 +191,7 @@ fn line_end(source: &str, offset: usize) -> usize {
 #[derive(Debug, Clone)]
 struct Hunk {
     old: Range<usize>,
-    new: Range<usize>,
-}
+    new: Range<usize> }
 
 /// Converts the formatted `region` into a single edit limited to the `target` lines.
 ///
@@ -211,8 +205,7 @@ fn restrict_to_lines(
 ) -> FormattedRange {
     let unchanged = FormattedRange {
         range: text_range(target.clone()),
-        formatted: FormattedSource::Unchanged,
-    };
+        formatted: FormattedSource::Unchanged };
 
     let original = &source[region.clone()];
     let old_lines = original.split_inclusive('\n').collect::<Vec<_>>();
@@ -244,8 +237,7 @@ fn restrict_to_lines(
     let replacement = &formatted[new_offsets[first.new.start]..new_offsets[last.new.end]];
     FormattedRange {
         range: text_range(old_range),
-        formatted: FormattedSource::Formatted(replacement.to_owned()),
-    }
+        formatted: FormattedSource::Formatted(replacement.to_owned()) }
 }
 
 fn diff_hunks(old_lines: &[&str], new_lines: &[&str]) -> Vec<Hunk> {
@@ -256,23 +248,19 @@ fn diff_hunks(old_lines: &[&str], new_lines: &[&str]) -> Vec<Hunk> {
             DiffOp::Delete {
                 old_index,
                 old_len,
-                new_index,
-            } => (old_index..old_index + old_len, new_index..new_index),
+                new_index } => (old_index..old_index + old_len, new_index..new_index),
             DiffOp::Insert {
                 old_index,
                 new_index,
-                new_len,
-            } => (old_index..old_index, new_index..new_index + new_len),
+                new_len } => (old_index..old_index, new_index..new_index + new_len),
             DiffOp::Replace {
                 old_index,
                 old_len,
                 new_index,
-                new_len,
-            } => (
+                new_len } => (
                 old_index..old_index + old_len,
                 new_index..new_index + new_len,
-            ),
-        };
+            ) };
 
         // A block whose lines only changed whitespace (typically re-indentation) is split
         // into per-line hunks so selecting one line does not reformat its neighbours.
@@ -284,8 +272,7 @@ fn diff_hunks(old_lines: &[&str], new_lines: &[&str]) -> Vec<Hunk> {
         if line_for_line && old.len() > 1 {
             hunks.extend(old.zip(new).map(|(old, new)| Hunk {
                 old: old..old + 1,
-                new: new..new + 1,
-            }));
+                new: new..new + 1 }));
         } else {
             hunks.push(Hunk { old, new });
         }
@@ -349,9 +336,6 @@ fn collect_nested_statement_spans(stmt: &Stmt, range: TextRange, best: &mut Opti
         }
         Command::Compound(command) => collect_compound_statement_spans(command, range, best),
         Command::Function(command) => collect_nested_statement_spans(&command.body, range, best),
-        Command::AnonymousFunction(command) => {
-            collect_nested_statement_spans(&command.body, range, best);
-        }
         Command::Simple(_) | Command::Builtin(_) | Command::Decl(_) => {}
     }
 }
@@ -374,8 +358,6 @@ fn collect_compound_statement_spans(
             }
         }
         CompoundCommand::For(command) => collect_statement_span(&command.body, range, best),
-        CompoundCommand::Repeat(command) => collect_statement_span(&command.body, range, best),
-        CompoundCommand::Foreach(command) => collect_statement_span(&command.body, range, best),
         CompoundCommand::ArithmeticFor(command) => {
             collect_statement_span(&command.body, range, best)
         }
@@ -403,10 +385,6 @@ fn collect_compound_statement_spans(
         }
         CompoundCommand::Coproc(command) => {
             collect_nested_statement_spans(&command.body, range, best);
-        }
-        CompoundCommand::Always(command) => {
-            collect_statement_span(&command.body, range, best);
-            collect_statement_span(&command.always_body, range, best);
         }
         CompoundCommand::Arithmetic(_) | CompoundCommand::Conditional(_) => {}
     }
@@ -461,8 +439,7 @@ mod tests {
             .expect("whole-file formatting should succeed")
         {
             FormattedSource::Unchanged => source.to_owned(),
-            FormattedSource::Formatted(text) => text,
-        }
+            FormattedSource::Formatted(text) => text }
     }
 
     #[test]
@@ -502,26 +479,7 @@ mod tests {
         assert!(formatted.contains("\n((x"), "{formatted:?}");
     }
 
-    #[test]
-    fn format_range_uses_zsh_dialect_from_shebang() {
-        let source = "#!/bin/zsh\nfor f (a b) print   $f\n";
-        let path = Path::new("script.sh");
-        let requested = range_of(source, "print");
-        assert_eq!(
-            apply_range(source, requested, Some(path)),
-            format_whole(source, Some(path))
-        );
-    }
 
-    #[test]
-    fn format_range_uses_whole_file_dialect_when_file_has_syntax_errors() {
-        let source = "#!/bin/zsh\nfor f (a b) print   $f\nif true; then\n";
-        let path = Path::new("script.sh");
-        let requested = range_of(source, "print");
-        let formatted = apply_range(source, requested, Some(path));
-        let expected_line = format_whole("#!/bin/zsh\nfor f (a b) print   $f\n", Some(path));
-        assert_eq!(formatted, format!("{expected_line}if true; then\n"));
-    }
 
     #[test]
     fn format_range_preserves_separator_inside_one_line_compound() {

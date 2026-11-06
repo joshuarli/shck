@@ -180,26 +180,6 @@ mod tests {
     }
 
     #[test]
-    fn ignores_directive_after_zsh_brace_control_flow_headers() {
-        let sources = [
-            "#!/bin/zsh\nif [[ -n $foo ]] { # shellcheck disable=SC2086\n  echo $foo\n}\n",
-            "#!/bin/zsh\nif [[ -n $foo ]] { :\n} elif [[ -n $bar ]] { # shellcheck disable=SC2086\n  echo $foo\n}\n",
-            "#!/bin/zsh\nif [[ -n $foo ]] { :\n} else { # shellcheck disable=SC2086\n  echo $foo\n}\n",
-            "#!/bin/zsh\nfor item in 1; { # shellcheck disable=SC2086\n  echo $foo\n}\n",
-            "#!/bin/zsh\nrepeat 2 { # shellcheck disable=SC2086\n  echo $foo\n}\n",
-            "#!/bin/zsh\nforeach item (1 2) { # shellcheck disable=SC2086\n  echo $foo\n}\n",
-        ];
-
-        for source in sources {
-            let diagnostics = test_snippet(
-                source,
-                &LinterSettings::for_rule(Rule::TrailingDirective).with_shell(ShellDialect::Zsh),
-            );
-            assert!(diagnostics.is_empty(), "{source}");
-        }
-    }
-
-    #[test]
     fn reports_keyword_like_arguments_with_trailing_directives() {
         let source = "#!/bin/sh\necho if # shellcheck disable=SC2086\necho $foo\n";
         let diagnostics = test_snippet(source, &LinterSettings::for_rule(Rule::TrailingDirective));

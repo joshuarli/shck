@@ -54,4 +54,3 @@ mod quotes;
 mod substitutions;
 mod tokens;
 mod words;
-mod zsh;

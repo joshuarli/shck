@@ -8,4 +8,3 @@ mod lists;
 mod loops;
 mod recovery;
 mod simple;
-mod zsh;

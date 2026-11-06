@@ -10,8 +10,7 @@ use super::FactSpan;
 #[derive(Debug, Clone, Default)]
 pub(super) struct CaseFacts<'source> {
     case_facts: HashMap<FactSpan, CaseCommandFacts>,
-    case_item_facts: HashMap<FactSpan, CaseItemFacts<'source>>,
-}
+    case_item_facts: HashMap<FactSpan, CaseItemFacts<'source>> }
 
 impl<'source> CaseFacts<'source> {
     pub(super) fn case_command(&self, command: &CaseCommand) -> Option<&CaseCommandFacts> {
@@ -42,8 +41,7 @@ pub(crate) struct CaseCommandFacts {
     pub(super) body_fallback_upper_bound: usize,
     pub(super) has_blank_line_after_in: bool,
     pub(super) has_blank_line_before_esac: bool,
-    pub(super) suffix_comments_before_esac: Vec<BranchPrefixComment>,
-}
+    pub(super) suffix_comments_before_esac: Vec<BranchPrefixComment> }
 
 impl CaseCommandFacts {
     pub(crate) fn esac_span(&self) -> Option<Span> {
@@ -75,8 +73,7 @@ pub(crate) struct CaseItemFacts<'source> {
     pub(super) has_blank_line_before_terminator: bool,
     pub(super) prefix_comments: Vec<SourceComment<'source>>,
     pub(super) pattern_suffix_comment: Option<SourceComment<'source>>,
-    pub(super) terminator_suffix_comment: Option<SourceComment<'source>>,
-}
+    pub(super) terminator_suffix_comment: Option<SourceComment<'source>> }
 
 impl<'source> CaseItemFacts<'source> {
     pub(crate) fn suffix_comment_start_line(&self) -> Option<usize> {

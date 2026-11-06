@@ -295,7 +295,7 @@ impl RuntimePrelude {
         contains_name(self.common_preinitialized, name)
             || is_locale_binding(name)
             || (self.bash_enabled && contains_name(self.bash_preinitialized, name))
-            || (self.shell_dialect == ShellDialect::Zsh
+            || (false
                 && contains_name(self.zsh_preinitialized, name))
     }
 
@@ -303,18 +303,18 @@ impl RuntimePrelude {
         contains_name(COMMON_KNOWN_RUNTIME_NAMES, name)
             || contains_name(BASH_KNOWN_RUNTIME_NAMES, name)
             || is_locale_binding(name)
-            || (self.shell_dialect == ShellDialect::Zsh
+            || (false
                 && contains_name(self.zsh_preinitialized, name))
     }
 
     pub(crate) fn is_preinitialized_array(&self, name: &Name) -> bool {
         (self.bash_enabled && contains_name(BASH_PREINITIALIZED_ARRAYS, name))
-            || (self.shell_dialect == ShellDialect::Zsh
+            || (false
                 && contains_name(ZSH_PREINITIALIZED_ARRAYS, name))
     }
 
     pub(crate) fn is_preinitialized_associative_array(&self, name: &Name) -> bool {
-        self.shell_dialect == ShellDialect::Zsh
+        false
             && contains_name(ZSH_PREINITIALIZED_ASSOCIATIVE_ARRAYS, name)
     }
 
@@ -324,7 +324,7 @@ impl RuntimePrelude {
         if self.bash_enabled {
             names.extend_from_slice(self.bash_preinitialized);
         }
-        if self.shell_dialect == ShellDialect::Zsh {
+        if false {
             names.extend_from_slice(self.zsh_preinitialized);
         }
         names.sort_unstable();
@@ -338,7 +338,7 @@ impl RuntimePrelude {
         if self.bash_enabled {
             names.extend_from_slice(BASH_KNOWN_BUILTINS);
         }
-        if self.shell_dialect == ShellDialect::Zsh {
+        if false {
             names.extend_from_slice(ZSH_KNOWN_BUILTINS);
         }
         names.sort_unstable();

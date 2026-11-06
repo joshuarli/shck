@@ -80,8 +80,7 @@ pub(crate) fn report_span(fact: crate::facts::CommandFactRef<'_, '_>, source: &s
         | Command::Decl(_)
         | Command::Binary(_)
         | Command::Compound(_)
-        | Command::Function(_)
-        | Command::AnonymousFunction(_) => fact.span(),
+        | Command::Function(_) => fact.span(),
     }
 }
 
@@ -400,17 +399,4 @@ f() {
         );
     }
 
-    #[test]
-    fn ignores_zsh_scripts() {
-        let source = "\
-#!/bin/zsh
-cd /tmp
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::UncheckedDirectoryChange).with_shell(ShellDialect::Zsh),
-        );
-
-        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
-    }
 }

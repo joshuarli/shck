@@ -19,9 +19,7 @@ impl Violation for SpaceyAssign {
 }
 
 pub fn spacey_assign(checker: &mut Checker) {
-    if checker.shell() == ShellDialect::Zsh {
-        return;
-    }
+    // Rule applies to all supported shell dialects.
 
     checker.report_fact_diagnostics_dedup(|facts, report| {
         for fact in facts.command_facts().spacey_assignment_facts() {
@@ -88,17 +86,6 @@ export name = demo
 name == demo
 name \"=\" demo
 name \\= demo
-";
-        let diagnostics = test_snippet(source, &LinterSettings::for_rule(Rule::SpaceyAssign));
-
-        assert!(diagnostics.is_empty());
-    }
-
-    #[test]
-    fn skips_zsh() {
-        let source = "\
-#!/bin/zsh
-name = demo
 ";
         let diagnostics = test_snippet(source, &LinterSettings::for_rule(Rule::SpaceyAssign));
 

@@ -7,7 +7,6 @@ impl<'a> Lexer<'a> {
             input,
             DEFAULT_MAX_SUBST_DEPTH,
             &ShellProfile::native(super::ShellDialect::Bash),
-            None,
         )
     }
 
@@ -18,30 +17,14 @@ impl<'a> Lexer<'a> {
             input,
             max_depth,
             &ShellProfile::native(super::ShellDialect::Bash),
-            None,
         )
     }
 
     /// Create a new lexer using the provided shell profile.
-    #[cfg(test)]
-    pub(in crate::parser) fn with_profile(input: &'a str, shell_profile: &ShellProfile) -> Self {
-        let zsh_timeline = (shell_profile.dialect == super::ShellDialect::Zsh)
-            .then(|| ZshOptionTimeline::build(input, shell_profile))
-            .flatten()
-            .map(Arc::new);
-        Self::with_max_subst_depth_and_profile(
-            input,
-            DEFAULT_MAX_SUBST_DEPTH,
-            shell_profile,
-            zsh_timeline,
-        )
-    }
-
-    pub(crate) fn with_max_subst_depth_and_profile(
+    pub(in crate::parser) fn with_max_subst_depth_and_profile(
         input: &'a str,
         max_depth: usize,
         shell_profile: &ShellProfile,
-        zsh_timeline: Option<Arc<ZshOptionTimeline>>,
     ) -> Self {
         Self {
             input,
@@ -57,9 +40,6 @@ impl<'a> Lexer<'a> {
                 shell_profile.dialect,
                 super::ShellDialect::Bash | super::ShellDialect::Posix
             ),
-            initial_zsh_options: shell_profile.zsh_options().cloned(),
-            zsh_timeline,
-            zsh_timeline_index: 0,
             #[cfg(feature = "benchmarking")]
             benchmark_counters: None,
         }
@@ -101,10 +81,6 @@ impl<'a> Lexer<'a> {
     }
 
     /// Get the next token kind from the input.
-    ///
-    /// This skips whitespace and line comments, matching
-    /// [`Lexer::next_lexed_token`]. It is useful for callers that only need the
-    /// token stream shape.
     pub fn next_token_kind(&mut self) -> Option<TokenKind> {
         self.next_lexed_token().map(|token| token.kind)
     }
@@ -236,55 +212,27 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub(in crate::parser) fn current_zsh_options(&mut self) -> Option<&ZshOptionState> {
-        if let Some(timeline) = self.zsh_timeline.as_ref() {
-            while self.zsh_timeline_index < timeline.entries.len()
-                && timeline.entries[self.zsh_timeline_index].offset <= self.offset
-            {
-                self.zsh_timeline_index += 1;
-            }
-            return if self.zsh_timeline_index == 0 {
-                self.initial_zsh_options.as_ref()
-            } else {
-                Some(&timeline.entries[self.zsh_timeline_index - 1].state)
-            };
-        }
-
-        self.initial_zsh_options.as_ref()
-    }
-
     pub(in crate::parser) fn comments_enabled(&mut self) -> bool {
-        !self
-            .current_zsh_options()
-            .is_some_and(|options| options.interactive_comments.is_definitely_off())
+        true
     }
 
     pub(in crate::parser) fn rc_quotes_enabled(&mut self) -> bool {
-        self.current_zsh_options()
-            .is_some_and(|options| options.rc_quotes.is_definitely_on())
+        false
     }
 
     pub(in crate::parser) fn ignore_braces_enabled(&mut self) -> bool {
-        self.current_zsh_options()
-            .is_some_and(|options| options.ignore_braces.is_definitely_on())
+        false
     }
 
     pub(in crate::parser) fn ignore_close_braces_enabled(&mut self) -> bool {
-        self.current_zsh_options().is_some_and(|options| {
-            options.ignore_braces.is_definitely_on()
-                || options.ignore_close_braces.is_definitely_on()
-        })
+        false
     }
 
     pub(in crate::parser) fn brace_ccl_enabled(&mut self) -> bool {
-        self.current_zsh_options()
-            .is_some_and(|options| options.brace_ccl.is_definitely_on())
+        false
     }
 
     pub(in crate::parser) fn should_treat_hash_as_word_char(&mut self) -> bool {
-        if !self.comments_enabled() {
-            return true;
-        }
         self.reinject_buf.is_empty()
             && (self
                 .input
@@ -353,19 +301,9 @@ impl<'a> Lexer<'a> {
 
     pub(in crate::parser) fn current_word_surface_can_take_zsh_glob_modifier_suffix(
         &mut self,
-        start: Position,
-        capture: &Option<String>,
+        _start: Position,
+        _capture: &Option<String>,
     ) -> bool {
-        if self.current_zsh_options().is_none() || self.peek_char() != Some('(') {
-            return false;
-        }
-
-        let text = self.current_word_text(start, capture);
-        if !text.contains('/') {
-            return false;
-        }
-
-        let mut chars = self.lookahead_chars();
-        matches!((chars.next(), chars.next()), (Some('('), Some(':')))
+        false
     }
 }

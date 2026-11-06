@@ -144,7 +144,7 @@ pub(crate) fn comparable_path(
     word: &Word,
     source: &str,
     context: ExpansionContext,
-    behavior: Option<&ShellBehaviorAt<'_>>,
+    behavior: Option<&ShellBehaviorAt>,
 ) -> Option<ComparablePath> {
     let analysis = analyze_word(word, source, behavior);
     if analysis.has_command_substitution()
@@ -326,7 +326,6 @@ pub(crate) fn collect_command_substitution_comparable_name_uses_in_parts(
                 }
             }
             WordPart::Literal(_)
-            | WordPart::ZshQualifiedGlob(_)
             | WordPart::SingleQuoted { .. }
             | WordPart::Variable(_)
             | WordPart::Parameter(_)
@@ -526,8 +525,7 @@ pub(crate) fn push_comparable_path_parts(
             }
             _ => None,
         },
-        WordPart::ZshQualifiedGlob(_)
-        | WordPart::CommandSubstitution { .. }
+        WordPart::CommandSubstitution { .. }
         | WordPart::ArithmeticExpansion { .. }
         | WordPart::ParameterExpansion { .. }
         | WordPart::Length(_)
@@ -614,7 +612,7 @@ impl<'a> RedirectFact<'a> {
 pub(crate) fn analyze_redirect_target(
     redirect: &Redirect,
     source: &str,
-    behavior: Option<&ShellBehaviorAt<'_>>,
+    behavior: Option<&ShellBehaviorAt>,
 ) -> Option<RedirectTargetAnalysis> {
     let target = redirect.word_target()?;
     let expansion = analyze_word(target, source, behavior);
@@ -675,7 +673,7 @@ pub(crate) fn build_redirect_facts<'a>(
     redirects: &'a [Redirect],
     semantic: Option<&LinterSemanticArtifacts<'a>>,
     locator: Locator<'_>,
-    behavior: &ShellBehaviorAt<'_>,
+    behavior: &ShellBehaviorAt,
 ) -> Vec<RedirectFact<'a>> {
     let source = locator.source();
     redirects

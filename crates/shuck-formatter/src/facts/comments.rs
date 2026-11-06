@@ -10,8 +10,7 @@ use super::{FactSpan, gap_has_empty_physical_line, line_end_for_offset};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct OffsetRegionKey {
     start: usize,
-    end: usize,
-}
+    end: usize }
 
 impl OffsetRegionKey {
     fn new(start: usize, end: usize) -> Self {
@@ -24,8 +23,7 @@ pub(crate) struct BranchPrefixFacts {
     comments: Vec<BranchPrefixComment>,
     first_comment_offset: Option<usize>,
     has_blank_line_before_keyword: bool,
-    has_blank_line_after_comments: bool,
-}
+    has_blank_line_after_comments: bool }
 
 impl BranchPrefixFacts {
     pub(super) fn new(
@@ -47,8 +45,7 @@ impl BranchPrefixFacts {
             comments,
             first_comment_offset,
             has_blank_line_before_keyword,
-            has_blank_line_after_comments,
-        }
+            has_blank_line_after_comments }
     }
 
     pub(crate) fn comments(&self) -> &[BranchPrefixComment] {
@@ -73,8 +70,7 @@ pub(super) struct CommentFacts<'source> {
     alignment: HashMap<FactSpan, CommentAlignmentFacts>,
     suffix_comments: HashMap<FactSpan, SourceComment<'source>>,
     close_suffix_comments: HashMap<FactSpan, SourceComment<'source>>,
-    branch_prefix_facts: HashMap<OffsetRegionKey, BranchPrefixFacts>,
-}
+    branch_prefix_facts: HashMap<OffsetRegionKey, BranchPrefixFacts> }
 
 impl<'source> CommentFacts<'source> {
     pub(super) fn new(
@@ -97,8 +93,7 @@ impl<'source> CommentFacts<'source> {
             alignment,
             suffix_comments: HashMap::default(),
             close_suffix_comments: HashMap::default(),
-            branch_prefix_facts: HashMap::default(),
-        }
+            branch_prefix_facts: HashMap::default() }
     }
 
     pub(super) fn trailing_comment(
@@ -199,8 +194,7 @@ impl<'source> CommentFacts<'source> {
 pub(crate) struct InlineCommentPlan<'source> {
     comment: SourceComment<'source>,
     alignment: CommentAlignmentFacts,
-    placement: InlineCommentPlacement,
-}
+    placement: InlineCommentPlacement }
 
 impl<'source> InlineCommentPlan<'source> {
     fn new(
@@ -211,8 +205,7 @@ impl<'source> InlineCommentPlan<'source> {
         Self {
             comment,
             alignment,
-            placement,
-        }
+            placement }
     }
 
     pub(crate) fn comment(self) -> SourceComment<'source> {
@@ -239,8 +232,7 @@ impl<'source> InlineCommentPlan<'source> {
                 &self.comment,
                 current_code_column,
                 current_indent_column,
-            ),
-        }
+            ) }
     }
 
     pub(crate) fn has_alignment(
@@ -260,5 +252,4 @@ impl<'source> InlineCommentPlan<'source> {
 #[derive(Debug, Clone, Copy)]
 enum InlineCommentPlacement {
     Trailing,
-    CloseSuffix,
-}
+    CloseSuffix }

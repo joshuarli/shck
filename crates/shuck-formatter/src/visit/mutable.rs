@@ -57,9 +57,7 @@ pub(crate) fn walk_command_mut<V: AstVisitorMut + ?Sized>(
             visitor.visit_stmt(&mut command.left) + visitor.visit_stmt(&mut command.right)
         }
         Command::Compound(command) => visitor.visit_compound_command(command),
-        Command::Function(function) => visitor.visit_function(function),
-        Command::AnonymousFunction(function) => visitor.visit_anonymous_function(function),
-    }
+        Command::Function(function) => visitor.visit_function(function) }
 }
 
 fn walk_decl_clause_mut<V: AstVisitorMut + ?Sized>(
@@ -74,8 +72,7 @@ fn walk_decl_clause_mut<V: AstVisitorMut + ?Sized>(
         changes += match operand {
             DeclOperand::Flag(word) | DeclOperand::Dynamic(word) => visitor.visit_word(word),
             DeclOperand::Name(reference) => visitor.visit_var_ref(reference),
-            DeclOperand::Assignment(assignment) => visitor.visit_assignment(assignment),
-        };
+            DeclOperand::Assignment(assignment) => visitor.visit_assignment(assignment) };
     }
     changes
 }
@@ -106,16 +103,6 @@ pub(crate) fn walk_compound_command_mut<V: AstVisitorMut + ?Sized>(
                 for word in words {
                     changes += visitor.visit_word(word);
                 }
-            }
-            changes + visitor.visit_stmt_seq(&mut command.body)
-        }
-        CompoundCommand::Repeat(command) => {
-            visitor.visit_word(&mut command.count) + visitor.visit_stmt_seq(&mut command.body)
-        }
-        CompoundCommand::Foreach(command) => {
-            let mut changes = 0;
-            for word in &mut command.words {
-                changes += visitor.visit_word(word);
             }
             changes + visitor.visit_stmt_seq(&mut command.body)
         }
@@ -171,12 +158,7 @@ pub(crate) fn walk_compound_command_mut<V: AstVisitorMut + ?Sized>(
         CompoundCommand::Conditional(command) => {
             visitor.visit_conditional_expr(&mut command.expression)
         }
-        CompoundCommand::Coproc(command) => visitor.visit_stmt(&mut command.body),
-        CompoundCommand::Always(command) => {
-            visitor.visit_stmt_seq(&mut command.body)
-                + visitor.visit_stmt_seq(&mut command.always_body)
-        }
-    }
+        CompoundCommand::Coproc(command) => visitor.visit_stmt(&mut command.body) }
 }
 
 pub(crate) fn walk_function_mut<V: AstVisitorMut + ?Sized>(
@@ -190,16 +172,6 @@ pub(crate) fn walk_function_mut<V: AstVisitorMut + ?Sized>(
     changes + visitor.visit_stmt(&mut function.body)
 }
 
-pub(crate) fn walk_anonymous_function_mut<V: AstVisitorMut + ?Sized>(
-    visitor: &mut V,
-    function: &mut AnonymousFunctionCommand,
-) -> usize {
-    let mut changes = visitor.visit_stmt(&mut function.body);
-    for argument in &mut function.args {
-        changes += visitor.visit_word(argument);
-    }
-    changes
-}
 
 pub(crate) fn walk_redirect_mut<V: AstVisitorMut + ?Sized>(
     visitor: &mut V,
@@ -207,8 +179,7 @@ pub(crate) fn walk_redirect_mut<V: AstVisitorMut + ?Sized>(
 ) -> usize {
     match &mut redirect.target {
         RedirectTarget::Word(word) => visitor.visit_word(word),
-        RedirectTarget::Heredoc(heredoc) => visitor.visit_heredoc(heredoc),
-    }
+        RedirectTarget::Heredoc(heredoc) => visitor.visit_heredoc(heredoc) }
 }
 
 pub(crate) fn walk_heredoc_mut<V: AstVisitorMut + ?Sized>(
@@ -285,8 +256,7 @@ pub(crate) fn walk_conditional_expr_mut<V: AstVisitorMut + ?Sized>(
         }
         ConditionalExpr::Word(word) | ConditionalExpr::Regex(word) => visitor.visit_word(word),
         ConditionalExpr::Pattern(pattern) => visitor.visit_pattern(pattern),
-        ConditionalExpr::VarRef(reference) => visitor.visit_var_ref(reference),
-    }
+        ConditionalExpr::VarRef(reference) => visitor.visit_var_ref(reference) }
 }
 
 pub(crate) fn walk_pattern_mut<V: AstVisitorMut + ?Sized>(
@@ -311,8 +281,7 @@ pub(crate) fn walk_pattern_part_mut<V: AstVisitorMut + ?Sized>(
             .map(|pattern| visitor.visit_pattern(pattern))
             .sum(),
         PatternPart::Word(word) => visitor.visit_word(word),
-        PatternPart::Literal(_) | PatternPart::AnyString | PatternPart::AnyChar => 0,
-    }
+        PatternPart::Literal(_) | PatternPart::AnyString | PatternPart::AnyChar => 0 }
 }
 
 pub(crate) fn walk_word_mut<V: AstVisitorMut + ?Sized>(visitor: &mut V, word: &mut Word) -> usize {
@@ -328,7 +297,6 @@ pub(crate) fn walk_word_part_mut<V: AstVisitorMut + ?Sized>(
 ) -> usize {
     match &mut part.kind {
         WordPart::Literal(_) | WordPart::Variable(_) | WordPart::PrefixMatch { .. } => 0,
-        WordPart::ZshQualifiedGlob(glob) => walk_zsh_qualified_glob_mut(visitor, glob),
         WordPart::SingleQuoted { value, .. } => visitor.visit_source_text(value),
         WordPart::DoubleQuoted { parts, .. } => parts
             .iter_mut()
@@ -463,8 +431,7 @@ pub(crate) fn walk_heredoc_body_part_mut<V: AstVisitorMut + ?Sized>(
             }
             changes
         }
-        HeredocBodyPart::Parameter(parameter) => visitor.visit_parameter_expansion(parameter),
-    }
+        HeredocBodyPart::Parameter(parameter) => visitor.visit_parameter_expansion(parameter) }
 }
 
 pub(crate) fn walk_arithmetic_expr_mut<V: AstVisitorMut + ?Sized>(
@@ -486,8 +453,7 @@ pub(crate) fn walk_arithmetic_expr_mut<V: AstVisitorMut + ?Sized>(
         ArithmeticExpr::Conditional {
             condition,
             then_expr,
-            else_expr,
-        } => {
+            else_expr } => {
             visitor.visit_arithmetic_expr(condition)
                 + visitor.visit_arithmetic_expr(then_expr)
                 + visitor.visit_arithmetic_expr(else_expr)
@@ -504,8 +470,7 @@ pub(crate) fn walk_arithmetic_lvalue_mut<V: AstVisitorMut + ?Sized>(
 ) -> usize {
     match target {
         ArithmeticLvalue::Variable(_) => 0,
-        ArithmeticLvalue::Indexed { index, .. } => visitor.visit_arithmetic_expr(index),
-    }
+        ArithmeticLvalue::Indexed { index, .. } => visitor.visit_arithmetic_expr(index) }
 }
 
 pub(crate) fn walk_parameter_expansion_mut<V: AstVisitorMut + ?Sized>(
@@ -584,93 +549,10 @@ pub(crate) fn walk_parameter_expansion_mut<V: AstVisitorMut + ?Sized>(
                 }
                 changes
             }
-        },
-        ParameterExpansionSyntax::Zsh(syntax) => walk_zsh_parameter_expansion_mut(visitor, syntax),
-    }
+        } }
 }
 
-fn walk_zsh_parameter_expansion_mut<V: AstVisitorMut + ?Sized>(
-    visitor: &mut V,
-    syntax: &mut ZshParameterExpansion,
-) -> usize {
-    let mut changes = match &mut syntax.target {
-        ZshExpansionTarget::Reference(reference) => visitor.visit_var_ref(reference),
-        ZshExpansionTarget::Nested(parameter) => visitor.visit_parameter_expansion(parameter),
-        ZshExpansionTarget::Word(word) => visitor.visit_word(word),
-        ZshExpansionTarget::Empty => 0,
-    };
-    for modifier in &mut syntax.modifiers {
-        if let Some(argument) = &mut modifier.argument {
-            changes += visitor.visit_source_text(argument);
-        }
-        if let Some(word) = &mut modifier.argument_word_ast {
-            changes += visitor.visit_word(word);
-        }
-    }
-    if let Some(operation) = &mut syntax.operation {
-        changes += walk_zsh_expansion_operation_mut(visitor, operation);
-    }
-    changes
-}
 
-fn walk_zsh_expansion_operation_mut<V: AstVisitorMut + ?Sized>(
-    visitor: &mut V,
-    operation: &mut ZshExpansionOperation,
-) -> usize {
-    match operation {
-        ZshExpansionOperation::PatternOperation {
-            operand,
-            operand_word_ast,
-            ..
-        }
-        | ZshExpansionOperation::Defaulting {
-            operand,
-            operand_word_ast,
-            ..
-        }
-        | ZshExpansionOperation::TrimOperation {
-            operand,
-            operand_word_ast,
-            ..
-        } => visitor.visit_source_text(operand) + visitor.visit_word(operand_word_ast),
-        ZshExpansionOperation::ReplacementOperation {
-            pattern,
-            pattern_word_ast,
-            replacement,
-            replacement_word_ast,
-            ..
-        } => {
-            let mut changes =
-                visitor.visit_source_text(pattern) + visitor.visit_word(pattern_word_ast);
-            if let Some(replacement) = replacement {
-                changes += visitor.visit_source_text(replacement);
-            }
-            if let Some(replacement) = replacement_word_ast {
-                changes += visitor.visit_word(replacement);
-            }
-            changes
-        }
-        ZshExpansionOperation::Slice {
-            offset,
-            offset_word_ast,
-            length,
-            length_word_ast,
-        } => {
-            let mut changes =
-                visitor.visit_source_text(offset) + visitor.visit_word(offset_word_ast);
-            if let Some(length) = length {
-                changes += visitor.visit_source_text(length);
-            }
-            if let Some(length) = length_word_ast {
-                changes += visitor.visit_word(length);
-            }
-            changes
-        }
-        ZshExpansionOperation::Unknown { text, word_ast } => {
-            visitor.visit_source_text(text) + visitor.visit_word(word_ast)
-        }
-    }
-}
 
 pub(crate) fn walk_parameter_op_mut<V: AstVisitorMut + ?Sized>(
     visitor: &mut V,
@@ -684,13 +566,11 @@ pub(crate) fn walk_parameter_op_mut<V: AstVisitorMut + ?Sized>(
         ParameterOp::ReplaceFirst {
             pattern,
             replacement,
-            replacement_word_ast,
-        }
+            replacement_word_ast }
         | ParameterOp::ReplaceAll {
             pattern,
             replacement,
-            replacement_word_ast,
-        } => {
+            replacement_word_ast } => {
             visitor.visit_pattern(pattern)
                 + visitor.visit_source_text(replacement)
                 + visitor.visit_word(replacement_word_ast)
@@ -702,44 +582,7 @@ pub(crate) fn walk_parameter_op_mut<V: AstVisitorMut + ?Sized>(
         | ParameterOp::UpperFirst
         | ParameterOp::UpperAll
         | ParameterOp::LowerFirst
-        | ParameterOp::LowerAll => 0,
-    }
+        | ParameterOp::LowerAll => 0 }
 }
 
-fn walk_zsh_qualified_glob_mut<V: AstVisitorMut + ?Sized>(
-    visitor: &mut V,
-    glob: &mut shuck_ast::ZshQualifiedGlob,
-) -> usize {
-    let mut changes = 0;
-    for segment in &mut glob.segments {
-        changes += match segment {
-            ZshGlobSegment::Pattern(pattern) => visitor.visit_pattern(pattern),
-            ZshGlobSegment::InlineControl(_) => 0,
-        };
-    }
-    if let Some(qualifiers) = &mut glob.qualifiers {
-        changes += walk_zsh_glob_qualifier_group_mut(visitor, qualifiers);
-    }
-    changes
-}
 
-fn walk_zsh_glob_qualifier_group_mut<V: AstVisitorMut + ?Sized>(
-    visitor: &mut V,
-    group: &mut ZshGlobQualifierGroup,
-) -> usize {
-    group
-        .fragments
-        .iter_mut()
-        .map(|fragment| match fragment {
-            ZshGlobQualifier::LetterSequence { text, .. } => visitor.visit_source_text(text),
-            ZshGlobQualifier::NumericArgument { start, end, .. } => {
-                let mut changes = visitor.visit_source_text(start);
-                if let Some(end) = end {
-                    changes += visitor.visit_source_text(end);
-                }
-                changes
-            }
-            ZshGlobQualifier::Negation { .. } | ZshGlobQualifier::Flag { .. } => 0,
-        })
-        .sum()
-}

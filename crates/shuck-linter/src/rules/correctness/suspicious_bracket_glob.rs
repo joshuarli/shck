@@ -234,31 +234,4 @@ if [ \"$ARCH\" = \"x86_64\" ]; then :; fi
         assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
     }
 
-    #[test]
-    fn reports_zsh_brace_ccl_word_like_character_classes_from_facts() {
-        let source = "\
-setopt brace_ccl
-{appname} arg
-echo {appname}
-opt=brace_ccl
-setopt \"$opt\"
-{dynamicc} arg
-echo {dynamicc}
-unsetopt brace_ccl
-{appname} arg
-echo {appname}
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::SuspiciousBracketGlob).with_shell(ShellDialect::Zsh),
-        );
-
-        assert_eq!(
-            diagnostics
-                .iter()
-                .map(|diagnostic| diagnostic.span.slice(source))
-                .collect::<Vec<_>>(),
-            vec!["{appname}", "{appname}", "{dynamicc}", "{dynamicc}"]
-        );
-    }
 }

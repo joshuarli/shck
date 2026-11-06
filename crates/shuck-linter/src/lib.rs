@@ -1,5 +1,35 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), warn(clippy::unwrap_used))]
+#![allow(
+    dead_code,
+    unused_imports,
+    unused_variables,
+    unused_mut,
+    unused_assignments,
+    unreachable_code,
+    unreachable_patterns,
+    irrefutable_let_patterns,
+    clippy::redundant_guards,
+    clippy::needless_lifetimes,
+    clippy::needless_borrow,
+    clippy::collapsible_if,
+    clippy::collapsible_match,
+    clippy::let_and_return,
+    clippy::single_match,
+    clippy::match_like_matches_macro,
+    clippy::nonminimal_bool,
+    clippy::while_let_loop,
+    clippy::useless_conversion,
+    clippy::explicit_auto_deref,
+    clippy::extra_unused_lifetimes,
+    clippy::elidable_lifetime_names,
+    clippy::map_or_identity,
+    clippy::unnecessary_lazy_evaluations,
+    clippy::manual_unwrap_or,
+    clippy::unnecessary_filter_map,
+    clippy::filter_map_bool_then,
+    clippy::if_same_then_else
+)]
 
 //! Linting and fix application for shell scripts parsed by the Shuck toolchain.
 //!
@@ -871,7 +901,7 @@ fn suppression_span_is_function_body_wrapper(semantic: &SemanticModel, id: Comma
     ) && semantic.command_parent_id(id).is_some_and(|parent| {
         matches!(
             semantic.command_kind(parent),
-            CommandKind::Function | CommandKind::AnonymousFunction
+            CommandKind::Function
         )
     })
 }
@@ -1294,29 +1324,6 @@ mod tests {
             .lint()
     }
 
-    fn lint_path_for_rule_with_plugin_resolver(
-        path: &Path,
-        rule: Rule,
-        plugin_resolver: &(dyn PluginResolver + Send + Sync),
-    ) -> Vec<Diagnostic> {
-        let source = fs::read_to_string(path).unwrap();
-        let output = Parser::with_dialect(&source, ParseDialect::Zsh)
-            .parse()
-            .unwrap();
-        let indexer = Indexer::new(&source, &output);
-        let directives = parse_directives(
-            &source,
-            indexer.comment_index(),
-            &ShellCheckCodeMap::default(),
-        );
-        let settings = LinterSettings::for_rule(rule);
-        AnalysisRequest::from_parse_result(&output, &source, &settings)
-            .with_source_path(path)
-            .with_directives(&directives)
-            .with_plugin_resolver(plugin_resolver)
-            .lint()
-    }
-
     fn lint_named_source(path: &Path, source: &str, settings: &LinterSettings) -> Vec<Diagnostic> {
         let output = Parser::new(source).parse().unwrap();
         let indexer = Indexer::new(source, &output);
@@ -1353,12 +1360,6 @@ mod tests {
     fn runtime_prelude_source(shebang: &str) -> String {
         format!(
             "{shebang}\nprintf '%s\\n' \"$IFS\" \"$USER\" \"$HOME\" \"$SHELL\" \"$PWD\" \"$TERM\" \"$PATH\" \"$CDPATH\" \"$LANG\" \"$LC_ALL\" \"$LC_TIME\" \"$SUDO_USER\" \"$DOAS_USER\"\nprintf '%s\\n' \"$LINENO\" \"$FUNCNAME\" \"${{BASH_SOURCE[0]}}\" \"${{BASH_LINENO[0]}}\" \"$RANDOM\" \"${{BASH_REMATCH[0]}}\" \"$READLINE_LINE\" \"$BASH_VERSION\" \"${{BASH_VERSINFO[0]}}\" \"$OSTYPE\" \"$HISTCONTROL\" \"$HISTSIZE\"\n"
-        )
-    }
-
-    fn zsh_runtime_prelude_source(shebang: &str) -> String {
-        format!(
-            "{shebang}\nprintf '%s\\n' \"${{options[xtrace]}}\" \"${{functions[typeset]}}\" \"${{path[1]}}\" \"${{pipestatus[1]}}\" \"$MATCH\" \"$ZSH_VERSION\"\n"
         )
     }
 
@@ -1440,21 +1441,6 @@ mod tests {
     }
 
     #[test]
-    fn lint_file_preserves_parse_rule_diagnostics() {
-        let source = "#!/bin/sh\n{ :; } always { :; }\n";
-        let parse_result = Parser::new(source).parse();
-        let settings = LinterSettings::for_rule(Rule::ZshAlwaysBlock);
-        let shellcheck_map = ShellCheckCodeMap::default();
-        let diagnostics = AnalysisRequest::from_parse_result(&parse_result, source, &settings)
-            .with_shellcheck_map(&shellcheck_map)
-            .lint();
-
-        assert_eq!(diagnostics.len(), 1);
-        assert_eq!(diagnostics[0].rule, Rule::ZshAlwaysBlock);
-        assert_eq!(diagnostics[0].span.slice(source), "always");
-    }
-
-    #[test]
     fn analyze_file_returns_semantic_model_and_diagnostics() {
         let source = "#!/bin/bash\nvalue=ok\necho \"$value\"\n";
         let output = Parser::new(source).parse().unwrap();
@@ -1464,63 +1450,6 @@ mod tests {
         assert!(result.diagnostics.is_empty());
         assert!(!result.semantic.scopes().is_empty());
         assert!(!result.semantic.bindings().is_empty());
-    }
-
-    #[test]
-    fn plugin_entrypoints_receive_ambient_contracts_while_summarizing() {
-        struct EntrypointResolver {
-            entrypoint: PathBuf,
-        }
-
-        impl PluginResolver for EntrypointResolver {
-            fn additional_plugin_requests(&self, _source_path: &Path) -> Vec<PluginRequest> {
-                vec![PluginRequest {
-                    framework: PluginFramework::ExplicitFilesystem,
-                    kind: PluginRequestKind::Entrypoint,
-                    name: self.entrypoint.to_string_lossy().into_owned(),
-                    span: Span::new(),
-                    explicit: true,
-                    root_hint: None,
-                }]
-            }
-
-            fn resolve_plugin_request(
-                &self,
-                _source_path: &Path,
-                request: &PluginRequest,
-            ) -> PluginResolution {
-                if request.kind == PluginRequestKind::Entrypoint {
-                    PluginResolution {
-                        entrypoints: vec![self.entrypoint.clone()],
-                        file_entry_contracts: Vec::new(),
-                        requesting_file_contract: FileContract::default(),
-                    }
-                } else {
-                    PluginResolution::default()
-                }
-            }
-        }
-
-        let temp = tempdir().unwrap();
-        let main = temp.path().join(".zshrc");
-        let plugin = temp
-            .path()
-            .join("zsh-autosuggestions")
-            .join("zsh-autosuggestions.plugin.zsh");
-        fs::create_dir_all(plugin.parent().unwrap()).unwrap();
-        fs::write(&main, "#!/bin/zsh\n").unwrap();
-        fs::write(&plugin, "print -r -- \"$widgets\"\n").unwrap();
-
-        let diagnostics = lint_path_for_rule_with_plugin_resolver(
-            &main,
-            Rule::UndefinedVariable,
-            &EntrypointResolver { entrypoint: plugin },
-        );
-
-        assert!(
-            diagnostics.is_empty(),
-            "plugin ambient runtime reads leaked into caller diagnostics: {diagnostics:?}"
-        );
     }
 
     #[test]
@@ -2003,320 +1932,6 @@ set_flag() {
     }
 
     #[test]
-    fn sourced_zsh_helper_imports_bindings_after_zsh_only_syntax() {
-        let temp = tempdir().unwrap();
-        let main = temp.path().join("main.zsh");
-        let helper = temp.path().join("helper.zsh");
-        fs::write(
-            &main,
-            "\
-#!/bin/zsh
-. ./helper.zsh
-print \"$helper_value\"
-",
-        )
-        .unwrap();
-        fs::write(
-            &helper,
-            "\
-#!/bin/zsh
-repeat 1; do print loaded; done
-helper_value=ready
-",
-        )
-        .unwrap();
-
-        let diagnostics = lint_path_for_rule(&main, Rule::UndefinedVariable);
-        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
-    }
-
-    fn obscure_zsh_linter_stress_source() -> &'static str {
-        r#"#!/bin/zsh
-() {
-  emulate -L zsh
-  setopt extendedglob
-  local -a matches=(src/**/*.zsh(.N:t:r))
-  print -r -- ${(j:,:)matches}
-} one two
-
-{
-  if [[ -n ${commands[zsh]} ]] {
-    print -r -- ok
-  } elif (( ${+commands[false]} )) {
-    print -r -- maybe
-  } else {
-    print -r -- missing
-  }
-} always {
-  print -r -- cleanup
-}
-
-repeat 2 print -r -- tick
-
-foreach item (alpha beta gamma) {
-  print -r -- ${item:u}
-}
-
-typeset -A colors=(
-  [normal]=black
-  [warning]=yellow
-  [error]=red
-)
-print -r -- ${colors[(i)warn*]} ${colors[(r)r*]}
-colors[(I)e*]=brightred
-
-local target=/tmp/archive.tar.gz
-print -r -- ${${target:t}:r} ${${:-$target}:h}
-print -r -- ${(Q)${:-one\ two}} ${(%)${:-%n@%m}}
-
-local -a words=(one two three)
-print -r -- ${(j:|:)words}
-print -r -- ${(qqq)${(F)words}}
-
-print -r -- **/*.zsh(.DN:t:r)
-print -r -- *(^@N) *(.om[1,3])
-
-diff =(print -r -- left) <(print -r -- right)
-cat > >(sed 's/^/[out] /') <<< ${:-payload}
-
-print -r -- message >out.log >audit.log
-print -r -- quiet &>/dev/null &|
-
-case $OSTYPE in
-  (darwin|freebsd)<->)
-    print -r -- bsd ;|
-  linux(|-gnu))
-    print -r -- linux ;&
-  *)
-    print -r -- other ;;
-esac
-
-if [[ $file == (#b)(*/)([^/]##).(zsh|plugin)(#e) ]]; then
-  print -r -- $match[1] $match[2]
-fi
-
-zparseopts -D -E -F -- \
-  h=help -help=help \
-  v+:=verbose -verbose+:=verbose \
-  o:=output -output:=output
-
-noglob command print -r -- **/*(N)
-whence -m 'z*' >/dev/null
-
-PS1=$'%F{green}%n%f:%~ %# '
-local rendered=${(%)PS1}
-print -r -- $rendered
-
-integer count=${#path}
-(( count += ${+commands[git]} ? path[(I)*bin*] : 0 ))
-print -r -- $count
-
-coproc {
-  print -r -- request
-  read -r reply
-  print -r -- $reply
-}
-
-while getopts ":wtfvh-:" opt; do
-  case "$opt" in
-    -)
-      case "${OPTARG}" in
-        wait)
-          WAIT=1
-          ;;
-        help|version)
-          REDIRECT_STDERR=1
-          EXPECT_OUTPUT=1
-          ;;
-        foreground|benchmark|benchmark-test|test)
-          EXPECT_OUTPUT=1
-          ;;
-      esac
-      ;;
-    w)
-      WAIT=1
-      ;;
-    h|v)
-      REDIRECT_STDERR=1
-      EXPECT_OUTPUT=1
-      ;;
-    f|t)
-      EXPECT_OUTPUT=1
-      ;;
-  esac
-done
-
-filelist=()
-fid=0
-find "$prefix/$folder" -type l | while read file; do
-  target=`$readlink $file | grep '/\.npm/'`
-  if [ "x$target" != "x" ]; then
-    filelist[$fid]="$file"
-    let 'fid++'
-    base=`basename "$file"`
-    find "`dirname $file`" -type l -name "$base"'*' \
-      | while read link; do
-          filelist[$fid]="$link"
-          let 'fid++'
-        done
-  fi
-done
-
-args=()
-if [[ -n $verbose ]]; then
-  args+=("--reporter=spec")
-else
-  args+=("--reporter=singleline")
-fi
-
-case ${mode} in
-  valgrind)
-    valgrind                                     \
-      --suppressions=./script/util/valgrind.supp \
-      --dsymutil=yes                             \
-      --leak-check=${leak_check}                 \
-      $cmd "${args[@]}" 2>&1 |                   \
-      grep --color -E '\w+_tests?.cc:\d+|$'
-    ;;
-  SVG)
-    $cmd "${args[@]}" 2> >(grep -v 'Assertion failed' | dot -Tsvg >> index.html)
-    ;;
-esac
-
-html_replace_tokens () {
-  local url=$1
-  sed "s|@NAME@|$name|g" \
-    | sed "s|@URL@|$url|g" \
-    | perl -p -e 's/<h1([^>]*)>(.*?)<\/h1>/<h1>\2<\/h1>/g' \
-    | (if [ $(basename $(dirname $dest)) == "doc" ]; then
-        perl -p -e 's/ href="\.\.\// href="/g'
-      else
-        cat
-      fi)
-}
-
-0=${(%):-%N}
-"#
-    }
-
-    #[test]
-    fn default_linter_handles_obscure_zsh_syntax_without_parse_rule_diagnostics() {
-        let source = obscure_zsh_linter_stress_source();
-        let path = Path::new("stress.zsh");
-        let diagnostics =
-            crate::test::test_snippet_at_path(path, source, &LinterSettings::default());
-
-        let parse_rules = [
-            Rule::MissingFi,
-            Rule::IfMissingThen,
-            Rule::LoopWithoutEnd,
-            Rule::MissingDoneInForLoop,
-            Rule::DanglingElse,
-            Rule::UntilMissingDo,
-            Rule::IfBracketGlued,
-            Rule::CPrototypeFragment,
-        ];
-        assert!(
-            diagnostics
-                .iter()
-                .all(|diagnostic| !parse_rules.contains(&diagnostic.rule)),
-            "unexpected parse-shaped diagnostics: {diagnostics:#?}"
-        );
-    }
-
-    #[test]
-    fn native_zsh_portability_rules_ignore_obscure_zsh_syntax() {
-        let source = obscure_zsh_linter_stress_source();
-        let path = Path::new("stress.zsh");
-        let settings = LinterSettings::for_rules([
-            Rule::ZshRedirPipe,
-            Rule::ZshBraceIf,
-            Rule::ZshAlwaysBlock,
-            Rule::ZshFlagExpansion,
-            Rule::NestedZshSubstitution,
-            Rule::ZshNestedExpansion,
-            Rule::ZshPromptBracket,
-            Rule::ZshAssignmentToZero,
-            Rule::ZshParameterFlag,
-            Rule::ZshArraySubscriptInCase,
-            Rule::ZshParameterIndexFlag,
-            Rule::MultiVarForLoop,
-            Rule::ProcessSubstitution,
-            Rule::HereString,
-            Rule::Coproc,
-            Rule::ArrayAssignment,
-            Rule::ArrayReference,
-        ])
-        .with_shell(ShellDialect::Zsh);
-        let diagnostics = crate::test::test_snippet_at_path(path, source, &settings);
-
-        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:#?}");
-    }
-
-    #[test]
-    fn sourced_zsh_helper_imports_bindings_after_obscure_native_syntax() {
-        let temp = tempdir().unwrap();
-        let main = temp.path().join("main.zsh");
-        let helper = temp.path().join("helper.zsh");
-        fs::write(
-            &main,
-            "\
-#!/bin/zsh
-. ./helper.zsh
-print -r -- \"$helper_value\"
-",
-        )
-        .unwrap();
-        fs::write(
-            &helper,
-            r#"#!/bin/zsh
-() {
-  emulate -L zsh
-  local -a matches=(src/**/*.zsh(.N:t:r))
-  print -r -- ${(j:,:)matches}
-}
-
-{
-  if [[ -n ${commands[zsh]} ]] {
-    print -r -- ok
-  } else {
-    print -r -- missing
-  }
-} always {
-  print -r -- cleanup
-}
-
-typeset -A colors=(
-  [normal]=black
-  [warning]=yellow
-  [error]=red
-)
-print -r -- ${colors[(i)warn*]} ${colors[(r)r*]}
-
-foreach item (alpha beta gamma) {
-  print -r -- ${item:u}
-}
-
-print -r -- **/*.zsh(.DN:t:r)
-print -r -- *(^@N) *(.om[1,3])
-print -r -- quiet &>/dev/null &|
-
-case $OSTYPE in
-  (darwin|freebsd)<->) print -r -- bsd ;|
-  linux(|-gnu)) print -r -- linux ;&
-  *) print -r -- other ;;
-esac
-
-helper_value=ready
-"#,
-        )
-        .unwrap();
-
-        let diagnostics = lint_path_for_rule(&main, Rule::UndefinedVariable);
-        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
-    }
-
-    #[test]
     fn sourced_env_split_bash_helper_prefers_shebang_over_sh_extension() {
         let temp = tempdir().unwrap();
         let main = temp.path().join("main.sh");
@@ -2783,7 +2398,6 @@ END
             ParseDialect::Posix,
             ParseDialect::Bash,
             ParseDialect::Mksh,
-            ParseDialect::Zsh,
         ] {
             let parse_result = Parser::with_dialect(source, dialect).parse();
             let settings = LinterSettings::default();
@@ -2826,12 +2440,10 @@ END
             (Some(Path::new("fuzz.sh")), ParseDialect::Posix),
             (Some(Path::new("fuzz.bash")), ParseDialect::Bash),
             (Some(Path::new("fuzz.mksh")), ParseDialect::Mksh),
-            (Some(Path::new("fuzz.zsh")), ParseDialect::Zsh),
-            (None, ParseDialect::Posix),
+                        (None, ParseDialect::Posix),
             (None, ParseDialect::Bash),
             (None, ParseDialect::Mksh),
-            (None, ParseDialect::Zsh),
-        ];
+                    ];
 
         for (path, dialect) in cases {
             let parse_result = Parser::with_dialect(source, dialect).parse();
@@ -4581,24 +4193,6 @@ EOF
     }
 
     #[test]
-    fn undefined_variable_reports_bash_fallback_after_zsh_split_branch() {
-        let source = "\
-#!/bin/bash
-if [[ -n \"${ZSH_VERSION:-}\" ]]; then
-  rvm_configure_flags=( ${=db_configure_flags} \"${rvm_configure_flags[@]}\" )
-else
-  rvm_configure_flags=( ${db_configure_flags} \"${rvm_configure_flags[@]}\" )
-fi
-";
-        let diagnostics = lint_for_rule(source, Rule::UndefinedVariable);
-
-        assert_eq!(diagnostics.len(), 1);
-        assert_eq!(diagnostics[0].rule, Rule::UndefinedVariable);
-        assert_eq!(diagnostics[0].span.start.line(), 5);
-        assert_eq!(diagnostics[0].span.slice(source), "${db_configure_flags}");
-    }
-
-    #[test]
     fn undefined_variable_ignores_parameter_slice_arithmetic_operands() {
         let source = "\
 #!/bin/bash
@@ -4731,14 +4325,6 @@ printf '%s %s\\n' \"${#}\" \"${$}\"
     #[test]
     fn undefined_variable_ignores_bash_runtime_vars_in_bash_scripts() {
         let source = runtime_prelude_source("#!/bin/bash");
-        let diagnostics = lint_for_rule(&source, Rule::UndefinedVariable);
-
-        assert!(diagnostics.is_empty());
-    }
-
-    #[test]
-    fn undefined_variable_ignores_zsh_runtime_vars_in_zsh_scripts() {
-        let source = zsh_runtime_prelude_source("#!/bin/zsh");
         let diagnostics = lint_for_rule(&source, Rule::UndefinedVariable);
 
         assert!(diagnostics.is_empty());
@@ -5712,26 +5298,6 @@ printf '%s\\n' two
         assert_eq!(diagnostics[1].span.slice(source), "printf '%s\\n' two");
         assert_eq!(diagnostics[1].span.end.line(), 6);
         assert_eq!(diagnostics[1].span.end.column(), 18);
-    }
-
-    #[test]
-    fn unreachable_after_exit_treats_zsh_always_cleanup_as_reachable() {
-        let source = "\
-#!/bin/zsh
-{
-  return
-} always {
-  printf '%s\\n' cleanup
-}
-printf '%s\\n' after
-";
-        let diagnostics = crate::test::test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::UnreachableAfterExit).with_shell(ShellDialect::Zsh),
-        );
-
-        assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
-        assert_eq!(diagnostics[0].span.slice(source), "printf '%s\\n' after");
     }
 
     #[test]

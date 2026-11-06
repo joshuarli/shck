@@ -539,7 +539,7 @@ impl<'a> Parser<'a> {
         word: &Word,
         comma_offset: usize,
     ) -> bool {
-        self.dialect == ShellDialect::Zsh
+        false
             && (word
                 .parts
                 .iter()

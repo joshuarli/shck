@@ -7,8 +7,7 @@ use crate::raw_syntax::LiteralLineTracker;
 pub(super) struct PendingHeredoc {
     pub(super) body: String,
     pub(super) delimiter: String,
-    pub(super) strip_tabs: bool,
-}
+    pub(super) strip_tabs: bool }
 
 pub(super) trait StreamSink {
     fn push_char(&mut self, ch: char);
@@ -16,8 +15,7 @@ pub(super) trait StreamSink {
 }
 
 pub(super) struct BufferSink {
-    buffer: String,
-}
+    buffer: String }
 
 pub(super) struct ShellWriter<S> {
     options: ResolvedShellFormatOptions,
@@ -28,8 +26,7 @@ pub(super) struct ShellWriter<S> {
     line_indent_column: usize,
     line_start: bool,
     pending_heredocs: Vec<PendingHeredoc>,
-    pending_comments: Vec<String>,
-}
+    pending_comments: Vec<String> }
 
 impl ShellWriter<BufferSink> {
     pub(super) fn new_buffer(source: &str, options: &ResolvedShellFormatOptions) -> Self {
@@ -73,8 +70,7 @@ where
             line_indent_column: 0,
             line_start: true,
             pending_heredocs: Vec::new(),
-            pending_comments: Vec::new(),
-        }
+            pending_comments: Vec::new() }
     }
 
     pub(super) fn indent_level(&self) -> usize {
@@ -113,8 +109,7 @@ where
     pub(super) fn line_ending(&self) -> &'static str {
         match self.options.line_ending() {
             LineEnding::Lf => "\n",
-            LineEnding::CrLf => "\r\n",
-        }
+            LineEnding::CrLf => "\r\n" }
     }
 
     pub(super) fn indent_column_for_level(&self, level: usize) -> usize {
@@ -271,8 +266,7 @@ where
                     .delimiter
                     .strip_suffix('\r')
                     .unwrap_or(&heredoc.delimiter),
-                LineEnding::Lf => &heredoc.delimiter,
-            };
+                LineEnding::Lf => &heredoc.delimiter };
             if heredoc.strip_tabs {
                 self.write_indent();
                 self.write_verbatim(delimiter.trim_start_matches('\t'));
@@ -373,8 +367,7 @@ where
 impl BufferSink {
     fn with_capacity(capacity: usize) -> Self {
         Self {
-            buffer: String::with_capacity(capacity),
-        }
+            buffer: String::with_capacity(capacity) }
     }
 
     fn new(buffer: String) -> Self {
@@ -400,8 +393,7 @@ pub(super) struct CompareSink<'source> {
     source: &'source str,
     matched_bytes: usize,
     pending_tail: String,
-    mismatch: bool,
-}
+    mismatch: bool }
 
 impl<'source> CompareSink<'source> {
     fn new(source: &'source str) -> Self {
@@ -409,8 +401,7 @@ impl<'source> CompareSink<'source> {
             source,
             matched_bytes: 0,
             pending_tail: String::new(),
-            mismatch: false,
-        }
+            mismatch: false }
     }
 
     fn push_char(&mut self, ch: char) {
@@ -470,8 +461,7 @@ impl<'source> CompareSink<'source> {
             Some(candidate) if candidate == text.as_bytes() => {
                 self.matched_bytes = end;
             }
-            _ => self.mismatch = true,
-        }
+            _ => self.mismatch = true }
     }
 }
 

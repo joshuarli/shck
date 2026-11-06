@@ -8,7 +8,7 @@ pub use crate::cli::types::{
     CheckOutputFormatArg, FileSelectionArgs, FormatDialectArg, FormatIndentStyleArg,
     FrameworkRootPair, ManagedShellArg, PatternFrameworkNameTriple, PatternPathPair,
     PatternRuleSelectorPair, PatternShellPair, RuleSelectionArgs, TerminalColor,
-    ZshPluginArgs, parse_cli_rule_selector,
+    parse_cli_rule_selector,
 };
 pub use crate::cli::{Args, Command};
 
@@ -298,7 +298,7 @@ mod tests {
             "shuck",
             "check",
             "--per-file-shell",
-            "a.sh:bash,b.sh:zsh",
+            "a.sh:bash,b.sh:mksh",
             "--extend-per-file-shell",
             "c.sh:mksh",
         ]);
@@ -312,7 +312,7 @@ mod tests {
                 },
                 PatternShellPair {
                     pattern: "b.sh".to_owned(),
-                    shell: shuck_linter::ShellDialect::Zsh,
+                    shell: shuck_linter::ShellDialect::Mksh,
                 },
             ])
         );
@@ -325,130 +325,7 @@ mod tests {
         );
     }
 
-    #[test]
-    fn parses_zsh_plugin_resolution_pairs() {
-        let command = parse_check([
-            "shuck",
-            "check",
-            "--zsh-plugin-root",
-            "ohmyzsh=~/.oh-my-zsh,prezto=~/.zprezto",
-            "--extend-zsh-plugin-root",
-            "custom=~/.custom",
-            "--zsh-plugin",
-            "*.zsh:ohmyzsh:git,*.sh:prezto:utility",
-            "--extend-zsh-plugin",
-            "extra.zsh:custom:helper",
-            "--zsh-theme",
-            "*.zsh:ohmyzsh:robbyrussell",
-            "--extend-zsh-theme",
-            "extra.zsh:custom:prompt",
-            "--zsh-plugin-entrypoint",
-            "*.zsh:plugins/git/git.plugin.zsh",
-            "--extend-zsh-plugin-entrypoint",
-            "extra.zsh:helpers/extra.plugin.zsh",
-        ]);
 
-        assert_eq!(
-            command.zsh_plugin_resolution.zsh_plugin_root,
-            Some(vec![
-                FrameworkRootPair {
-                    framework: "ohmyzsh".to_owned(),
-                    path: "~/.oh-my-zsh".to_owned(),
-                },
-                FrameworkRootPair {
-                    framework: "prezto".to_owned(),
-                    path: "~/.zprezto".to_owned(),
-                },
-            ])
-        );
-        assert_eq!(
-            command.zsh_plugin_resolution.extend_zsh_plugin_root,
-            vec![FrameworkRootPair {
-                framework: "custom".to_owned(),
-                path: "~/.custom".to_owned(),
-            }]
-        );
-        assert_eq!(
-            command.zsh_plugin_resolution.zsh_plugin,
-            Some(vec![
-                PatternFrameworkNameTriple {
-                    pattern: "*.zsh".to_owned(),
-                    framework: "ohmyzsh".to_owned(),
-                    name: "git".to_owned(),
-                },
-                PatternFrameworkNameTriple {
-                    pattern: "*.sh".to_owned(),
-                    framework: "prezto".to_owned(),
-                    name: "utility".to_owned(),
-                },
-            ])
-        );
-        assert_eq!(
-            command.zsh_plugin_resolution.extend_zsh_plugin,
-            vec![PatternFrameworkNameTriple {
-                pattern: "extra.zsh".to_owned(),
-                framework: "custom".to_owned(),
-                name: "helper".to_owned(),
-            }]
-        );
-        assert_eq!(
-            command.zsh_plugin_resolution.zsh_theme,
-            Some(vec![PatternFrameworkNameTriple {
-                pattern: "*.zsh".to_owned(),
-                framework: "ohmyzsh".to_owned(),
-                name: "robbyrussell".to_owned(),
-            }])
-        );
-        assert_eq!(
-            command.zsh_plugin_resolution.extend_zsh_theme,
-            vec![PatternFrameworkNameTriple {
-                pattern: "extra.zsh".to_owned(),
-                framework: "custom".to_owned(),
-                name: "prompt".to_owned(),
-            }]
-        );
-        assert_eq!(
-            command.zsh_plugin_resolution.zsh_plugin_entrypoint,
-            Some(vec![PatternPathPair {
-                pattern: "*.zsh".to_owned(),
-                path: "plugins/git/git.plugin.zsh".to_owned(),
-            }])
-        );
-        assert_eq!(
-            command.zsh_plugin_resolution.extend_zsh_plugin_entrypoint,
-            vec![PatternPathPair {
-                pattern: "extra.zsh".to_owned(),
-                path: "helpers/extra.plugin.zsh".to_owned(),
-            }]
-        );
-    }
-
-    #[test]
-    fn parses_zsh_plugin_entrypoints_with_windows_absolute_paths() {
-        let command = parse_check([
-            "shuck",
-            "check",
-            "--zsh-plugin-entrypoint",
-            r#"*.zsh:C:\plugins\git\git.plugin.zsh"#,
-            "--extend-zsh-plugin-entrypoint",
-            r#"extra.zsh:D:/helpers/extra.plugin.zsh"#,
-        ]);
-
-        assert_eq!(
-            command.zsh_plugin_resolution.zsh_plugin_entrypoint,
-            Some(vec![PatternPathPair {
-                pattern: "*.zsh".to_owned(),
-                path: r#"C:\plugins\git\git.plugin.zsh"#.to_owned(),
-            }])
-        );
-        assert_eq!(
-            command.zsh_plugin_resolution.extend_zsh_plugin_entrypoint,
-            vec![PatternPathPair {
-                pattern: "extra.zsh".to_owned(),
-                path: "D:/helpers/extra.plugin.zsh".to_owned(),
-            }]
-        );
-    }
 
     #[test]
     fn check_file_selection_collects_exclude_and_extend_exclude_patterns() {

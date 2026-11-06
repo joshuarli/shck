@@ -310,16 +310,6 @@ impl<'a> Parser<'a> {
         self.word_with_part_buffer(parts, span)
     }
 
-    pub(in crate::parser) fn decode_fragment_word_text(
-        &mut self,
-        s: &str,
-        span: Span,
-        base: Position,
-        source_backed: bool,
-    ) -> Word {
-        self.decode_fragment_word_text_with_escape_mode(s, span, base, source_backed, source_backed)
-    }
-
     pub(in crate::parser) fn decode_fragment_word_text_with_escape_mode(
         &mut self,
         s: &str,

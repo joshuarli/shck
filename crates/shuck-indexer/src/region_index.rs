@@ -4,8 +4,7 @@ use shuck_ast::{
     File, FunctionDef, Heredoc, HeredocBody, HeredocBodyPart, HeredocBodyPartNode,
     ParameterExpansion, ParameterExpansionSyntax, ParameterOp, Pattern, PatternPart,
     PatternPartNode, Redirect, RedirectKind, Stmt, StmtSeq, Subscript, TextRange, TextSize, VarRef,
-    Word, WordPart, WordPartNode, ZshExpansionOperation, ZshExpansionTarget, ZshGlobSegment,
-    ZshParameterExpansion,
+    Word, WordPart, WordPartNode,
 };
 /// A syntactic region that affects source interpretation.
 ///
@@ -503,22 +502,7 @@ impl<'a> RegionCollector<'a> {
                 }
                 self.visit_stmt_with_folding(body, false);
             }
-            Command::AnonymousFunction(function) => {
-                if self.collect_folding_ranges
-                    && let Some(end) = statement_folding_end(&function.body, self._source)
-                {
-                    push_bounded_range(
-                        &mut self.structural_folding_ranges,
-                        function.span.to_range().start(),
-                        end,
-                    );
-                }
-                self.visit_stmt_with_folding(&function.body, false);
-                for argument in &function.args {
-                    self.visit_word(argument);
-                }
-            }
-        }
+}
     }
 
     fn visit_builtin(&mut self, command: &BuiltinCommand) {
@@ -604,17 +588,7 @@ impl<'a> RegionCollector<'a> {
                 }
                 self.visit_stmt_seq(&command.body);
             }
-            CompoundCommand::Repeat(command) => {
-                self.visit_word(&command.count);
-                self.visit_stmt_seq(&command.body);
-            }
-            CompoundCommand::Foreach(command) => {
-                for word in &command.words {
-                    self.visit_word(word);
-                }
-                self.visit_stmt_seq(&command.body);
-            }
-            CompoundCommand::ArithmeticFor(command) => {
+CompoundCommand::ArithmeticFor(command) => {
                 self.push_arithmetic_range(command);
                 for expression in [
                     command.init_ast.as_ref(),
@@ -654,11 +628,7 @@ impl<'a> RegionCollector<'a> {
             CompoundCommand::Subshell(commands) | CompoundCommand::BraceGroup(commands) => {
                 self.visit_stmt_seq(commands);
             }
-            CompoundCommand::Always(command) => {
-                self.visit_stmt_seq(&command.body);
-                self.visit_stmt_seq(&command.always_body);
-            }
-            CompoundCommand::Arithmetic(command) => {
+CompoundCommand::Arithmetic(command) => {
                 push_range(&mut self.arithmetic, command.span.to_range());
                 if let Some(expression) = command.expr_ast.as_ref() {
                     self.visit_arithmetic_shell_words(expression);
@@ -852,10 +822,7 @@ impl<'a> RegionCollector<'a> {
             ParameterExpansionSyntax::Bourne(syntax) => {
                 self.visit_bourne_parameter_expansion(syntax);
             }
-            ParameterExpansionSyntax::Zsh(syntax) => {
-                self.visit_zsh_parameter_expansion(syntax);
-            }
-        }
+}
     }
 
     fn visit_bourne_parameter_expansion(&mut self, syntax: &BourneParameterExpansion) {
@@ -944,42 +911,7 @@ impl<'a> RegionCollector<'a> {
         }
     }
 
-    fn visit_zsh_parameter_expansion(&mut self, syntax: &ZshParameterExpansion) {
-        match &syntax.target {
-            ZshExpansionTarget::Reference(reference) => self.visit_var_ref_subscript(reference),
-            ZshExpansionTarget::Nested(parameter) => self.visit_parameter_expansion(parameter),
-            ZshExpansionTarget::Word(word) => self.visit_word(word),
-            ZshExpansionTarget::Empty => {}
-        }
 
-        for modifier in &syntax.modifiers {
-            if let Some(word) = modifier.argument_word_ast() {
-                self.visit_word(word);
-            }
-        }
-
-        if let Some(operation) = syntax.operation.as_ref() {
-            self.visit_zsh_expansion_operation(operation);
-        }
-    }
-
-    fn visit_zsh_expansion_operation(&mut self, operation: &ZshExpansionOperation) {
-        if let Some(word) = operation.operand_word_ast() {
-            self.visit_word(word);
-        }
-        if let Some(word) = operation.pattern_word_ast() {
-            self.visit_word(word);
-        }
-        if let Some(word) = operation.replacement_word_ast() {
-            self.visit_word(word);
-        }
-        if let Some(word) = operation.offset_word_ast() {
-            self.visit_word(word);
-        }
-        if let Some(word) = operation.length_word_ast() {
-            self.visit_word(word);
-        }
-    }
 
     fn visit_arithmetic_operand_word(
         &mut self,
@@ -1026,14 +958,7 @@ impl<'a> RegionCollector<'a> {
             let range = part.span.to_range();
             self.push_selection_range(range);
             match &part.kind {
-                WordPart::ZshQualifiedGlob(glob) => {
-                    for segment in &glob.segments {
-                        if let ZshGlobSegment::Pattern(pattern) = segment {
-                            self.visit_pattern(pattern);
-                        }
-                    }
-                }
-                WordPart::SingleQuoted { .. } => {
+WordPart::SingleQuoted { .. } => {
                     push_range(&mut self.single_quoted, range);
                 }
                 WordPart::DoubleQuoted { parts, .. } => {
@@ -1245,7 +1170,6 @@ fn command_range(command: &Command) -> TextRange {
         Command::Binary(command) => command.span.to_range(),
         Command::Compound(command) => compound_range(command),
         Command::Function(command) => command.span.to_range(),
-        Command::AnonymousFunction(command) => command.span.to_range(),
     }
 }
 
@@ -1262,8 +1186,6 @@ fn compound_range(command: &CompoundCommand) -> TextRange {
     match command {
         CompoundCommand::If(command) => command.span.to_range(),
         CompoundCommand::For(command) => command.span.to_range(),
-        CompoundCommand::Repeat(command) => command.span.to_range(),
-        CompoundCommand::Foreach(command) => command.span.to_range(),
         CompoundCommand::ArithmeticFor(command) => command.span.to_range(),
         CompoundCommand::While(command) => command.span.to_range(),
         CompoundCommand::Until(command) => command.span.to_range(),
@@ -1276,7 +1198,6 @@ fn compound_range(command: &CompoundCommand) -> TextRange {
         CompoundCommand::Time(command) => command.span.to_range(),
         CompoundCommand::Conditional(command) => command.span.to_range(),
         CompoundCommand::Coproc(command) => command.span.to_range(),
-        CompoundCommand::Always(command) => command.span.to_range(),
     }
 }
 
@@ -1300,7 +1221,6 @@ fn statement_folding_end(statement: &Stmt, source: &str) -> Option<TextSize> {
     match &statement.command {
         Command::Compound(command) => compound_folding_end(command, source),
         Command::Function(function) => statement_folding_end(&function.body, source),
-        Command::AnonymousFunction(function) => statement_folding_end(&function.body, source),
         Command::Simple(_) | Command::Builtin(_) | Command::Decl(_) | Command::Binary(_) => {
             Some(statement.span.to_range().end())
         }
@@ -1324,35 +1244,10 @@ fn compound_folding_end(command: &CompoundCommand, source: &str) -> Option<TextS
     match command {
         CompoundCommand::If(command) => Some(match command.syntax {
             shuck_ast::IfSyntax::ThenFi { fi_span, .. } => close_start(fi_span),
-            shuck_ast::IfSyntax::Brace {
-                right_brace_span, ..
-            } => close_start(right_brace_span),
         }),
         CompoundCommand::For(command) => Some(match command.syntax {
-            shuck_ast::ForSyntax::InDoDone { done_span, .. }
-            | shuck_ast::ForSyntax::ParenDoDone { done_span, .. } => close_start(done_span),
-            shuck_ast::ForSyntax::InBrace {
-                right_brace_span, ..
-            }
-            | shuck_ast::ForSyntax::ParenBrace {
-                right_brace_span, ..
-            } => close_start(right_brace_span),
-            shuck_ast::ForSyntax::InDirect { .. } | shuck_ast::ForSyntax::ParenDirect { .. } => {
-                command.span.to_range().end()
-            }
-        }),
-        CompoundCommand::Repeat(command) => Some(match command.syntax {
-            shuck_ast::RepeatSyntax::DoDone { done_span, .. } => close_start(done_span),
-            shuck_ast::RepeatSyntax::Brace {
-                right_brace_span, ..
-            } => close_start(right_brace_span),
-            shuck_ast::RepeatSyntax::Direct => command.span.to_range().end(),
-        }),
-        CompoundCommand::Foreach(command) => Some(match command.syntax {
-            shuck_ast::ForeachSyntax::ParenBrace {
-                right_brace_span, ..
-            } => close_start(right_brace_span),
-            shuck_ast::ForeachSyntax::InDoDone { done_span, .. } => close_start(done_span),
+            shuck_ast::ForSyntax::InDoDone { done_span, .. } => close_start(done_span),
+            shuck_ast::ForSyntax::InDirect { .. } => command.span.to_range().end(),
         }),
         CompoundCommand::ArithmeticFor(command) => command.done_span.map(close_start),
         CompoundCommand::While(command) => command.done_span.map(close_start),
@@ -1367,7 +1262,6 @@ fn compound_folding_end(command: &CompoundCommand, source: &str) -> Option<TextS
             delimiter_before(source, sequence.span.to_range().end(), '}')
                 .unwrap_or_else(|| sequence.span.to_range().end()),
         ),
-        CompoundCommand::Always(command) => Some(command.always_body.span.to_range().end()),
         CompoundCommand::Time(command) => command
             .command
             .as_deref()

@@ -72,14 +72,4 @@ mod tests {
         assert!(diagnostics.is_empty());
     }
 
-    #[test]
-    fn ignores_zsh_scripts() {
-        let source = "#!/bin/zsh\nset path = ( /usr/bin )\n";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::CshSyntaxInSh).with_shell(ShellDialect::Zsh),
-        );
-
-        assert!(diagnostics.is_empty());
-    }
 }

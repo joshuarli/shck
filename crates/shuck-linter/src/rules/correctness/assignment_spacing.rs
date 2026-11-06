@@ -148,23 +148,6 @@ comment='name= value'
     }
 
     #[test]
-    fn reports_zsh_scripts() {
-        let source = "#!/bin/zsh\nfoo= bar\n";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::AssignmentSpacing).with_shell(ShellDialect::Zsh),
-        );
-
-        assert_eq!(
-            diagnostics
-                .iter()
-                .map(|diagnostic| diagnostic.span.slice(source))
-                .collect::<Vec<_>>(),
-            vec![" "]
-        );
-    }
-
-    #[test]
     fn reports_after_comment_apostrophe() {
         let source = "\
 #!/bin/sh

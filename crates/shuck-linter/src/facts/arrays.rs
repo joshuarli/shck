@@ -68,11 +68,7 @@ impl<'a, 'src> PlainUnindexedArrayReferenceContext<'a, 'src> {
                     SelectorRequiredArrayReference::new(reference.id, reference.span),
                 )
             }
-            shuck_semantic::ArrayReferencePolicy::NativeZshScalar => {
-                PlainUnindexedArrayReferenceFact::NativeZshScalar(
-                    NativeZshScalarArrayReference::new(reference.id, reference.span),
-                )
-            }
+
             shuck_semantic::ArrayReferencePolicy::Ambiguous => {
                 PlainUnindexedArrayReferenceFact::Ambiguous(AmbiguousArrayReference::new(
                     reference.id,
@@ -87,38 +83,16 @@ impl<'a, 'src> PlainUnindexedArrayReferenceContext<'a, 'src> {
         reference: &Reference,
         policy: shuck_semantic::ArrayReferencePolicy,
     ) -> bool {
-        if self.facts.source_facts().shell() != ShellDialect::Zsh
-            || matches!(
-                policy,
-                shuck_semantic::ArrayReferencePolicy::RequiresExplicitSelector
-            )
-        {
-            return false;
-        }
-
-        self.facts.words().word_facts().any(|word| {
-            self.facts.words().is_compound_assignment_value_word(word)
-                && self
-                    .semantic
-                    .references_in_command_span(
-                        self.facts.command_facts().command(word.command_id()).span(),
-                        word.span(),
-                    )
-                    .any(|direct_reference| direct_reference.id == reference.id)
-        })
+        let _ = (reference, policy);
+        false
     }
 
     fn array_reference_policy(
         &self,
         reference: &Reference,
     ) -> shuck_semantic::ArrayReferencePolicy {
-        if self.facts.source_facts().shell() != ShellDialect::Zsh {
-            return shuck_semantic::ArrayReferencePolicy::RequiresExplicitSelector;
-        }
-
-        self.semantic
-            .shell_behavior_at(reference.span.start.offset())
-            .array_reference_policy()
+        let _ = reference;
+        shuck_semantic::ArrayReferencePolicy::RequiresExplicitSelector
     }
 
     fn reference_reads_into_same_name_array_writer(&mut self, reference: &Reference) -> bool {
@@ -355,8 +329,7 @@ pub(crate) fn collect_use_replacement_expansion_spans(
             | WordPart::Substring { .. }
             | WordPart::ArraySlice { .. }
             | WordPart::PrefixMatch { .. }
-            | WordPart::Transformation { .. }
-            | WordPart::ZshQualifiedGlob(_) => {}
+            | WordPart::Transformation { .. } => {}
             WordPart::Parameter(parameter) if parameter_uses_replacement_operator(parameter) => {
                 spans.push(part.span);
             }
@@ -597,7 +570,7 @@ pub(crate) fn array_value_has_unquoted_comma(
     semantic: &SemanticModel,
 ) -> bool {
     let allow_zsh_option_map_values =
-        shell == ShellDialect::Zsh && assignment_target_has_assoc_context(assignment, semantic);
+        { let _ = (shell, assignment, semantic); false };
 
     array.elements.iter().any(|element| {
         let value = element.value();

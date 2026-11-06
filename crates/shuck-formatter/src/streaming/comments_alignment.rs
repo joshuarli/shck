@@ -174,8 +174,7 @@ pub(crate) struct CommentAlignmentFacts {
     source_indent_column: usize,
     trailing_target_column: Option<usize>,
     trailing_indent_adjust: usize,
-    close_suffix_target_column: Option<usize>,
-}
+    close_suffix_target_column: Option<usize> }
 
 impl CommentAlignmentFacts {
     pub(crate) fn new(
@@ -200,8 +199,7 @@ impl CommentAlignmentFacts {
                 source_map,
                 comment,
                 source_indent_column,
-            ),
-        }
+            ) }
     }
 
     pub(crate) fn trailing_padding(
@@ -329,8 +327,7 @@ fn aligned_close_suffix_comment_target_column(
 #[derive(Clone, Copy)]
 struct CloseSuffixAlignmentEntry {
     source_indent: usize,
-    code_width: usize,
-}
+    code_width: usize }
 
 fn close_suffix_comment_alignment_entries(
     source: &str,
@@ -383,8 +380,7 @@ fn close_suffix_alignment_entry(
     let (source_indent, _) = leading_indent_and_code_start(prefix)?;
     Some(CloseSuffixAlignmentEntry {
         source_indent,
-        code_width: normalized_comment_alignment_width(code),
-    })
+        code_width: normalized_comment_alignment_width(code) })
 }
 
 fn rendered_close_suffix_source_indent(
@@ -408,8 +404,7 @@ fn leading_indent_and_code_start(text: &str) -> Option<(usize, usize)> {
         match ch {
             ' ' | '\t' => indent_width += 1,
             '\r' => {}
-            _ => return Some((indent_width, index)),
-        }
+            _ => return Some((indent_width, index)) }
     }
     None
 }
@@ -540,8 +535,7 @@ fn leading_tabs_only_indent_width(line: &str) -> usize {
         match ch {
             '\t' => tabs += 1,
             ' ' | '\r' => return 0,
-            _ => break,
-        }
+            _ => break }
     }
     tabs
 }
@@ -603,8 +597,7 @@ fn multiline_header_suffix_keyword(header: &str) -> Option<&'static str> {
     match header.split_whitespace().next()? {
         "if" | "elif" => Some("then"),
         "for" | "select" | "until" | "while" => Some("do"),
-        _ => None,
-    }
+        _ => None }
 }
 
 fn alignment_width_relative_to_current_indent(
@@ -729,8 +722,7 @@ fn list_rhs_to_branch_header_alignment_width(
 #[derive(Clone, Copy, PartialEq, Eq)]
 struct LineIndentInfo {
     width: usize,
-    has_tabs: bool,
-}
+    has_tabs: bool }
 
 fn line_indent_info(source: &str, line_start: usize, line_end: usize) -> LineIndentInfo {
     source
@@ -739,13 +731,11 @@ fn line_indent_info(source: &str, line_start: usize, line_end: usize) -> LineInd
             let indent = line_leading_indent(line);
             LineIndentInfo {
                 width: indent.chars().count(),
-                has_tabs: indent.contains('\t'),
-            }
+                has_tabs: indent.contains('\t') }
         })
         .unwrap_or(LineIndentInfo {
             width: 0,
-            has_tabs: false,
-        })
+            has_tabs: false })
 }
 
 fn line_leading_indent(line: &str) -> &str {

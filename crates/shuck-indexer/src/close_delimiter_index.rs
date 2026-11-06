@@ -1,9 +1,8 @@
 use shuck_ast::{
     ArithmeticExpr, ArithmeticExprNode, ArithmeticLvalue, ArrayElem, Assignment, AssignmentValue,
     BourneParameterExpansion, BuiltinCommand, Command, CompoundCommand, ConditionalExpr,
-    DeclOperand, File, ForSyntax, ForeachSyntax, HeredocBody, HeredocBodyPart, IfSyntax,
-    ParameterExpansion, ParameterExpansionSyntax, Pattern, PatternPart, Redirect, RedirectTarget,
-    RepeatSyntax, Span, Stmt, StmtSeq, TextRange, TextSize, VarRef, Word, WordPart,
+    DeclOperand, File, ForSyntax, HeredocBody, HeredocBodyPart, IfSyntax,
+    ParameterExpansion, ParameterExpansionSyntax, Pattern, PatternPart, Redirect, RedirectTarget, Span, Stmt, StmtSeq, TextRange, TextSize, VarRef, Word, WordPart,
 };
 
 /// The source delimiter that closes a parsed shell compound command.
@@ -171,13 +170,7 @@ impl<'source> CloseDelimiterCollector<'source> {
                 }
                 self.visit_stmt(&function.body);
             }
-            Command::AnonymousFunction(function) => {
-                self.visit_stmt(&function.body);
-                for word in &function.args {
-                    self.visit_word(word);
-                }
-            }
-        }
+}
     }
 
     fn visit_builtin(&mut self, command: &BuiltinCommand) {
@@ -236,16 +229,7 @@ impl<'source> CloseDelimiterCollector<'source> {
                     IfSyntax::ThenFi { fi_span, .. } => {
                         self.push_span(command.span, CloseDelimiterKind::Fi, fi_span);
                     }
-                    IfSyntax::Brace {
-                        right_brace_span, ..
-                    } => {
-                        self.push_span(
-                            command.span,
-                            CloseDelimiterKind::RightBrace,
-                            right_brace_span,
-                        );
-                    }
-                }
+}
                 self.visit_stmt_seq(&command.condition);
                 self.visit_stmt_seq(&command.then_branch);
                 for (condition, branch) in &command.elif_branches {
@@ -258,82 +242,18 @@ impl<'source> CloseDelimiterCollector<'source> {
             }
             CompoundCommand::For(command) => {
                 match command.syntax {
-                    ForSyntax::InDoDone { done_span, .. }
-                    | ForSyntax::ParenDoDone { done_span, .. } => {
+                    ForSyntax::InDoDone { done_span, .. } => {
                         self.push_span(command.span, CloseDelimiterKind::Done, done_span);
                     }
-                    ForSyntax::InBrace {
-                        right_brace_span, ..
-                    }
-                    | ForSyntax::ParenBrace {
-                        right_brace_span, ..
-                    } => {
-                        self.push_span(
-                            command.span,
-                            CloseDelimiterKind::RightBrace,
-                            right_brace_span,
-                        );
-                    }
-                    ForSyntax::InDirect { .. } | ForSyntax::ParenDirect { .. } => {}
+                    ForSyntax::InDirect { .. } => {}
+                }
+                for target in &command.targets {
+                    self.visit_word(&target.word);
                 }
                 if let Some(words) = &command.words {
                     for word in words {
                         self.visit_word(word);
                     }
-                }
-                self.visit_stmt_seq(&command.body);
-            }
-            CompoundCommand::Repeat(command) => {
-                match command.syntax {
-                    RepeatSyntax::DoDone { done_span, .. } => {
-                        self.push_span(command.span, CloseDelimiterKind::Done, done_span);
-                    }
-                    RepeatSyntax::Brace {
-                        right_brace_span, ..
-                    } => {
-                        self.push_span(
-                            command.span,
-                            CloseDelimiterKind::RightBrace,
-                            right_brace_span,
-                        );
-                    }
-                    RepeatSyntax::Direct => {}
-                }
-                self.visit_word(&command.count);
-                self.visit_stmt_seq(&command.body);
-            }
-            CompoundCommand::Foreach(command) => {
-                match command.syntax {
-                    ForeachSyntax::InDoDone { done_span, .. } => {
-                        self.push_span(command.span, CloseDelimiterKind::Done, done_span);
-                    }
-                    ForeachSyntax::ParenBrace {
-                        right_brace_span, ..
-                    } => {
-                        self.push_span(
-                            command.span,
-                            CloseDelimiterKind::RightBrace,
-                            right_brace_span,
-                        );
-                    }
-                }
-                for word in &command.words {
-                    self.visit_word(word);
-                }
-                self.visit_stmt_seq(&command.body);
-            }
-            CompoundCommand::ArithmeticFor(command) => {
-                if let Some(done_span) = command.done_span {
-                    self.push_span(command.span, CloseDelimiterKind::Done, done_span);
-                }
-                if let Some(expr) = &command.init_ast {
-                    self.visit_arithmetic_expr(expr);
-                }
-                if let Some(expr) = &command.condition_ast {
-                    self.visit_arithmetic_expr(expr);
-                }
-                if let Some(expr) = &command.step_ast {
-                    self.visit_arithmetic_expr(expr);
                 }
                 self.visit_stmt_seq(&command.body);
             }
@@ -371,11 +291,7 @@ impl<'source> CloseDelimiterCollector<'source> {
             CompoundCommand::Subshell(sequence) | CompoundCommand::BraceGroup(sequence) => {
                 self.visit_stmt_seq(sequence);
             }
-            CompoundCommand::Always(command) => {
-                self.visit_stmt_seq(&command.body);
-                self.visit_stmt_seq(&command.always_body);
-            }
-            CompoundCommand::Time(command) => {
+CompoundCommand::Time(command) => {
                 if let Some(command) = &command.command {
                     self.visit_stmt(command);
                 }
@@ -388,6 +304,21 @@ impl<'source> CloseDelimiterCollector<'source> {
                 if let Some(expr) = &command.expr_ast {
                     self.visit_arithmetic_expr(expr);
                 }
+            }
+            CompoundCommand::ArithmeticFor(command) => {
+                if let Some(done_span) = command.done_span {
+                    self.push_span(command.span, CloseDelimiterKind::Done, done_span);
+                }
+                if let Some(expr) = &command.init_ast {
+                    self.visit_arithmetic_expr(expr);
+                }
+                if let Some(expr) = &command.condition_ast {
+                    self.visit_arithmetic_expr(expr);
+                }
+                if let Some(expr) = &command.step_ast {
+                    self.visit_arithmetic_expr(expr);
+                }
+                self.visit_stmt_seq(&command.body);
             }
         }
     }
@@ -560,52 +491,14 @@ impl<'source> CloseDelimiterCollector<'source> {
             | WordPart::ArrayAccess(reference)
             | WordPart::ArrayLength(reference)
             | WordPart::ArrayIndices(reference) => self.visit_var_ref(reference),
-            WordPart::Variable(_)
-            | WordPart::Literal(_)
-            | WordPart::ZshQualifiedGlob(_)
-            | WordPart::SingleQuoted { .. }
-            | WordPart::PrefixMatch { .. } => {}
+            _ => {}
         }
     }
 
     fn visit_parameter(&mut self, parameter: &ParameterExpansion) {
         match &parameter.syntax {
             ParameterExpansionSyntax::Bourne(syntax) => self.visit_bourne_parameter(syntax),
-            ParameterExpansionSyntax::Zsh(syntax) => {
-                match &syntax.target {
-                    shuck_ast::ZshExpansionTarget::Reference(reference) => {
-                        self.visit_var_ref(reference);
-                    }
-                    shuck_ast::ZshExpansionTarget::Nested(parameter) => {
-                        self.visit_parameter(parameter);
-                    }
-                    shuck_ast::ZshExpansionTarget::Word(word) => self.visit_word(word),
-                    shuck_ast::ZshExpansionTarget::Empty => {}
-                }
-                for modifier in &syntax.modifiers {
-                    if let Some(word) = modifier.argument_word_ast() {
-                        self.visit_word(word);
-                    }
-                }
-                if let Some(operation) = &syntax.operation {
-                    if let Some(word) = operation.operand_word_ast() {
-                        self.visit_word(word);
-                    }
-                    if let Some(word) = operation.pattern_word_ast() {
-                        self.visit_word(word);
-                    }
-                    if let Some(word) = operation.replacement_word_ast() {
-                        self.visit_word(word);
-                    }
-                    if let Some(word) = operation.offset_word_ast() {
-                        self.visit_word(word);
-                    }
-                    if let Some(word) = operation.length_word_ast() {
-                        self.visit_word(word);
-                    }
-                }
-            }
-        }
+}
     }
 
     fn visit_bourne_parameter(&mut self, syntax: &BourneParameterExpansion) {

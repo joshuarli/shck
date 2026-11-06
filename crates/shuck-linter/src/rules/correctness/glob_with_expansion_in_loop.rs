@@ -118,48 +118,6 @@ for i in $DIR/setjmp-aarch64/{setjmp.S,private-*.h}; do :; done
     }
 
     #[test]
-    fn reports_zsh_glob_qualifier_words_with_unquoted_expansion_prefixes() {
-        let source = "\
-#!/bin/zsh
-for m in ${plugin_dir}/*.zwc(.N); do :; done
-for snip ( ${ZINIT[SNIPPETS_DIR]}/**/(._zinit|._zplugin)/mode(D) ) { :; }
-for repo in ${ZINIT[PLUGINS_DIR]}/*; do :; done
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::GlobWithExpansionInLoop).with_shell(ShellDialect::Zsh),
-        );
-
-        assert_eq!(
-            diagnostics
-                .iter()
-                .map(|diagnostic| diagnostic.span.slice(source))
-                .collect::<Vec<_>>(),
-            vec![
-                "${plugin_dir}",
-                "${ZINIT[SNIPPETS_DIR]}",
-                "${ZINIT[PLUGINS_DIR]}",
-            ]
-        );
-    }
-
-    #[test]
-    fn ignores_quoted_zsh_glob_qualifier_prefixes() {
-        let source = "\
-#!/bin/zsh
-for m in \"${plugin_dir}\"/*.zwc(.N); do :; done
-for snip ( \"${ZINIT[SNIPPETS_DIR]}\"/**/(._zinit|._zplugin)/mode(D) ) { :; }
-for repo in \"${ZINIT[PLUGINS_DIR]}\"/*; do :; done
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::GlobWithExpansionInLoop).with_shell(ShellDialect::Zsh),
-        );
-
-        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
-    }
-
-    #[test]
     fn applies_unsafe_fix_to_unquoted_expansion_prefixes() {
         let source = "\
 #!/bin/sh

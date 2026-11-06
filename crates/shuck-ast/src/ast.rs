@@ -238,8 +238,6 @@ pub enum StmtTerminator {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BackgroundOperator {
     Plain,
-    Pipe,
-    Bang,
 }
 
 /// A single shell statement together with statement-local syntax.
@@ -284,9 +282,6 @@ pub enum Command {
 
     /// A function definition
     Function(FunctionDef),
-
-    /// An anonymous zsh function command such as `function { ... }` or `() ...`.
-    AnonymousFunction(AnonymousFunctionCommand),
 }
 
 /// A simple command with arguments.
@@ -522,10 +517,6 @@ pub enum CompoundCommand {
     If(Box<IfCommand>),
     /// For loop
     For(Box<ForCommand>),
-    /// Zsh repeat loop
-    Repeat(Box<RepeatCommand>),
-    /// Zsh foreach loop
-    Foreach(Box<ForeachCommand>),
     /// C-style for loop: for ((init; cond; step))
     ArithmeticFor(Box<ArithmeticForCommand>),
     /// While loop
@@ -548,8 +539,6 @@ pub enum CompoundCommand {
     Conditional(Box<ConditionalCommand>),
     /// Coprocess: `coproc [NAME] command`
     Coproc(Box<CoprocCommand>),
-    /// Zsh always/finally-style cleanup block.
-    Always(Box<AlwaysCommand>),
 }
 
 /// Coprocess command - runs a command with bidirectional communication.
@@ -570,18 +559,6 @@ pub struct CoprocCommand {
 }
 
 /// Zsh `always` command - run `always_body` after `body`.
-#[derive(Debug, Clone)]
-pub struct AlwaysCommand {
-    pub body: StmtSeq,
-    pub always_body: StmtSeq,
-    pub span: Span,
-}
-
-/// Time command - wraps a command and measures its execution time.
-///
-/// Note: Shuck only supports wall-clock time measurement.
-/// User/system CPU time is not tracked (always reported as 0).
-/// This is a known incompatibility with bash.
 #[derive(Debug, Clone)]
 pub struct TimeCommand {
     /// Use POSIX output format (-p flag)
@@ -801,10 +778,6 @@ pub enum IfSyntax {
         then_span: Span,
         fi_span: Span,
     },
-    Brace {
-        left_brace_span: Span,
-        right_brace_span: Span,
-    },
 }
 
 /// For loop.
@@ -839,82 +812,9 @@ pub enum ForSyntax {
     InDirect {
         in_span: Option<Span>,
     },
-    InBrace {
-        in_span: Option<Span>,
-        left_brace_span: Span,
-        right_brace_span: Span,
-    },
-    ParenDoDone {
-        left_paren_span: Span,
-        right_paren_span: Span,
-        do_span: Span,
-        done_span: Span,
-    },
-    ParenDirect {
-        left_paren_span: Span,
-        right_paren_span: Span,
-    },
-    ParenBrace {
-        left_paren_span: Span,
-        right_paren_span: Span,
-        left_brace_span: Span,
-        right_brace_span: Span,
-    },
 }
 
 /// Zsh repeat loop.
-#[derive(Debug, Clone)]
-pub struct RepeatCommand {
-    pub count: Word,
-    pub body: StmtSeq,
-    pub syntax: RepeatSyntax,
-    /// Source span of this command
-    pub span: Span,
-}
-
-/// Surface syntax preserved for a `repeat` command.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RepeatSyntax {
-    DoDone {
-        do_span: Span,
-        done_span: Span,
-    },
-    Direct,
-    Brace {
-        left_brace_span: Span,
-        right_brace_span: Span,
-    },
-}
-
-/// Zsh foreach loop.
-#[derive(Debug, Clone)]
-pub struct ForeachCommand {
-    pub variable: Name,
-    pub variable_span: Span,
-    pub words: Vec<Word>,
-    pub body: StmtSeq,
-    pub syntax: ForeachSyntax,
-    /// Source span of this command
-    pub span: Span,
-}
-
-/// Surface syntax preserved for a `foreach` command.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ForeachSyntax {
-    ParenBrace {
-        left_paren_span: Span,
-        right_paren_span: Span,
-        left_brace_span: Span,
-        right_brace_span: Span,
-    },
-    InDoDone {
-        in_span: Span,
-        do_span: Span,
-        done_span: Span,
-    },
-}
-
-/// Select loop.
 #[derive(Debug, Clone)]
 pub struct SelectCommand {
     pub variable: Name,
@@ -1123,8 +1023,6 @@ pub enum CaseTerminator {
     FallThrough,
     /// `;;&` — continue checking remaining patterns
     Continue,
-    /// `;|` — continue scanning remaining patterns in zsh
-    ContinueMatching,
 }
 
 /// A single case item.
@@ -1219,34 +1117,6 @@ impl FunctionDef {
     }
 }
 
-/// Preserved surface for an anonymous zsh function command.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AnonymousFunctionSurface {
-    FunctionKeyword { function_keyword_span: Span },
-    Parens { parens_span: Span },
-}
-
-impl AnonymousFunctionSurface {
-    pub fn uses_function_keyword(&self) -> bool {
-        matches!(self, Self::FunctionKeyword { .. })
-    }
-}
-
-/// Anonymous zsh function command.
-#[derive(Debug, Clone)]
-pub struct AnonymousFunctionCommand {
-    pub surface: AnonymousFunctionSurface,
-    pub body: Box<Stmt>,
-    pub args: Vec<Word>,
-    pub span: Span,
-}
-
-impl AnonymousFunctionCommand {
-    pub fn uses_function_keyword(&self) -> bool {
-        self.surface.uses_function_keyword()
-    }
-}
-
 fn merge_non_empty_span(current: Span, next: Span) -> Span {
     match (current == Span::new(), next == Span::new()) {
         (true, _) => next,
@@ -1297,7 +1167,6 @@ impl ParameterExpansion {
     pub fn bourne(&self) -> Option<&BourneParameterExpansion> {
         match &self.syntax {
             ParameterExpansionSyntax::Bourne(syntax) => Some(syntax),
-            ParameterExpansionSyntax::Zsh(_) => None,
         }
     }
 }
@@ -1306,7 +1175,6 @@ impl ParameterExpansion {
 #[allow(clippy::large_enum_variant)]
 pub enum ParameterExpansionSyntax {
     Bourne(BourneParameterExpansion),
-    Zsh(ZshParameterExpansion),
 }
 
 #[derive(Debug, Clone)]
@@ -1403,238 +1271,6 @@ impl BourneParameterExpansion {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct ZshParameterExpansion {
-    pub target: ZshExpansionTarget,
-    pub modifiers: Vec<ZshModifier>,
-    pub length_prefix: Option<Span>,
-    pub operation: Option<ZshExpansionOperation>,
-}
-
-#[derive(Debug, Clone)]
-#[allow(clippy::large_enum_variant)]
-pub enum ZshExpansionTarget {
-    Reference(VarRef),
-    Nested(Box<ParameterExpansion>),
-    Word(Box<Word>),
-    Empty,
-}
-
-#[derive(Debug, Clone)]
-pub struct ZshModifier {
-    pub name: char,
-    pub argument: Option<SourceText>,
-    pub argument_word_ast: Option<Box<Word>>,
-    pub argument_delimiter: Option<char>,
-    pub span: Span,
-}
-
-impl ZshModifier {
-    pub fn argument_word_ast(&self) -> Option<&Word> {
-        self.argument_word_ast.as_deref()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum ZshExpansionOperation {
-    PatternOperation {
-        kind: ZshPatternOp,
-        operand: SourceText,
-        operand_word_ast: Box<Word>,
-    },
-    Defaulting {
-        kind: ZshDefaultingOp,
-        operand: SourceText,
-        operand_word_ast: Box<Word>,
-        colon_variant: bool,
-    },
-    TrimOperation {
-        kind: ZshTrimOp,
-        operand: SourceText,
-        operand_word_ast: Box<Word>,
-    },
-    ReplacementOperation {
-        kind: ZshReplacementOp,
-        pattern: SourceText,
-        pattern_word_ast: Box<Word>,
-        replacement: Option<SourceText>,
-        replacement_word_ast: Option<Box<Word>>,
-    },
-    Slice {
-        offset: SourceText,
-        offset_word_ast: Box<Word>,
-        length: Option<SourceText>,
-        length_word_ast: Option<Box<Word>>,
-    },
-    Unknown {
-        text: SourceText,
-        word_ast: Box<Word>,
-    },
-}
-
-impl ZshExpansionOperation {
-    pub fn operand_word_ast(&self) -> Option<&Word> {
-        match self {
-            Self::PatternOperation {
-                operand_word_ast, ..
-            }
-            | Self::Defaulting {
-                operand_word_ast, ..
-            }
-            | Self::TrimOperation {
-                operand_word_ast, ..
-            } => Some(operand_word_ast),
-            Self::ReplacementOperation { .. } | Self::Slice { .. } => None,
-            Self::Unknown { word_ast, .. } => Some(word_ast),
-        }
-    }
-
-    pub fn pattern_word_ast(&self) -> Option<&Word> {
-        match self {
-            Self::ReplacementOperation {
-                pattern_word_ast, ..
-            } => Some(pattern_word_ast),
-            Self::PatternOperation { .. }
-            | Self::Defaulting { .. }
-            | Self::TrimOperation { .. }
-            | Self::Slice { .. }
-            | Self::Unknown { .. } => None,
-        }
-    }
-
-    pub fn replacement_word_ast(&self) -> Option<&Word> {
-        match self {
-            Self::ReplacementOperation {
-                replacement_word_ast,
-                ..
-            } => replacement_word_ast.as_deref(),
-            Self::PatternOperation { .. }
-            | Self::Defaulting { .. }
-            | Self::TrimOperation { .. }
-            | Self::Slice { .. }
-            | Self::Unknown { .. } => None,
-        }
-    }
-
-    pub fn offset_word_ast(&self) -> Option<&Word> {
-        match self {
-            Self::Slice {
-                offset_word_ast, ..
-            } => Some(offset_word_ast),
-            Self::PatternOperation { .. }
-            | Self::Defaulting { .. }
-            | Self::TrimOperation { .. }
-            | Self::ReplacementOperation { .. }
-            | Self::Unknown { .. } => None,
-        }
-    }
-
-    pub fn length_word_ast(&self) -> Option<&Word> {
-        match self {
-            Self::Slice {
-                length_word_ast, ..
-            } => length_word_ast.as_deref(),
-            Self::PatternOperation { .. }
-            | Self::Defaulting { .. }
-            | Self::TrimOperation { .. }
-            | Self::ReplacementOperation { .. }
-            | Self::Unknown { .. } => None,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ZshPatternOp {
-    Filter,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ZshDefaultingOp {
-    UseDefault,
-    AssignDefault,
-    UseReplacement,
-    Error,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ZshTrimOp {
-    RemovePrefixShort,
-    RemovePrefixLong,
-    RemoveSuffixShort,
-    RemoveSuffixLong,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ZshReplacementOp {
-    ReplaceFirst,
-    ReplaceAll,
-    ReplacePrefix,
-    ReplaceSuffix,
-}
-
-/// A zsh glob word with ordered pattern/control segments and an optional
-/// terminal qualifier suffix.
-#[derive(Debug, Clone)]
-pub struct ZshQualifiedGlob {
-    pub span: Span,
-    pub segments: Vec<ZshGlobSegment>,
-    pub qualifiers: Option<ZshGlobQualifierGroup>,
-}
-
-/// Ordered surface-preserving segments inside a zsh glob word.
-#[derive(Debug, Clone)]
-pub enum ZshGlobSegment {
-    Pattern(Pattern),
-    InlineControl(ZshInlineGlobControl),
-}
-
-/// Supported inline zsh glob control groups for this parser pass.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ZshInlineGlobControl {
-    CaseInsensitive { span: Span },
-    Backreferences { span: Span },
-    StartAnchor { span: Span },
-    EndAnchor { span: Span },
-}
-
-/// Surface form for a terminal zsh glob qualifier suffix.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ZshGlobQualifierKind {
-    Classic,
-    HashQ,
-}
-
-/// One terminal zsh qualifier suffix for a glob word.
-#[derive(Debug, Clone)]
-pub struct ZshGlobQualifierGroup {
-    pub span: Span,
-    pub kind: ZshGlobQualifierKind,
-    pub fragments: Vec<ZshGlobQualifier>,
-}
-
-/// Lightweight, surface-preserving fragments inside a trailing zsh glob
-/// qualifier group.
-#[derive(Debug, Clone)]
-pub enum ZshGlobQualifier {
-    Negation {
-        span: Span,
-    },
-    Flag {
-        name: char,
-        span: Span,
-    },
-    LetterSequence {
-        text: SourceText,
-        span: Span,
-    },
-    NumericArgument {
-        span: Span,
-        start: SourceText,
-        end: Option<SourceText>,
-    },
-}
-
-/// Brace expansion surface form recognized inside a word.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BraceExpansionKind {
     CommaList,
@@ -2281,7 +1917,6 @@ fn word_part_is_plain_parameter_reference_span(part: &WordPartNode, span: Span) 
             word_parts_contain_plain_parameter_reference_span(parts, span)
         }
         WordPart::Literal(_)
-        | WordPart::ZshQualifiedGlob(_)
         | WordPart::SingleQuoted { .. }
         | WordPart::Variable(_)
         | WordPart::CommandSubstitution { .. }
@@ -2308,7 +1943,6 @@ fn word_part_is_plain_parameter_reference(part: &WordPart) -> bool {
             parameter_expansion_is_plain_parameter_reference(parameter)
         }
         WordPart::Literal(_)
-        | WordPart::ZshQualifiedGlob(_)
         | WordPart::SingleQuoted { .. }
         | WordPart::DoubleQuoted { .. }
         | WordPart::CommandSubstitution { .. }
@@ -2332,15 +1966,6 @@ fn parameter_expansion_is_plain_parameter_reference(parameter: &ParameterExpansi
         ParameterExpansionSyntax::Bourne(BourneParameterExpansion::Access { reference }) => {
             reference.subscript.is_none()
         }
-        ParameterExpansionSyntax::Zsh(syntax) => {
-            syntax.length_prefix.is_none()
-                && syntax.modifiers.is_empty()
-                && syntax.operation.is_none()
-                && matches!(
-                    &syntax.target,
-                    ZshExpansionTarget::Reference(reference) if reference.subscript.is_none()
-                )
-        }
         ParameterExpansionSyntax::Bourne(
             BourneParameterExpansion::Length { .. }
             | BourneParameterExpansion::Indices { .. }
@@ -2351,85 +1976,6 @@ fn parameter_expansion_is_plain_parameter_reference(parameter: &ParameterExpansi
             | BourneParameterExpansion::Transformation { .. },
         ) => false,
     }
-}
-
-/// Returns whether a zsh parameter expansion explicitly enables pattern expansion.
-pub fn parameter_expansion_forces_zsh_globbing(parameter: &ParameterExpansion) -> bool {
-    matches!(
-        &parameter.syntax,
-        ParameterExpansionSyntax::Zsh(syntax)
-            if syntax.modifiers.iter().filter(|modifier| modifier.name == '~').count() % 2 == 1
-    )
-}
-
-/// Returns whether the word is exactly one zsh `${~...}`-style expansion.
-pub fn word_is_standalone_zsh_force_glob_parameter(word: &Word) -> bool {
-    matches!(
-        word.parts.as_slice(),
-        [part]
-            if matches!(
-                &part.kind,
-                WordPart::Parameter(parameter)
-                    if parameter_expansion_forces_zsh_globbing(parameter)
-            )
-    )
-}
-
-/// Returns whether `span` points at a zsh `${~...}`-style expansion inside `word`.
-pub fn word_span_is_zsh_force_glob_parameter(word: &Word, span: Span) -> bool {
-    word_parts_contain_zsh_force_glob_span(&word.parts, span)
-}
-
-fn word_parts_contain_zsh_force_glob_span(parts: &[WordPartNode], span: Span) -> bool {
-    parts.iter().any(|part| match &part.kind {
-        WordPart::Parameter(parameter) => {
-            part.span == span && parameter_expansion_forces_zsh_globbing(parameter)
-        }
-        WordPart::DoubleQuoted { parts, .. } => word_parts_contain_zsh_force_glob_span(parts, span),
-        _ => false,
-    })
-}
-
-/// Returns whether `span` points at a zsh `${+name}` presence-test expansion.
-pub fn word_span_is_zsh_presence_test(word: &Word, span: Span) -> bool {
-    word_parts_contain_zsh_presence_test_span(&word.parts, span)
-}
-
-fn word_parts_contain_zsh_presence_test_span(parts: &[WordPartNode], span: Span) -> bool {
-    parts.iter().any(|part| match &part.kind {
-        WordPart::Parameter(parameter) => {
-            part.span == span && parameter_expansion_is_zsh_presence_test(parameter)
-        }
-        WordPart::DoubleQuoted { parts, .. } => {
-            word_parts_contain_zsh_presence_test_span(parts, span)
-        }
-        _ => false,
-    })
-}
-
-fn parameter_expansion_is_zsh_presence_test(parameter: &ParameterExpansion) -> bool {
-    matches!(
-        &parameter.syntax,
-        ParameterExpansionSyntax::Zsh(syntax)
-            if syntax.length_prefix.is_none()
-                && syntax.modifiers.is_empty()
-                && syntax.operation.is_none()
-                && matches!(
-                    &syntax.target,
-                    ZshExpansionTarget::Reference(reference)
-                        if reference
-                            .name
-                            .as_str()
-                            .strip_prefix('+')
-                            .is_some_and(is_zsh_presence_target_name)
-                )
-    )
-}
-
-fn is_zsh_presence_target_name(name: &str) -> bool {
-    is_shell_variable_name(name)
-        || name.bytes().all(|byte| byte.is_ascii_digit())
-        || matches!(name, "#" | "$" | "!" | "*" | "@" | "?" | "-")
 }
 
 /// Returns whether the word captures only the previous command status.
@@ -2806,8 +2352,6 @@ fn fmt_var_ref_with_source(
 pub enum WordPart {
     /// Literal text
     Literal(LiteralText),
-    /// Zsh glob with one classic trailing qualifier group such as `*(.)`.
-    ZshQualifiedGlob(Box<ZshQualifiedGlob>),
     /// Single-quoted literal content, including `$'...'` ANSI-C quoting.
     SingleQuoted { value: SourceText, dollar: bool },
     /// Double-quoted content with nested expansions.
@@ -3109,21 +2653,6 @@ fn fmt_word_part_with_source_mode(
             }
             _ => fmt_literal_text(f, text, span, source)?,
         },
-        WordPart::ZshQualifiedGlob(glob) => {
-            if let Some(source) = source
-                && zsh_qualified_glob_is_source_backed(glob)
-                && glob.span.end.offset() <= source.len()
-            {
-                f.write_str(trim_unescaped_trailing_whitespace(glob.span.slice(source)))?;
-            } else {
-                for segment in &glob.segments {
-                    fmt_zsh_glob_segment_with_source(f, segment, source)?;
-                }
-                if let Some(qualifiers) = &glob.qualifiers {
-                    fmt_zsh_glob_qualifier_group_with_source(f, qualifiers, source)?;
-                }
-            }
-        }
         WordPart::SingleQuoted { value, dollar } => match mode {
             RenderMode::Decoded => f.write_str(display_source_text(Some(value), source))?,
             RenderMode::Syntax => match source {
@@ -3328,7 +2857,7 @@ fn fmt_word_part_with_source_mode(
             ParameterOp::LowerAll => {
                 write!(f, "${{")?;
                 fmt_var_ref_with_source(f, reference, source)?;
-                f.write_str(",,}")?;
+                f.write_str(",}")?;
             }
         },
         WordPart::Length(reference) => {
@@ -3496,7 +3025,6 @@ fn part_prefers_source_slice_in_syntax(part: &WordPart) -> bool {
     matches!(
         part,
         WordPart::Variable(_)
-            | WordPart::ZshQualifiedGlob(_)
             | WordPart::CommandSubstitution { .. }
             | WordPart::ArithmeticExpansion { .. }
             | WordPart::Parameter(_)
@@ -3542,7 +3070,6 @@ fn trim_unescaped_trailing_whitespace(text: &str) -> &str {
 fn part_is_source_backed(part: &WordPart) -> bool {
     match part {
         WordPart::Literal(text) => text.is_source_backed(),
-        WordPart::ZshQualifiedGlob(glob) => zsh_qualified_glob_is_source_backed(glob),
         WordPart::SingleQuoted { value, .. } => value.is_source_backed(),
         WordPart::DoubleQuoted { parts, .. } => {
             parts.iter().all(|part| part_is_source_backed(&part.kind))
@@ -3613,99 +3140,13 @@ fn pattern_part_is_source_backed(part: &PatternPart) -> bool {
     }
 }
 
-fn zsh_qualified_glob_is_source_backed(glob: &ZshQualifiedGlob) -> bool {
-    glob.segments.iter().all(zsh_glob_segment_is_source_backed)
-        && glob
-            .qualifiers
-            .as_ref()
-            .is_none_or(zsh_glob_qualifier_group_is_source_backed)
-}
 
-fn zsh_glob_segment_is_source_backed(segment: &ZshGlobSegment) -> bool {
-    match segment {
-        ZshGlobSegment::Pattern(pattern) => pattern.is_source_backed(),
-        ZshGlobSegment::InlineControl(control) => zsh_inline_glob_control_is_source_backed(control),
-    }
-}
 
-fn zsh_inline_glob_control_is_source_backed(_control: &ZshInlineGlobControl) -> bool {
-    true
-}
 
-fn fmt_zsh_glob_segment_with_source(
-    f: &mut impl fmt::Write,
-    segment: &ZshGlobSegment,
-    source: Option<&str>,
-) -> fmt::Result {
-    match segment {
-        ZshGlobSegment::Pattern(pattern) => {
-            pattern.fmt_with_source_mode(f, source, RenderMode::Syntax)
-        }
-        ZshGlobSegment::InlineControl(control) => {
-            fmt_zsh_inline_glob_control_with_source(f, control, source)
-        }
-    }
-}
 
-fn fmt_zsh_inline_glob_control_with_source(
-    f: &mut impl fmt::Write,
-    control: &ZshInlineGlobControl,
-    _source: Option<&str>,
-) -> fmt::Result {
-    match control {
-        ZshInlineGlobControl::CaseInsensitive { .. } => f.write_str("(#i)"),
-        ZshInlineGlobControl::Backreferences { .. } => f.write_str("(#b)"),
-        ZshInlineGlobControl::StartAnchor { .. } => f.write_str("(#s)"),
-        ZshInlineGlobControl::EndAnchor { .. } => f.write_str("(#e)"),
-    }
-}
 
-fn zsh_glob_qualifier_group_is_source_backed(group: &ZshGlobQualifierGroup) -> bool {
-    group
-        .fragments
-        .iter()
-        .all(zsh_glob_qualifier_is_source_backed)
-}
 
-fn zsh_glob_qualifier_is_source_backed(fragment: &ZshGlobQualifier) -> bool {
-    match fragment {
-        ZshGlobQualifier::Negation { .. } | ZshGlobQualifier::Flag { .. } => true,
-        ZshGlobQualifier::LetterSequence { text, .. } => text.is_source_backed(),
-        ZshGlobQualifier::NumericArgument { start, end, .. } => {
-            start.is_source_backed() && end.as_ref().is_none_or(SourceText::is_source_backed)
-        }
-    }
-}
 
-fn fmt_zsh_glob_qualifier_group_with_source(
-    f: &mut impl fmt::Write,
-    group: &ZshGlobQualifierGroup,
-    source: Option<&str>,
-) -> fmt::Result {
-    match group.kind {
-        ZshGlobQualifierKind::Classic => f.write_str("(")?,
-        ZshGlobQualifierKind::HashQ => f.write_str("(#q")?,
-    }
-    for fragment in &group.fragments {
-        match fragment {
-            ZshGlobQualifier::Negation { .. } => f.write_str("^")?,
-            ZshGlobQualifier::Flag { name, .. } => write!(f, "{name}")?,
-            ZshGlobQualifier::LetterSequence { text, .. } => {
-                f.write_str(display_source_text(Some(text), source))?;
-            }
-            ZshGlobQualifier::NumericArgument { start, end, .. } => {
-                f.write_str("[")?;
-                f.write_str(display_source_text(Some(start), source))?;
-                if let Some(end) = end {
-                    f.write_str(",")?;
-                    f.write_str(display_source_text(Some(end), source))?;
-                }
-                f.write_str("]")?;
-            }
-        }
-    }
-    f.write_str(")")
-}
 
 fn operator_is_source_backed(operator: &ParameterOp) -> bool {
     match operator {
@@ -3764,7 +3205,7 @@ pub enum ParameterOp {
     UpperAll,
     /// , lowercase first char
     LowerFirst,
-    /// ,, lowercase all chars
+    /// , lowercase all chars
     LowerAll,
 }
 
@@ -3949,28 +3390,6 @@ mod tests {
         }
     }
 
-    fn zsh_parameter_with_modifiers(modifiers: &[char], span: Span) -> ParameterExpansion {
-        ParameterExpansion {
-            syntax: ParameterExpansionSyntax::Zsh(ZshParameterExpansion {
-                target: ZshExpansionTarget::Reference(plain_ref("name")),
-                modifiers: modifiers
-                    .iter()
-                    .copied()
-                    .map(|name| ZshModifier {
-                        name,
-                        argument: None,
-                        argument_word_ast: None,
-                        argument_delimiter: None,
-                        span,
-                    })
-                    .collect(),
-                length_prefix: None,
-                operation: None,
-            }),
-            span,
-            raw_body: "name".into(),
-        }
-    }
 
     fn indexed_ref(name: &str, index: &str) -> VarRef {
         let span = Span::new();
@@ -4183,75 +3602,8 @@ mod tests {
         ])));
     }
 
-    #[test]
-    fn zsh_force_glob_helpers_match_odd_tilde_modifiers_only() {
-        let span = Span::new();
-        let single_tilde = zsh_parameter_with_modifiers(&['~'], span);
-        let double_tilde = zsh_parameter_with_modifiers(&['~', '~'], span);
-        let split_then_tilde = zsh_parameter_with_modifiers(&['=', '~'], span);
-        let no_tilde = zsh_parameter_with_modifiers(&['='], span);
-        let bourne = ParameterExpansion {
-            syntax: ParameterExpansionSyntax::Bourne(BourneParameterExpansion::Access {
-                reference: plain_ref("name"),
-            }),
-            span,
-            raw_body: "name".into(),
-        };
 
-        assert!(parameter_expansion_forces_zsh_globbing(&single_tilde));
-        assert!(!parameter_expansion_forces_zsh_globbing(&double_tilde));
-        assert!(parameter_expansion_forces_zsh_globbing(&split_then_tilde));
-        assert!(!parameter_expansion_forces_zsh_globbing(&no_tilde));
-        assert!(!parameter_expansion_forces_zsh_globbing(&bourne));
-    }
 
-    #[test]
-    fn standalone_zsh_force_glob_helper_rejects_affixed_and_nested_words() {
-        let span = Span::new();
-        let forced = WordPart::Parameter(Box::new(zsh_parameter_with_modifiers(&['~'], span)));
-
-        assert!(word_is_standalone_zsh_force_glob_parameter(&word(vec![
-            forced.clone()
-        ])));
-        assert!(!word_is_standalone_zsh_force_glob_parameter(&word(vec![
-            WordPart::Literal(LiteralText::owned("prefix")),
-            forced.clone(),
-        ])));
-        assert!(!word_is_standalone_zsh_force_glob_parameter(&word(vec![
-            WordPart::DoubleQuoted {
-                parts: vec![WordPartNode::new(forced, span)],
-                dollar: false,
-            }
-        ])));
-    }
-
-    #[test]
-    fn zsh_force_glob_span_helper_finds_nested_expansion_spans() {
-        let outer_span = Span::from_positions(Position::at(1, 1, 0), Position::at(1, 22, 21));
-        let forced_span = Span::from_positions(Position::at(1, 10, 9), Position::at(1, 19, 18));
-        let other_span = Span::from_positions(Position::at(1, 20, 19), Position::at(1, 21, 20));
-        let word = Word {
-            parts: vec![WordPartNode::new(
-                WordPart::DoubleQuoted {
-                    parts: vec![WordPartNode::new(
-                        WordPart::Parameter(Box::new(zsh_parameter_with_modifiers(
-                            &['~'],
-                            forced_span,
-                        ))),
-                        forced_span,
-                    )],
-                    dollar: false,
-                },
-                outer_span,
-            )],
-            span: outer_span,
-            brace_syntax: Vec::new(),
-        };
-
-        assert!(word_span_is_zsh_force_glob_parameter(&word, forced_span));
-        assert!(!word_span_is_zsh_force_glob_parameter(&word, outer_span));
-        assert!(!word_span_is_zsh_force_glob_parameter(&word, other_span));
-    }
 
     #[test]
     fn word_is_standalone_status_capture_handles_plain_quoted_and_parameter_forms() {
@@ -4903,7 +4255,7 @@ mod tests {
         };
         check(ParameterOp::UpperFirst, "${var^}");
         check(ParameterOp::UpperAll, "${var^^}");
-        check(ParameterOp::LowerAll, "${var,,}");
+        check(ParameterOp::LowerAll, "${var,}");
     }
 
     // --- SimpleCommand ---
@@ -5193,8 +4545,8 @@ mod tests {
         assert_eq!(CaseTerminator::FallThrough, CaseTerminator::FallThrough);
         assert_eq!(CaseTerminator::Continue, CaseTerminator::Continue);
         assert_eq!(
-            CaseTerminator::ContinueMatching,
-            CaseTerminator::ContinueMatching
+            CaseTerminator::Continue,
+            CaseTerminator::Continue
         );
         assert_ne!(CaseTerminator::Break, CaseTerminator::FallThrough);
     }
@@ -5351,15 +4703,6 @@ mod tests {
         });
         assert!(matches!(func, Command::Function(_)));
 
-        let anonymous = Command::AnonymousFunction(AnonymousFunctionCommand {
-            surface: AnonymousFunctionSurface::Parens {
-                parens_span: Span::new(),
-            },
-            body: Box::new(simple_stmt("true", vec![])),
-            args: vec![Word::literal("x")],
-            span: Span::new(),
-        });
-        assert!(matches!(anonymous, Command::AnonymousFunction(_)));
     }
 
     // --- CompoundCommand variants ---

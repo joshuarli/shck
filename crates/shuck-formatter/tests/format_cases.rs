@@ -2473,39 +2473,7 @@ fn auto_dialect_honors_env_shebang() {
     ));
 }
 
-#[test]
-fn auto_dialect_honors_zsh_paths_and_shebangs() {
-    assert_unchanged(
-        "print ${(m)foo}\n",
-        Some(Path::new("script.zsh")),
-        &ShellFormatOptions::default(),
-    );
 
-    assert_unchanged_default("#!/usr/bin/env zsh\nprint ${(m)foo}\n");
-    assert_unchanged_default("#!/usr/bin/env -S zsh -f\nprint ${(m)foo}\n");
-}
-
-#[test]
-fn zsh_only_forms_round_trip_without_corruption() {
-    let source = "\
-print ${(M)${(k)parameters[@]}:#__gitcomp_builtin_*}
-print ${(m)foo#${needle}} ${(S)foo/$pattern/$replacement} ${(m)foo:$offset:${length}} ${(m)foo:^other}
-print (#i)*.jpg (#b)(*) *.log(#qN) **/*(#q.om[1,3])
-repeat 3 print hi
-for version ($versions); do print $version; done
-for key value in a b c d; { print -r -- \"$key:$value\"; }
-for 1 2 3; do print -r -- \"$1|$2|$3\"; done
-if [[ -n $foo ]] { print foo; } else { print bar; }
-{ print body; } always { print cleanup; }
-print quiet &|
-print hidden &!
-";
-    let options = ShellFormatOptions::default()
-        .with_dialect(ShellDialect::Zsh)
-        .with_simplify(true);
-
-    assert_unchanged_with_ast(source, Some(Path::new("script.zsh")), &options);
-}
 
 unchanged_cases_with_options! {
     mksh_dialect_formats_select_commands:
@@ -2783,14 +2751,6 @@ fn crlf_file_keeps_single_carriage_return_on_heredoc_delimiter() {
     );
 }
 
-#[test]
-fn zsh_rc_quotes_keep_doubled_single_quotes() {
-    assert_formats_file_stably(
-        "setopt rc_quotes\nprint 'it''s ok'\nx='a''''b'; print $x\n",
-        "script.zsh",
-        "setopt rc_quotes\nprint 'it''s ok'\nx='a''''b'\nprint $x\n",
-    );
-}
 
 #[test]
 fn command_substitution_keeps_whitespace_after_continuation_in_single_quotes() {

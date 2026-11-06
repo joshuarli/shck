@@ -1,3 +1,4 @@
+status: planned
 legacy_code: SH-299
 legacy_name: zsh-array-subscript-in-case
 new_category: Portability

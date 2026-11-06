@@ -139,30 +139,6 @@ test \"$ARCH\" == i?86
     }
 
     #[test]
-    fn respects_zsh_disabled_globbing_in_bracket_comparisons() {
-        let source = "\
-#!/usr/bin/env zsh
-setopt no_glob
-[ \"$ARCH\" == i?86 ]
-setopt glob
-[ \"$ARCH\" == i?86 ]
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::GlobInTestComparison)
-                .with_shell(crate::ShellDialect::Zsh),
-        );
-
-        assert_eq!(
-            diagnostics
-                .iter()
-                .map(|diagnostic| diagnostic.span.slice(source))
-                .collect::<Vec<_>>(),
-            vec!["i?86"]
-        );
-    }
-
-    #[test]
     fn applies_unsafe_fix_to_unquoted_globs_in_bracket_comparisons() {
         let source = "\
 #!/bin/bash

@@ -110,7 +110,6 @@ impl<'a> WordSubtreeVisitor<'a> for ExpansionSpanVisitor<'_> {
                 self.spans.push(part.span);
             }
             WordPart::Variable(_)
-            | WordPart::ZshQualifiedGlob(_)
             | WordPart::CommandSubstitution { .. }
             | WordPart::ArithmeticExpansion { .. }
             | WordPart::Parameter(_)
@@ -152,7 +151,6 @@ pub(crate) fn collect_use_replacement_spans(parts: &[WordPartNode], spans: &mut 
             WordPart::Literal(_)
             | WordPart::SingleQuoted { .. }
             | WordPart::Variable(_)
-            | WordPart::ZshQualifiedGlob(_)
             | WordPart::CommandSubstitution { .. }
             | WordPart::ArithmeticExpansion { .. }
             | WordPart::Length(_)
@@ -211,8 +209,7 @@ pub(crate) fn collect_double_quoted_scalar_affix_state(
             | WordPart::PrefixMatch { .. }
             | WordPart::CommandSubstitution { .. }
             | WordPart::ArithmeticExpansion { .. }
-            | WordPart::ProcessSubstitution { .. }
-            | WordPart::ZshQualifiedGlob(_) => {
+            | WordPart::ProcessSubstitution { .. } => {
                 return false;
             }
         }
@@ -254,8 +251,7 @@ pub(crate) fn collect_double_quoted_scalar_only_expansion_spans(
             | WordPart::PrefixMatch { .. }
             | WordPart::CommandSubstitution { .. }
             | WordPart::ArithmeticExpansion { .. }
-            | WordPart::ProcessSubstitution { .. }
-            | WordPart::ZshQualifiedGlob(_) => {
+            | WordPart::ProcessSubstitution { .. } => {
                 return false;
             }
         }
@@ -307,8 +303,7 @@ pub(crate) fn collect_literal_scan_exclusions(parts: &[WordPartNode], excluded: 
             | WordPart::ArraySlice { .. }
             | WordPart::IndirectExpansion { .. }
             | WordPart::PrefixMatch { .. }
-            | WordPart::Transformation { .. }
-            | WordPart::ZshQualifiedGlob(_) => excluded.push(part.span),
+            | WordPart::Transformation { .. } => excluded.push(part.span),
         }
     }
 }
@@ -364,7 +359,6 @@ mod tests {
                 WordPart::Literal(_)
                 | WordPart::SingleQuoted { .. }
                 | WordPart::DoubleQuoted { .. } => {}
-                WordPart::ZshQualifiedGlob(_) => {}
                 WordPart::CommandSubstitution { .. } | WordPart::ProcessSubstitution { .. } => {}
                 WordPart::Parameter(parameter) => {
                     if parameter_is_scalar_like(parameter) && (!self.only_unquoted || !quoted) {

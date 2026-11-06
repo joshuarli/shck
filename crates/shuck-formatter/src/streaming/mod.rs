@@ -2,15 +2,13 @@ use std::fmt::Write as _;
 use std::mem;
 
 use shuck_ast::{
-    AlwaysCommand, AnonymousFunctionCommand, ArithmeticCommand, ArithmeticForCommand, ArrayElem,
+    ArithmeticCommand, ArithmeticForCommand, ArrayElem,
     Assignment, AssignmentValue, BinaryCommand, BinaryOp, BuiltinCommand, CaseCommand, CaseItem,
     Command, CompoundCommand, ConditionalBinaryExpr, ConditionalBinaryOp, ConditionalCommand,
     ConditionalExpr, ConditionalParenExpr, ConditionalUnaryExpr, ConditionalUnaryOp, CoprocCommand,
-    DeclClause, DeclOperand, File, ForCommand, ForSyntax, ForeachCommand, ForeachSyntax,
-    FunctionDef, HeredocBody, HeredocBodyPart, IfCommand, IfSyntax, Pattern, PatternPart, Redirect,
-    RedirectKind, RepeatCommand, SelectCommand, SimpleCommand, Span, Stmt, StmtSeq, StmtTerminator,
-    TimeCommand, UntilCommand, VarRef, WhileCommand, Word, WordPart,
-};
+    DeclClause, DeclOperand, File, ForCommand, ForSyntax, FunctionDef, HeredocBody, HeredocBodyPart, IfCommand, Pattern, PatternPart, Redirect,
+    RedirectKind, SelectCommand, SimpleCommand, Span, Stmt, StmtSeq, StmtTerminator,
+    TimeCommand, UntilCommand, VarRef, WhileCommand, Word, WordPart };
 
 mod branches;
 pub(crate) mod comments_alignment;
@@ -33,8 +31,7 @@ use crate::command::{
     render_assignment_head_to_buf, render_assignment_to_buf, render_background_operator,
     render_subscript_to_buf, render_var_ref_to_buf, simple_command_uses_synthetic_words,
     slice_span, stmt_format_span, stmt_span, stmt_start_after_operator,
-    stmt_verbatim_span_with_source_map, trim_unescaped_trailing_whitespace,
-};
+    stmt_verbatim_span_with_source_map, trim_unescaped_trailing_whitespace };
 use crate::comments::{BranchPrefixComment, SourceComment, SourceMap};
 use crate::context::RenderContext;
 use crate::facts::FormatterFacts;
@@ -45,28 +42,24 @@ use crate::raw_syntax::{
     command_substitution_pipeline_stage_continuation, line_without_continuation_backslash,
     normalize_rendered_heredoc_start_spacing, redirect_operator_end, rendered_heredoc_tail_start,
     rendered_line_ends_with_structural_pipe_continuation,
-    rendered_line_opens_command_substitution_pipeline, rendered_shell_text_has_heredoc_tail,
-};
+    rendered_line_opens_command_substitution_pipeline, rendered_shell_text_has_heredoc_tail };
 use crate::render_plan::{
     CaseCloseLayout, CaseLayoutPlan, CaseLayoutStyle, CompoundBodyLayout, CompoundBodyPlan,
     CompoundBodySite, DoDoneBodyLayout, ExpandedIfLayout, FunctionBodyGroupLayout,
     FunctionBodyLayout, FunctionBodyPlan, FunctionSubshellLayout, IfLayoutPlan, IfLayoutStyle,
     InlineIfLayout, can_format_multiline_subshell_inline, can_inline_group,
     can_inline_source_line_subshell, can_inline_stmt, case_can_format_inline,
-    group_has_inline_source_shape, if_branch_closer_shares_body_line,
-};
+    group_has_inline_source_shape, if_branch_closer_shares_body_line };
 use crate::render_plan::{
     case_item_body_can_share_terminator, case_item_body_terminator_was_inline_in_source,
     case_item_body_was_inline_without_terminator, case_item_close_paren_shares_line_with_body,
     case_item_pattern_body_terminator_was_inline_in_source,
     case_item_pattern_close_paren_on_own_line, case_item_single_body_stmt_can_inline,
     case_item_started_inline_without_terminator, case_prefix_comment_uses_body_indent,
-    comment_looks_like_disabled_case_pattern, trim_trailing_pattern_line_continuation,
-};
+    comment_looks_like_disabled_case_pattern, trim_trailing_pattern_line_continuation };
 use crate::render_plan::{
     condition_keyword_on_previous_non_empty_line, elif_condition_has_explicit_statement_break,
-    loop_condition_starts_after_keyword, stmt_sequence_renders_with_subshell_open,
-};
+    loop_condition_starts_after_keyword, stmt_sequence_renders_with_subshell_open };
 use crate::source::SourceView;
 use crate::word::{
     normalize_raw_empty_parameter_replacement_delimiters,
@@ -74,26 +67,21 @@ use crate::word::{
     render_arithmetic_expr_to_buf, render_escaped_multiline_word_syntax_to_buf,
     render_heredoc_body_to_buf, render_pattern_syntax_to_buf, render_word_syntax_to_buf,
     word_gap_end_before_trailing_continuation, word_is_quoted_command_substitution_only,
-    word_is_quoted_formattable_command_substitution_only_with_facts,
-};
+    word_is_quoted_formattable_command_substitution_only_with_facts };
 use branches::{
     branch_prefix_comments_use_disabled_body_indent, if_branch_upper_bound,
-    unmodeled_branch_background_operator,
-};
+    unmodeled_branch_background_operator };
 use comments_alignment::inline_comment_code_width;
 use gaps::{
     gap_has_blank_line, stmt_rendered_end_line_after_format,
-    stmt_semicolon_terminator_starts_on_continuation_line, trim_trailing_gap_before_offset,
-};
+    stmt_semicolon_terminator_starts_on_continuation_line, trim_trailing_gap_before_offset };
 use redirects::{
     append_both_redirect_pair_matches_source, redirect_is_attached_process_substitution,
-    redirect_list_needs_leading_space, redirect_list_starts_on_continuation_line,
-};
+    redirect_list_needs_leading_space, redirect_list_starts_on_continuation_line };
 use substitutions::{
     assignment_source_has_command_substitution, conditional_binary_has_explicit_rhs_break,
     conditional_expr_contains_command_substitution, heredoc_body_contains_command_substitution,
-    interstitial_comment_end, pipeline_operator_breaks, word_contains_command_substitution,
-};
+    interstitial_comment_end, pipeline_operator_breaks, word_contains_command_substitution };
 use writer::{BufferSink, CompareSink, PendingHeredoc, ShellWriter, StreamSink};
 
 pub(crate) fn format_file_streaming(file: &File, context: RenderContext<'_, '_>) -> Result<String> {
@@ -139,23 +127,20 @@ struct ShellRenderer<'source, 'facts, S> {
     conditional_comments: Vec<&'source str>,
     /// Set while rendering a pipeline that starts on its own line after `&&`
     /// or `||`; see `format_pipeline`.
-    list_rhs_pipeline: bool,
-}
+    list_rhs_pipeline: bool }
 
 #[derive(Clone, Copy)]
 struct SequenceRenderSnapshot<'source, 'facts> {
     facts: &'facts crate::facts::SequenceFacts<'source>,
     has_comments: bool,
-    ambiguous: bool,
-}
+    ambiguous: bool }
 
 impl<'source, 'facts> SequenceRenderSnapshot<'source, 'facts> {
     fn new(facts: &'facts crate::facts::SequenceFacts<'source>) -> Self {
         Self {
             facts,
             has_comments: facts.has_comments(),
-            ambiguous: facts.is_ambiguous(),
-        }
+            ambiguous: facts.is_ambiguous() }
     }
 
     fn leading_for(self, index: usize) -> &'facts [SourceComment<'source>] {
@@ -230,8 +215,7 @@ where
             pipeline_continuation_indent: 1,
             filter_next_group_body_leading_before_open: false,
             conditional_comments: Vec::new(),
-            list_rhs_pipeline: false,
-        }
+            list_rhs_pipeline: false }
     }
 
     fn push_output_str(&mut self, text: &str) {

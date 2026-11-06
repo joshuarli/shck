@@ -230,36 +230,12 @@ printf '%s\\n' *
     }
 
     #[test]
-    fn ignores_zsh_globs_when_noglob_is_active() {
-        let source = "setopt no_glob\nrm *\n";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::LeadingGlobArgument)
-                .with_shell(crate::ShellDialect::Zsh),
-        );
-
-        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
-    }
-
-    #[test]
-    fn ignores_noglob_wrapped_commands_in_zsh() {
-        let source = "noglob rm *\n";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::LeadingGlobArgument)
-                .with_shell(crate::ShellDialect::Zsh),
-        );
-
-        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
-    }
-
-    #[test]
     fn still_reports_when_no_nomatch_keeps_unmatched_globs_literal() {
         let source = "setopt no_nomatch\nrm *\n";
         let diagnostics = test_snippet(
             source,
             &LinterSettings::for_rule(Rule::LeadingGlobArgument)
-                .with_shell(crate::ShellDialect::Zsh),
+                .with_shell(crate::ShellDialect::Bash),
         );
 
         assert_eq!(
@@ -277,7 +253,7 @@ printf '%s\\n' *
         let diagnostics = test_snippet(
             source,
             &LinterSettings::for_rule(Rule::LeadingGlobArgument)
-                .with_shell(crate::ShellDialect::Zsh),
+                .with_shell(crate::ShellDialect::Bash),
         );
 
         assert_eq!(
@@ -295,60 +271,7 @@ printf '%s\\n' *
         let diagnostics = test_snippet(
             source,
             &LinterSettings::for_rule(Rule::LeadingGlobArgument)
-                .with_shell(crate::ShellDialect::Zsh),
-        );
-
-        assert_eq!(
-            diagnostics
-                .iter()
-                .map(|diagnostic| diagnostic.span.slice(source))
-                .collect::<Vec<_>>(),
-            vec!["*"]
-        );
-    }
-
-    #[test]
-    fn ignores_when_no_glob_overrides_glob_failure_options_in_zsh() {
-        let source = "setopt no_glob null_glob csh_null_glob\nrm *\n";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::LeadingGlobArgument)
-                .with_shell(crate::ShellDialect::Zsh),
-        );
-
-        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
-    }
-
-    #[test]
-    fn treats_zsh_ksh_glob_groups_as_active_leading_operators() {
-        let source = "\
-setopt ksh_glob
-rm ?(*.txt)
-unsetopt ksh_glob
-rm ?(*.txt)
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::LeadingGlobArgument)
-                .with_shell(crate::ShellDialect::Zsh),
-        );
-
-        assert_eq!(
-            diagnostics
-                .iter()
-                .map(|diagnostic| diagnostic.span.slice(source))
-                .collect::<Vec<_>>(),
-            vec!["?"]
-        );
-    }
-
-    #[test]
-    fn still_reports_when_glob_is_flow_merged_in_zsh() {
-        let source = "if cond; then setopt no_glob; fi\nrm *\n";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::LeadingGlobArgument)
-                .with_shell(crate::ShellDialect::Zsh),
+                .with_shell(crate::ShellDialect::Bash),
         );
 
         assert_eq!(

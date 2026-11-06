@@ -13,13 +13,6 @@ mod tests {
         output.file.body.stmts.into_iter().next().unwrap().command
     }
 
-    fn parse_first_zsh_command(source: &str) -> Command {
-        let output = Parser::with_dialect(source, ShellDialect::Zsh)
-            .parse()
-            .unwrap();
-        output.file.body.stmts.into_iter().next().unwrap().command
-    }
-
     #[test]
     fn normalize_command_peels_wrappers_and_aliases() {
         let cases = [
@@ -311,25 +304,6 @@ mod tests {
                 assignment_names
             );
         }
-    }
-
-    #[test]
-    fn normalize_command_treats_zsh_integer_as_typeset_declaration() {
-        let source = "integer -r foo=$(date) bar\n";
-        let command = parse_first_zsh_command(source);
-        let normalized = normalize_command(&command, source);
-        let declaration = normalized.declaration.expect("expected declaration");
-
-        assert_eq!(declaration.kind, DeclarationKind::Typeset);
-        assert!(declaration.readonly_flag);
-        assert_eq!(
-            declaration
-                .assignment_operands
-                .iter()
-                .map(|assignment| assignment.target.name.as_str())
-                .collect::<Vec<_>>(),
-            vec!["foo"]
-        );
     }
 
     #[test]

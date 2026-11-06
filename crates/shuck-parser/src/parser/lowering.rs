@@ -5,8 +5,6 @@ impl<'a> Parser<'a> {
         match compound {
             CompoundCommand::If(command) => command.span,
             CompoundCommand::For(command) => command.span,
-            CompoundCommand::Repeat(command) => command.span,
-            CompoundCommand::Foreach(command) => command.span,
             CompoundCommand::ArithmeticFor(command) => command.span,
             CompoundCommand::While(command) => command.span,
             CompoundCommand::Until(command) => command.span,
@@ -17,7 +15,6 @@ impl<'a> Parser<'a> {
             CompoundCommand::Time(command) => command.span,
             CompoundCommand::Conditional(command) => command.span,
             CompoundCommand::Coproc(command) => command.span,
-            CompoundCommand::Always(command) => command.span,
         }
     }
 
@@ -181,16 +178,6 @@ impl<'a> Parser<'a> {
                 command: AstCommand::Function(function),
                 negated: false,
                 redirects: Box::default(),
-                terminator: None,
-                terminator_span: None,
-                inline_comment: None,
-            },
-            Command::AnonymousFunction(function, redirects) => Stmt {
-                leading_comments: Vec::new(),
-                span: function.span,
-                command: AstCommand::AnonymousFunction(function),
-                negated: false,
-                redirects: redirects.into_boxed_slice(),
                 terminator: None,
                 terminator_span: None,
                 inline_comment: None,

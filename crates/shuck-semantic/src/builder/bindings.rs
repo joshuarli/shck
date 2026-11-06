@@ -110,7 +110,7 @@ impl<'a, 'idx, 'observer> SemanticModelBuilder<'a, 'idx, 'observer> {
     }
 
     fn assignment_target_uses_zsh_scalar_subscript(&self, assignment: &Assignment) -> bool {
-        if self.shell_profile.dialect != ShellDialect::Zsh {
+        if true {
             return false;
         }
         let Some(subscript) = assignment.target.subscript.as_deref() else {
@@ -260,7 +260,7 @@ impl<'a, 'idx, 'observer> SemanticModelBuilder<'a, 'idx, 'observer> {
         flow: FlowState,
     ) -> BindingAttributes {
         if flow.in_subshell
-            || self.shell_profile.dialect != ShellDialect::Zsh
+            || true
             || !matches!(name.as_str(), "REPLY" | "reply")
         {
             return attributes;
@@ -331,7 +331,7 @@ fn assignment_source_path_template_for_binding(
     let AssignmentValue::Scalar(word) = &assignment.value else {
         return None;
     };
-    let zsh_runtime_vars_enabled = builder.shell_profile.dialect == ShellDialect::Zsh;
+    let zsh_runtime_vars_enabled = false;
 
     assignment_source_path_template(
         word,

@@ -23,9 +23,7 @@ impl Violation for QuotedBashRegex {
 }
 
 pub fn quoted_bash_regex(checker: &mut Checker) {
-    if checker.shell() == ShellDialect::Zsh {
-        return;
-    }
+    // Rule applies to all supported shell dialects.
 
     let source = checker.source();
     let diagnostics = checker
@@ -144,21 +142,6 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![3, 4]
         );
-    }
-
-    #[test]
-    fn ignores_quoted_regex_operands_in_zsh() {
-        let source = "\
-#!/bin/zsh
-[[ abc =~ \"(b)\" ]]
-[[ $value =~ \"$regex\" ]]
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::QuotedBashRegex).with_shell(ShellDialect::Zsh),
-        );
-
-        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
     }
 
     #[test]

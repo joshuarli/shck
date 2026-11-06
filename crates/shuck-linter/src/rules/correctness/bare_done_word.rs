@@ -13,9 +13,7 @@ impl Violation for BareDoneWord {
 }
 
 pub fn bare_done_word(checker: &mut Checker) {
-    if checker.shell() == ShellDialect::Zsh {
-        return;
-    }
+    // Rule applies to all supported shell dialects.
 
     let spans = checker.facts().words().bare_done_word_spans().to_vec();
     checker.report_all_dedup(spans, || BareDoneWord);

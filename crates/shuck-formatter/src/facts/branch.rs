@@ -5,8 +5,7 @@ use super::FactSpan;
 #[derive(Debug, Clone, Default)]
 pub(super) struct BranchFacts {
     pub(super) inline_group_sequences: HashSet<FactSpan>,
-    pub(super) inline_case_item_bodies: HashSet<FactSpan>,
-}
+    pub(super) inline_case_item_bodies: HashSet<FactSpan> }
 
 impl BranchFacts {
     #[cfg(feature = "benchmarking")]

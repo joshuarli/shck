@@ -168,7 +168,7 @@ fn make_shell_archive(root: &Path, shell: Shell, version: &str) -> (PathBuf, Str
     fs::create_dir_all(&bin_dir).unwrap();
     let shell_path = bin_dir.join(shell.as_str());
     let script = match shell {
-        Shell::Bash | Shell::Gbash | Shell::Bashkit | Shell::Zsh => format!(
+        Shell::Bash | Shell::Gbash | Shell::Bashkit => format!(
             "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then\n  printf '{} {}\\n'\n  exit 0\nfi\nprintf '%s\\n' \"${{SHUCK_SHELL_VERSION}}\"\n",
             shell.as_str(),
             version
@@ -308,8 +308,8 @@ fn resolves_cli_shell_and_config_version() {
 #[test]
 fn metadata_overrides_project_defaults() {
     let tempdir = tempfile::tempdir().unwrap();
-    let (archive, sha256) = make_shell_archive(tempdir.path(), Shell::Zsh, "5.9");
-    let registry_path = registry_for_archive(tempdir.path(), Shell::Zsh, "5.9", &archive, &sha256);
+    let (archive, sha256) = make_shell_archive(tempdir.path(), Shell::Dash, "0.5.12");
+    let registry_path = registry_for_archive(tempdir.path(), Shell::Dash, "0.5.12", &archive, &sha256);
     let environment = test_environment(
         tempdir.path(),
         Url::from_file_path(registry_path).unwrap().to_string(),
@@ -317,7 +317,7 @@ fn metadata_overrides_project_defaults() {
     let script_path = tempdir.path().join("deploy.sh");
     fs::write(
         &script_path,
-        "# /// shuck\n# shell = \"zsh\"\n# version = \"5.9\"\n# ///\nprint hello\n",
+        "# /// shuck\n# shell = \"dash\"\n# version = \"0.5.12\"\n# ///\necho hello\n",
     )
     .unwrap();
     let config = RunConfig {
@@ -341,8 +341,8 @@ fn metadata_overrides_project_defaults() {
     )
     .unwrap();
 
-    assert_eq!(resolved.shell, Shell::Zsh);
-    assert_eq!(resolved.version.as_str(), "5.9");
+    assert_eq!(resolved.shell, Shell::Dash);
+    assert_eq!(resolved.version.as_str(), "0.5.12");
 }
 
 #[test]
@@ -387,13 +387,13 @@ fn defaults_to_bash_when_only_a_version_constraint_is_provided() {
 fn cli_shell_override_ignores_mismatched_metadata_version() {
     let tempdir = tempfile::tempdir().unwrap();
     let (bash_archive, bash_sha) = make_shell_archive(tempdir.path(), Shell::Bash, "5.2.21");
-    let (zsh_archive, zsh_sha) = make_shell_archive(tempdir.path(), Shell::Zsh, "5.9");
+    let (dash_archive, dash_sha) = make_shell_archive(tempdir.path(), Shell::Dash, "0.5.12");
     let platform = current_platform().unwrap();
     let registry_path = write_registry_site(
         tempdir.path(),
         &[
             registry_entry(Shell::Bash, "5.2.21", &platform, &bash_archive, &bash_sha),
-            registry_entry(Shell::Zsh, "5.9", &platform, &zsh_archive, &zsh_sha),
+            registry_entry(Shell::Dash, "0.5.12", &platform, &dash_archive, &dash_sha),
         ],
     );
     let environment = test_environment(
@@ -403,7 +403,7 @@ fn cli_shell_override_ignores_mismatched_metadata_version() {
     let script_path = tempdir.path().join("deploy.sh");
     fs::write(
         &script_path,
-        "# /// shuck\n# shell = \"zsh\"\n# version = \"5.9\"\n# ///\necho hi\n",
+        "# /// shuck\n# shell = \"dash\"\n# version = \"0.5.12\"\n# ///\necho hi\n",
     )
     .unwrap();
 
@@ -1194,13 +1194,13 @@ fn parses_script_metadata_before_non_comment_lines() {
     assert!(err.to_string().contains("before the script body"));
 
     let err = parse_script_metadata(
-        "# /// shuck\n# shell = \"bash\"\n# ///\necho hi\n# /// shuck\n# shell = \"zsh\"\n# ///\n",
+        "# /// shuck\n# shell = \"bash\"\n# ///\necho hi\n# /// shuck\n# shell = \"dash\"\n# ///\n",
     )
     .unwrap_err();
     assert!(err.to_string().contains("multiple `# /// shuck` blocks"));
 
     let metadata = parse_script_metadata(
-        "# /// shuck\n# shell = \"bash\"\n# ///\ncat <<'EOF'\n# /// shuck\nshell = \"zsh\"\n# ///\nEOF\n",
+        "# /// shuck\n# shell = \"bash\"\n# ///\ncat <<'EOF'\n# /// shuck\nshell = \"dash\"\n# ///\nEOF\n",
     )
     .unwrap()
     .unwrap();

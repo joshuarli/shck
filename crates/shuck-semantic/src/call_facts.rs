@@ -3342,30 +3342,4 @@ mod tests {
         );
     }
 
-    #[test]
-    fn workspace_index_preserves_zsh_multi_name_function_bodies() {
-        let source = "function music itunes() { helper; }\nhelper() { :; }\nitunes\n";
-        let output = Parser::with_dialect(source, ShellDialect::Zsh)
-            .parse()
-            .unwrap();
-        let indexer = Indexer::new(source, &output);
-        let model = SemanticModel::build(&output.file, source, &indexer);
-        let path = PathBuf::from("/w/script.zsh");
-        let mut index = WorkspaceCallIndex::new();
-        index.insert(path.clone(), FileCallFacts::project(&model, Vec::new()));
-
-        let itunes = function_node(&index, "/w/script.zsh", "itunes", 0);
-        let outgoing = index.outgoing(&path, &itunes);
-        assert_eq!(outgoing.len(), 1);
-        assert_eq!(function_name(&outgoing[0].node), Some("helper"));
-
-        let helper = function_node(&index, "/w/script.zsh", "helper", 0);
-        let mut callers = index
-            .incoming(&path, &helper)
-            .into_iter()
-            .filter_map(|call| function_name(&call.node).map(str::to_owned))
-            .collect::<Vec<_>>();
-        callers.sort();
-        assert_eq!(callers, ["itunes", "music"]);
     }
-}

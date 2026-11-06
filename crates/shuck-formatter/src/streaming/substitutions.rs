@@ -5,8 +5,7 @@ use super::*;
 #[derive(Debug, Clone, Copy)]
 pub(super) enum HeredocTailTextMode {
     Rendered,
-    Assignment,
-}
+    Assignment }
 
 enum RenderedFragment<'text> {
     Plain(Cow<'text, str>),
@@ -15,9 +14,7 @@ enum RenderedFragment<'text> {
     AssignmentCommandSubstitution(Cow<'text, str>),
     HeredocTail {
         text: Cow<'text, str>,
-        assignment_context: bool,
-    },
-}
+        assignment_context: bool } }
 
 pub(super) fn assignment_contains_command_heredoc(
     assignment: &Assignment,
@@ -28,8 +25,7 @@ pub(super) fn assignment_contains_command_heredoc(
         AssignmentValue::Compound(array) => array
             .elements
             .iter()
-            .any(|element| word_contains_command_heredoc(array_elem_parts(element).1, facts)),
-    }
+            .any(|element| word_contains_command_heredoc(array_elem_parts(element).1, facts)) }
 }
 
 pub(super) fn compound_assignment_is_single_case_command_substitution(
@@ -76,8 +72,7 @@ fn word_part_contains_command_heredoc(part: &WordPart, facts: &FormatterFacts<'_
         WordPart::DoubleQuoted { parts, .. } => parts
             .iter()
             .any(|part| word_part_contains_command_heredoc(&part.kind, facts)),
-        _ => false,
-    }
+        _ => false }
 }
 
 pub(super) fn normalize_escaped_multiline_word_command_substitution_indent(
@@ -163,13 +158,12 @@ fn leading_list_operator_line_parts(line: &str) -> Option<(&'static str, &str)> 
         ("&&", rest)
     } else if let Some(rest) = trimmed.strip_prefix("|&") {
         ("|&", rest)
-    } else if let Some(rest) = trimmed.strip_prefix('|') {
+    } else {
+        let rest = trimmed.strip_prefix('|')?;
         if trimmed.starts_with("|)") {
             return None;
         }
         ("|", rest)
-    } else {
-        return None;
     };
 
     Some((operator, rest.trim_start_matches([' ', '\t', '\r'])))
@@ -252,8 +246,7 @@ pub(super) fn assignment_value_is_quoted_formattable_command_substitution_only(
         AssignmentValue::Scalar(word) => {
             word_is_quoted_formattable_command_substitution_only_with_facts(word, facts)
         }
-        AssignmentValue::Compound(_) => false,
-    }
+        AssignmentValue::Compound(_) => false }
 }
 
 pub(super) fn assignment_value_is_quoted_command_substitution_only(
@@ -261,15 +254,13 @@ pub(super) fn assignment_value_is_quoted_command_substitution_only(
 ) -> bool {
     match &assignment.value {
         AssignmentValue::Scalar(word) => word_is_quoted_command_substitution_only(word),
-        AssignmentValue::Compound(_) => false,
-    }
+        AssignmentValue::Compound(_) => false }
 }
 
 #[derive(Clone, Copy)]
 enum MultilineLiteralQuote {
     Single,
-    Double,
-}
+    Double }
 
 fn multiline_literal_quote_state_after_line(
     line: &str,
@@ -333,8 +324,7 @@ fn command_substitution_assignment_line_needs_context_indent(
 ) -> bool {
     match options.indent_style() {
         IndentStyle::Tab => !remaining.starts_with(' '),
-        IndentStyle::Space => true,
-    }
+        IndentStyle::Space => true }
 }
 
 fn command_substitution_assignment_line_closes_block(remaining: &str) -> bool {
@@ -376,8 +366,7 @@ fn rendered_line_indent_column(line: &str, options: &ResolvedShellFormatOptions)
         match ch {
             '\t' if matches!(options.indent_style(), IndentStyle::Tab) => column += 1,
             ' ' => column += 1,
-            _ => break,
-        }
+            _ => break }
     }
     column
 }
@@ -438,8 +427,7 @@ fn next_command_substitution_pipeline_indent_column(
         CommandSubstitutionPipelineContinuation::None => None,
         CommandSubstitutionPipelineContinuation::Comment => current_pipeline_indent_column,
         CommandSubstitutionPipelineContinuation::StructuralPipe {
-            line_started_in_quote,
-        } => {
+            line_started_in_quote } => {
             if !starts_with_block_command_substitution {
                 Some(inline_pipeline_indent_column)
             } else if line_started_in_quote && active_shell_line_was_pipeline_stage {
@@ -561,8 +549,7 @@ pub(super) fn conditional_expr_contains_command_substitution(expression: &Condit
             word_contains_command_substitution(word)
         }
         ConditionalExpr::Pattern(pattern) => pattern_contains_command_substitution(pattern),
-        ConditionalExpr::VarRef(_) => false,
-    }
+        ConditionalExpr::VarRef(_) => false }
 }
 
 fn pattern_contains_command_substitution(pattern: &Pattern) -> bool {
@@ -574,15 +561,13 @@ fn pattern_contains_command_substitution(pattern: &Pattern) -> bool {
         PatternPart::Literal(_)
         | PatternPart::AnyString
         | PatternPart::AnyChar
-        | PatternPart::CharClass(_) => false,
-    })
+        | PatternPart::CharClass(_) => false })
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum WordSubstitutionKind {
     Command,
-    Process,
-}
+    Process }
 
 fn word_contains_substitution(word: &Word, kind: WordSubstitutionKind) -> bool {
     word.parts
@@ -672,8 +657,7 @@ fn word_part_contains_substitution(part: &WordPart, kind: WordSubstitutionKind) 
                     .as_deref()
                     .is_some_and(|word| word_contains_substitution(word, kind))
         }
-        _ => false,
-    }
+        _ => false }
 }
 
 impl<'source, 'facts, S> ShellRenderer<'source, 'facts, S>
@@ -963,8 +947,7 @@ where
                 };
                 match mode {
                     HeredocTailTextMode::Rendered => self.write_text(line),
-                    HeredocTailTextMode::Assignment => self.write_verbatim(line),
-                }
+                    HeredocTailTextMode::Assignment => self.write_verbatim(line) }
                 active_heredoc = heredoc;
             }
 
@@ -990,8 +973,7 @@ where
             }
             RenderedFragment::HeredocTail {
                 text,
-                assignment_context,
-            } => {
+                assignment_context } => {
                 self.write_shell_text_with_heredoc_tails(text.as_ref(), assignment_context);
             }
         }
@@ -1021,8 +1003,7 @@ where
         {
             return RenderedFragment::HeredocTail {
                 text: Cow::Borrowed(rendered),
-                assignment_context: true,
-            };
+                assignment_context: true };
         }
 
         if has_newline
@@ -1093,8 +1074,7 @@ where
         {
             return RenderedFragment::HeredocTail {
                 text: Cow::Borrowed(rendered),
-                assignment_context: true,
-            };
+                assignment_context: true };
         }
 
         if has_newline
@@ -1159,8 +1139,7 @@ where
                 text: Cow::Borrowed(rendered_name),
                 assignment_context: rendered_text_starts_like_assignment_with_substitution(
                     rendered_name,
-                ),
-            }
+                ) }
         } else {
             RenderedFragment::Plain(Cow::Borrowed(rendered_name))
         }

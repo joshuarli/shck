@@ -7,11 +7,7 @@ impl<'a> Parser<'a> {
         }
 
         let span = text.span();
-        let nested_profile = self
-            .zsh_options_at_offset(span.start.offset())
-            .cloned()
-            .map(|options| ShellProfile::with_zsh_options(self.dialect, options))
-            .unwrap_or_else(|| self.shell_profile.clone());
+        let nested_profile = self.shell_profile.clone();
         let limits = if self.current_depth < self.max_depth {
             self.nested_limits().ok()
         } else {

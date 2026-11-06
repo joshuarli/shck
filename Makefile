@@ -118,14 +118,6 @@ test-large-corpus: ensure-cache
 			$(NIX_DEVELOP) cargo test -p shuck-cli --test large_corpus -- --ignored --nocapture ;; \
 	esac
 
-test-large-corpus-zsh: ensure-cache
-	SHUCK_TEST_LARGE_CORPUS=1 \
-	SHUCK_LARGE_CORPUS_TIMEOUT_SECS=$(SHUCK_LARGE_CORPUS_TIMEOUT_SECS) \
-	$(LARGE_CORPUS_SHUCK_TIMEOUT_ENV) \
-	SHUCK_LARGE_CORPUS_SAMPLE_PERCENT=$(SHUCK_LARGE_CORPUS_SAMPLE_PERCENT) \
-	SHUCK_LARGE_CORPUS_KEEP_GOING=$(SHUCK_LARGE_CORPUS_KEEP_GOING) \
-	$(NIX_DEVELOP) cargo test -p shuck-cli --test large_corpus large_corpus_zsh_fixtures_parse -- --ignored --exact --nocapture
-
 large-corpus-report-from-log:
 	test -f "$(LARGE_CORPUS_REPORT_LOG)"
 	$(UV_PYTHON) ./scripts/large_corpus_report.py --log "$(LARGE_CORPUS_REPORT_LOG)" --output "$(LARGE_CORPUS_REPORT_HTML)"
@@ -242,7 +234,7 @@ bench-repo-corpus: ensure-cache
 		--dataset-name "Repo-corpus snapshot (local)" \
 		--dataset-description "Whole-repo benchmarks against curated open-source repositories cloned at pinned commits." \
 		--environment-kind local \
-		--notes "Each repo is shallow-cloned at the SHA in .cache/large-corpus/manifest.yaml so source-following, project-root resolution, and any in-tree .shellcheckrc behave the way they would for an end user. Both tools receive the same filelist (extension match for *.sh / *.bash / *.ksh plus extensionless executables with shell shebangs; symlinks and *.zsh excluded). shellcheck runs without -x, matching its default behavior."
+		--notes "Each repo is shallow-cloned at the SHA in .cache/large-corpus/manifest.yaml so source-following, project-root resolution, and any in-tree .shellcheckrc behave the way they would for an end user. Both tools receive the same filelist (extension match for *.sh / *.bash / *.ksh plus extensionless executables with shell shebangs; symlinks excluded). shellcheck runs without -x, matching its default behavior."
 
 bench-macro-single:
 	test -n "$(BENCH_FILE)"

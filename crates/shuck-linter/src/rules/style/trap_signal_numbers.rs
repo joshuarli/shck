@@ -129,17 +129,4 @@ trap 13
         assert!(diagnostics.is_empty());
     }
 
-    #[test]
-    fn does_not_run_for_other_shells() {
-        let source = "\
-#!/bin/zsh
-trap 'echo caught signal' 4 10
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::TrapSignalNumbers).with_shell(ShellDialect::Zsh),
-        );
-
-        assert!(diagnostics.is_empty());
-    }
 }

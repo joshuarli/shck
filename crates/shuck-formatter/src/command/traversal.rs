@@ -2,8 +2,7 @@ use super::*;
 
 pub(super) enum CompoundChild<'a> {
     Stmt(&'a Stmt),
-    Sequence(&'a StmtSeq),
-}
+    Sequence(&'a StmtSeq) }
 
 pub(super) fn for_each_compound_child(
     command: &CompoundCommand,
@@ -22,8 +21,6 @@ pub(super) fn for_each_compound_child(
             }
         }
         CompoundCommand::For(command) => visitor(CompoundChild::Sequence(&command.body)),
-        CompoundCommand::Repeat(command) => visitor(CompoundChild::Sequence(&command.body)),
-        CompoundCommand::Foreach(command) => visitor(CompoundChild::Sequence(&command.body)),
         CompoundCommand::ArithmeticFor(command) => visitor(CompoundChild::Sequence(&command.body)),
         CompoundCommand::While(command) => {
             visitor(CompoundChild::Sequence(&command.condition));
@@ -49,9 +46,5 @@ pub(super) fn for_each_compound_child(
             }
         }
         CompoundCommand::Coproc(command) => visitor(CompoundChild::Stmt(&command.body)),
-        CompoundCommand::Always(command) => {
-            visitor(CompoundChild::Sequence(&command.body));
-            visitor(CompoundChild::Sequence(&command.always_body));
-        }
     }
 }

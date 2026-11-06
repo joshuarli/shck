@@ -55,7 +55,6 @@ pub(super) fn run_check_with_cwd(
                 project_root,
                 config_arguments,
                 &args.rule_selection,
-                &args.zsh_plugin_resolution,
             )
         },
         |_, files, settings| Ok(CheckCacheSettings::new(settings, files)),
@@ -156,7 +155,7 @@ pub(super) fn run_check_with_cwd(
                     pending,
                     &linter_settings,
                     &project_settings.per_file_shell,
-                    Some(project_settings.zsh_plugins.as_ref()),
+                    None,
                     closure_resolver,
                     Some(&source_resolver),
                     project_settings.lint_sources,
@@ -343,7 +342,7 @@ fn analyze_followed_file(
         pending,
         linter_settings,
         &project_settings.per_file_shell,
-        Some(project_settings.zsh_plugins.as_ref()),
+        None,
         closure_resolver,
         Some(source_resolver),
         project_settings.lint_sources,
@@ -376,7 +375,6 @@ pub(crate) fn benchmark_check_paths(
                 select: Some(vec![RuleSelector::All]),
                 ..RuleSelectionArgs::default()
             },
-            zsh_plugin_resolution: Default::default(),
             file_selection: FileSelectionArgs::default(),
             exit_zero: false,
             exit_non_zero_on_fix: false,

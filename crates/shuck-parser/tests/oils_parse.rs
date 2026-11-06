@@ -6,18 +6,10 @@ use std::{
 };
 
 use serde::Deserialize;
-use shuck_parser::parser::{Parser, ShellDialect};
+use shuck_parser::parser::Parser;
 
 const OILS_DIR: &str = "tests/testdata/oils";
 const EXPECTATIONS_PATH: &str = "tests/testdata/oils_expectations.json";
-const ZSH_FIXTURE_FILES: &[&str] = &[
-    "zsh-idioms.test.sh",
-    "zsh-large-corpus-regressions.test.sh",
-    "zsh-obscure-syntax.test.sh",
-];
-const DEFAULT_ONLY_SKIP_FILES: &[&str] = &["oils/zsh-obscure-syntax.test.sh"];
-const ZSH_DEFAULT_PARSE_ERR_FILES: &[&str] = &["oils/zsh-large-corpus-regressions.test.sh"];
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum Expectation {
@@ -92,140 +84,6 @@ fn oils_corpus_matches_parser_expectations() {
         total_cases,
         skipped_cases,
         failures.join("\n\n")
-    );
-}
-
-#[test]
-fn zsh_fixture_cases_match_parser_expectations_in_zsh_mode() {
-    let expectations_path = manifest_dir().join(EXPECTATIONS_PATH);
-    let expectations = load_expectations(&expectations_path);
-    let oils_dir = manifest_dir().join(OILS_DIR);
-    let spec_files = load_selected_spec_files(&oils_dir, ZSH_FIXTURE_FILES);
-
-    let mut failures = Vec::new();
-    let mut total_cases = 0usize;
-    let mut skipped_cases = 0usize;
-
-    for spec_file in &spec_files {
-        for spec_case in &spec_file.cases {
-            total_cases += 1;
-            let case_key = format!("{}::{}", spec_file.path, spec_case.name);
-            let expectation = zsh_expectation_for(&expectations, &spec_file.path, &spec_case.name);
-
-            if expectation == Expectation::Skip {
-                skipped_cases += 1;
-                continue;
-            }
-
-            let outcome = panic::catch_unwind(AssertUnwindSafe(|| {
-                Parser::with_dialect(&spec_case.script, ShellDialect::Zsh).parse()
-            }));
-            match (expectation, outcome) {
-                (Expectation::ParseOk, Ok(result)) if result.is_ok() => {}
-                (Expectation::ParseErr, Ok(result)) if result.is_err() => {}
-                (Expectation::ParseOk, Ok(result)) => failures.push(format!(
-                    "{case_key}: unexpected parse error: {}",
-                    result.strict_error()
-                )),
-                (Expectation::ParseErr, Ok(_)) => {
-                    failures.push(format!("{case_key}: unexpected parse success"))
-                }
-                (_, Err(_)) => failures.push(format!("{case_key}: parser panic")),
-                (Expectation::Skip, _) => unreachable!("skipped cases return early"),
-            }
-        }
-    }
-
-    assert!(
-        failures.is_empty(),
-        "zsh fixture cases had {} failure(s) across {} cases ({} skipped):\n\n{}",
-        failures.len(),
-        total_cases,
-        skipped_cases,
-        failures.join("\n")
-    );
-}
-
-#[test]
-fn zsh_only_default_skips_do_not_disable_zsh_mode_cases() {
-    let expectations_path = manifest_dir().join(EXPECTATIONS_PATH);
-    let expectations = load_expectations(&expectations_path);
-    let path = manifest_dir()
-        .join(OILS_DIR)
-        .join("zsh-obscure-syntax.test.sh");
-    let source = fs::read_to_string(&path)
-        .unwrap_or_else(|err| panic!("failed to read {}: {err}", path.display()));
-    let spec_file = parse_spec_file(&path, &source);
-
-    assert!(!spec_file.cases.is_empty());
-    for spec_case in &spec_file.cases {
-        assert_eq!(
-            zsh_expectation_for(&expectations, &spec_file.path, &spec_case.name),
-            Expectation::ParseOk,
-            "{} should stay active in zsh-mode parser tests",
-            spec_case.name
-        );
-    }
-}
-
-fn load_selected_spec_files(oils_dir: &Path, filenames: &[&str]) -> Vec<SpecFile> {
-    assert!(
-        !filenames.is_empty(),
-        "expected at least one selected OILS fixture"
-    );
-
-    filenames
-        .iter()
-        .map(|filename| {
-            let path = oils_dir.join(filename);
-            let source = fs::read_to_string(&path)
-                .unwrap_or_else(|err| panic!("failed to read {}: {err}", path.display()));
-            parse_spec_file(&path, &source)
-        })
-        .collect()
-}
-
-fn zsh_expectation_for(
-    expectations: &HashMap<String, ExpectationEntry>,
-    file_path: &str,
-    case_name: &str,
-) -> Expectation {
-    let case_key = format!("{file_path}::{case_name}");
-    expectations
-        .get(&case_key)
-        .map(|entry| entry.expectation)
-        .or_else(|| {
-            if ZSH_DEFAULT_PARSE_ERR_FILES.contains(&file_path) {
-                Some(Expectation::ParseErr)
-            } else {
-                expectations.get(file_path).map(|entry| entry.expectation)
-            }
-        })
-        .unwrap_or(Expectation::ParseOk)
-}
-
-#[test]
-fn zsh_idioms_fixture_cases_parse_in_zsh_mode() {
-    let path = manifest_dir().join(OILS_DIR).join("zsh-idioms.test.sh");
-    let source = fs::read_to_string(&path)
-        .unwrap_or_else(|err| panic!("failed to read {}: {err}", path.display()));
-    let spec_file = parse_spec_file(&path, &source);
-
-    let failures = spec_file
-        .cases
-        .iter()
-        .filter_map(|spec_case| {
-            let result = Parser::with_dialect(&spec_case.script, ShellDialect::Zsh).parse();
-            result
-                .is_err()
-                .then(|| format!("{}: {}", spec_case.name, result.strict_error()))
-        })
-        .collect::<Vec<_>>();
-
-    assert!(
-        failures.is_empty(),
-        "zsh fixture cases failed to parse in zsh mode:\n\n{}",
-        failures.join("\n")
     );
 }
 
@@ -383,17 +241,6 @@ fn expectation_for(
     file_path: &str,
     case_name: &str,
 ) -> Expectation {
-    if DEFAULT_ONLY_SKIP_FILES.contains(&file_path) {
-        return Expectation::Skip;
-    }
-
-    if ZSH_DEFAULT_PARSE_ERR_FILES.contains(&file_path) {
-        return expectations
-            .get(file_path)
-            .map(|entry| entry.expectation)
-            .unwrap_or(Expectation::Skip);
-    }
-
     let case_key = format!("{file_path}::{case_name}");
     expectations
         .get(&case_key)

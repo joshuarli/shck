@@ -813,7 +813,7 @@ fn line_start_offset(source: &str, offset: usize) -> usize {
 fn source_line_window(source: &str, offset: usize, radius: usize) -> &str {
     let mut start = offset;
     for _ in 0..=radius {
-        start = source[..start].rfind('\n').map_or(0, |index| index);
+        start = source[..start].rfind('\n').unwrap_or(0);
         if start == 0 {
             break;
         }
@@ -1531,43 +1531,6 @@ echo \"$OS_NAME\"
                 .map(|diagnostic| diagnostic.span.slice(source))
                 .collect::<Vec<_>>(),
             vec!["$HOSTID", "$OS_NAME"]
-        );
-    }
-
-    #[test]
-    fn ignores_zsh_runtime_names_in_zsh_scripts() {
-        let source = "\
-#!/bin/zsh
-echo \"$path\"
-echo \"$MATCH\"
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::PossibleVariableMisspelling)
-                .with_shell(ShellDialect::Zsh),
-        );
-
-        assert!(diagnostics.is_empty());
-    }
-
-    #[test]
-    fn keeps_non_zsh_match_misspelling_reports() {
-        let source = "\
-#!/bin/sh
-match=demo
-echo \"$MATCH\"
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::PossibleVariableMisspelling),
-        );
-
-        assert_eq!(
-            diagnostics
-                .iter()
-                .map(|diagnostic| diagnostic.span.slice(source))
-                .collect::<Vec<_>>(),
-            vec!["$MATCH"]
         );
     }
 

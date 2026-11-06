@@ -932,7 +932,7 @@ impl<'a> GraphBuilder<'a> {
         for previous_arm in arms.iter().take(arms.len().saturating_sub(1)) {
             let resumes_matching = matches!(
                 previous_arm.terminator,
-                CaseTerminator::Continue | CaseTerminator::ContinueMatching
+                CaseTerminator::Continue 
             );
             dispatch_blocks.push(resumes_matching.then(|| self.empty_block()));
         }
@@ -989,17 +989,6 @@ impl<'a> GraphBuilder<'a> {
                     fallthrough_from = arm_seq.exits.clone();
                 }
                 CaseTerminator::Continue => {
-                    let continue_target = dispatch_blocks
-                        .get(arm_index + 1)
-                        .copied()
-                        .flatten()
-                        .unwrap_or(exit_block);
-                    for block in &arm_seq.exits {
-                        self.add_edge(*block, continue_target, EdgeKind::CaseContinue);
-                    }
-                    fallthrough_from.clear();
-                }
-                CaseTerminator::ContinueMatching => {
                     let continue_target = dispatch_blocks
                         .get(arm_index + 1)
                         .copied()

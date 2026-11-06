@@ -1700,8 +1700,7 @@ fn folded_block_mapping(
     }
 
     // Chomping keeps zero or more trailing line breaks after the final text line.
-    let mut next_line = last_text_line? + 1;
-    for ch in scalar[decoded_offset..].chars() {
+    for (next_line, ch) in (last_text_line? + 1..).zip(scalar[decoded_offset..].chars()) {
         if ch != '\n' {
             return None;
         }
@@ -1709,7 +1708,6 @@ fn folded_block_mapping(
             line: next_line,
             column,
         });
-        next_line += 1;
     }
 
     (line_starts.len() == decoded_line_count(scalar)).then_some((line_starts, column_mappings))

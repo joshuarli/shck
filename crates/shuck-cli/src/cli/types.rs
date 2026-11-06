@@ -12,7 +12,6 @@ pub enum FormatDialectArg {
     Bash,
     Posix,
     Mksh,
-    Zsh,
 }
 
 impl FromStr for FormatDialectArg {
@@ -24,9 +23,8 @@ impl FromStr for FormatDialectArg {
             "bash" => Ok(Self::Bash),
             "posix" => Ok(Self::Posix),
             "mksh" => Ok(Self::Mksh),
-            "zsh" => Ok(Self::Zsh),
             _ => Err(format!(
-                "invalid dialect '{value}'; expected one of: auto, bash, posix, mksh, zsh"
+                "invalid dialect '{value}'; expected one of: auto, bash, posix, mksh"
             )),
         }
     }
@@ -39,8 +37,7 @@ impl From<FormatDialectArg> for shuck_formatter::ShellDialect {
             FormatDialectArg::Bash => Self::Bash,
             FormatDialectArg::Posix => Self::Posix,
             FormatDialectArg::Mksh => Self::Mksh,
-            FormatDialectArg::Zsh => Self::Zsh,
-        }
+                    }
     }
 }
 
@@ -154,7 +151,6 @@ pub enum ManagedShellArg {
     Bash,
     Gbash,
     Bashkit,
-    Zsh,
     Dash,
     Mksh,
     Busybox,
@@ -168,12 +164,11 @@ impl FromStr for ManagedShellArg {
             "bash" => Ok(Self::Bash),
             "gbash" => Ok(Self::Gbash),
             "bashkit" => Ok(Self::Bashkit),
-            "zsh" => Ok(Self::Zsh),
             "dash" => Ok(Self::Dash),
             "mksh" => Ok(Self::Mksh),
             "busybox" => Ok(Self::Busybox),
             _ => Err(format!(
-                "invalid managed shell '{value}'; expected one of: bash, gbash, bashkit, zsh, dash, mksh, busybox"
+                "invalid managed shell '{value}'; expected one of: bash, gbash, bashkit, dash, mksh, busybox"
             )),
         }
     }
@@ -185,7 +180,6 @@ impl From<ManagedShellArg> for shuck_run::Shell {
             ManagedShellArg::Bash => Self::Bash,
             ManagedShellArg::Gbash => Self::Gbash,
             ManagedShellArg::Bashkit => Self::Bashkit,
-            ManagedShellArg::Zsh => Self::Zsh,
             ManagedShellArg::Dash => Self::Dash,
             ManagedShellArg::Mksh => Self::Mksh,
             ManagedShellArg::Busybox => Self::Busybox,
@@ -243,7 +237,7 @@ impl FromStr for PatternShellPair {
         let shell = LinterShellDialect::from_name(shell);
         if shell == LinterShellDialect::Unknown {
             return Err(
-                "expected shell dialect to be one of sh, bash, dash, ksh, mksh, zsh".to_owned(),
+                "expected shell dialect to be one of sh, bash, dash, ksh, mksh".to_owned(),
             );
         }
 
@@ -410,31 +404,6 @@ pub struct RuleSelectionArgs {
     pub extend_fixable: Vec<RuleSelector>,
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct ZshPluginArgs {
-    pub zsh_plugin_resolution: bool,
-    pub no_zsh_plugin_resolution: bool,
-    pub zsh_plugin_root: Option<Vec<FrameworkRootPair>>,
-    pub extend_zsh_plugin_root: Vec<FrameworkRootPair>,
-    pub zsh_plugin: Option<Vec<PatternFrameworkNameTriple>>,
-    pub extend_zsh_plugin: Vec<PatternFrameworkNameTriple>,
-    pub zsh_theme: Option<Vec<PatternFrameworkNameTriple>>,
-    pub extend_zsh_theme: Vec<PatternFrameworkNameTriple>,
-    pub zsh_plugin_entrypoint: Option<Vec<PatternPathPair>>,
-    pub extend_zsh_plugin_entrypoint: Vec<PatternPathPair>,
-}
-
-impl ZshPluginArgs {
-    pub fn resolution(&self) -> Option<bool> {
-        if self.zsh_plugin_resolution {
-            Some(true)
-        } else if self.no_zsh_plugin_resolution {
-            Some(false)
-        } else {
-            None
-        }
-    }
-}
 
 #[derive(Debug, Clone, Default)]
 pub struct FileSelectionArgs {

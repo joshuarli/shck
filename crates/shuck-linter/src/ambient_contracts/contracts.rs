@@ -224,18 +224,18 @@ impl ResolvedAmbientContracts {
 
     pub(crate) fn file_entry_contract(
         &self,
-        collector: &AmbientContractCollector<'_>,
+        _collector: &AmbientContractCollector<'_>,
         shell: ShellDialect,
     ) -> Option<FileContract> {
-        let path = collector.signals.path()?;
+        let path = _collector.signals.path()?;
         let mut merged = FileContract::default();
         let mut matched = false;
 
         for id in &self.enabled_file_contract_ids {
             let contract = declarative_contract_by_id(id).expect("known ambient contract id");
-            if contract.matches_file_entry_contract(collector, shell, &self.project_root) {
+            if contract.matches_file_entry_contract(_collector, shell, &self.project_root) {
                 matched = true;
-                merge_contract(&mut merged, contract.file_entry_contract(collector));
+                merge_contract(&mut merged, contract.file_entry_contract(_collector));
             }
         }
 
@@ -500,14 +500,10 @@ struct DeclarativeSourceMatchDescriptor {
     assigns_any_names: &'static [&'static str],
     assigns_all_names: &'static [&'static str],
     assigns_any_prefixes: &'static [&'static str],
-    loads_zsh_modules_any: &'static [&'static str],
-    loads_zsh_modules_all: &'static [&'static str],
     static_assignment_function_defs: &'static [&'static str],
     probable_function_definition: bool,
     source_command: bool,
     completion_initializer_invoked: bool,
-    loads_zsh_colors: bool,
-    caller_scoped_array_length_names: bool,
 }
 
 struct DeclarativeEffectsDescriptor {
@@ -518,7 +514,6 @@ struct DeclarativeEffectsDescriptor {
     provides_variables: &'static [&'static str],
     provides_ambient_variables: &'static [&'static str],
     provides_functions: &'static [&'static str],
-    provides_caller_scoped_array_length_names: bool,
     functions: &'static [DeclarativeFunctionDescriptor],
 }
 
@@ -586,14 +581,14 @@ impl DeclarativeContractDescriptor {
 
     fn matches_file_entry_contract(
         &self,
-        collector: &AmbientContractCollector<'_>,
+        _collector: &AmbientContractCollector<'_>,
         shell: ShellDialect,
         project_root: &Path,
     ) -> bool {
         self.activation_matches_file_shell(shell)
-            && self.shell_matches(shell, collector.path_signals().path())
-            && self.file_matches(project_root, collector.path_signals().path())
-            && self.source_matches(collector)
+            && self.shell_matches(shell, _collector.path_signals().path())
+            && self.file_matches(project_root, _collector.path_signals().path())
+            && self.source_matches(_collector)
     }
 
     fn activation_matches_file_shell(&self, shell: ShellDialect) -> bool {
@@ -603,19 +598,19 @@ impl DeclarativeContractDescriptor {
     fn shell_matches(&self, shell: ShellDialect, path: &Path) -> bool {
         match self.matcher.shell {
             DeclarativeShellDescriptor::Any => true,
-            DeclarativeShellDescriptor::Zsh => shell == ShellDialect::Zsh,
+            DeclarativeShellDescriptor::Zsh => shell == ShellDialect::Bash,
             DeclarativeShellDescriptor::ZshOrUnknown => {
-                matches!(shell, ShellDialect::Zsh | ShellDialect::Unknown)
+                matches!(shell, ShellDialect::Bash | ShellDialect::Unknown)
             }
             DeclarativeShellDescriptor::ZshRuntime => {
-                shell == ShellDialect::Zsh
+                shell == ShellDialect::Bash
                     || (shell == ShellDialect::Unknown && zsh_project_or_dotfile_path_shape(path))
             }
         }
     }
 
-    fn source_matches(&self, collector: &AmbientContractCollector<'_>) -> bool {
-        let source = collector.source_signals();
+    fn source_matches(&self, _collector: &AmbientContractCollector<'_>) -> bool {
+        let source = _collector.source_signals();
         let matcher = &self.matcher.source;
 
         (matcher.contains_any.is_empty()
@@ -646,15 +641,6 @@ impl DeclarativeContractDescriptor {
                     .assigns_any_prefixes
                     .iter()
                     .any(|prefix| source.assigns_name_with_prefix(prefix)))
-            && (matcher.loads_zsh_modules_any.is_empty()
-                || matcher
-                    .loads_zsh_modules_any
-                    .iter()
-                    .any(|module| source.loads_zsh_module(module)))
-            && matcher
-                .loads_zsh_modules_all
-                .iter()
-                .all(|module| source.loads_zsh_module(module))
             && matcher.static_assignment_function_defs.iter().all(|name| {
                 source
                     .static_assignment_value(name)
@@ -662,26 +648,13 @@ impl DeclarativeContractDescriptor {
             })
             && (!matcher.probable_function_definition || source.has_probable_function_definition())
             && (!matcher.source_command || source.has_source_command())
-            && (!matcher.completion_initializer_invoked || collector.completion_initializer_invoked)
-            && (!matcher.loads_zsh_colors || source.loads_zsh_colors())
-            && (!matcher.caller_scoped_array_length_names
-                || !collector.caller_scoped_array_length_names.is_empty())
-    }
+            && (!matcher.completion_initializer_invoked || _collector.completion_initializer_invoked)    }
 
-    fn file_entry_contract(&self, collector: &AmbientContractCollector<'_>) -> FileContract {
-        let mut contract = self
+    fn file_entry_contract(&self, _collector: &AmbientContractCollector<'_>) -> FileContract {
+        let contract = self
             .static_file_entry_contract
             .get_or_init(|| file_entry_contract_from_declarative_effects(&self.effects))
             .clone();
-        if self.effects.provides_caller_scoped_array_length_names {
-            for name in &collector.caller_scoped_array_length_names {
-                contract.add_provided_binding(ProvidedBinding::new_file_entry_initialized(
-                    name.clone(),
-                    ProvidedBindingKind::Variable,
-                    ContractCertainty::Definite,
-                ));
-            }
-        }
         contract
     }
 
@@ -822,7 +795,7 @@ fn declarative_file_activation_matches(
     match activation {
         DeclarativeActivationDescriptor::Always => true,
         DeclarativeActivationDescriptor::ZshPlugin { .. }
-        | DeclarativeActivationDescriptor::ZshTheme { .. } => shell == ShellDialect::Zsh,
+        | DeclarativeActivationDescriptor::ZshTheme { .. } => shell == ShellDialect::Bash,
     }
 }
 
@@ -882,7 +855,7 @@ fn file_activation_shell_matches(
     match activation {
         AmbientContractActivation::Always => true,
         AmbientContractActivation::ZshPlugin { .. }
-        | AmbientContractActivation::ZshTheme { .. } => shell == ShellDialect::Zsh,
+        | AmbientContractActivation::ZshTheme { .. } => shell == ShellDialect::Bash,
     }
 }
 

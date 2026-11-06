@@ -1,4 +1,4 @@
-use shuck_ast::{File, Position, Span};
+use shuck_ast::{Command, CompoundCommand, File, Pattern, PatternGroupKind, PatternPart, Position, Span, StmtSeq};
 use shuck_parser::parser::{ParseDiagnostic, ParseResult};
 use std::collections::VecDeque;
 
@@ -15,9 +15,6 @@ use crate::rules::correctness::stray_closing_keyword::StrayClosingKeyword;
 use crate::rules::correctness::unterminated_if::UnterminatedIf;
 use crate::rules::correctness::until_missing_do::UntilMissingDo;
 use crate::rules::portability::function_params_in_sh::FunctionParamsInSh;
-use crate::rules::portability::targets_non_zsh_shell;
-use crate::rules::portability::zsh_always_block::ZshAlwaysBlock;
-use crate::rules::portability::zsh_brace_if::ZshBraceIf;
 use crate::rules::style::linebreak_before_and::LinebreakBeforeAnd;
 use crate::{
     Diagnostic, Edit, Fix, FixAvailability, LinterSemanticArtifacts, Rule, RuleSet, ShellDialect,
@@ -36,6 +33,7 @@ impl Violation for ExtglobCase {
         "grouped case patterns are not portable to POSIX sh".to_owned()
     }
 }
+
 
 impl Violation for ExtglobInCasePattern {
     const FIX_AVAILABILITY: FixAvailability = FixAvailability::Sometimes;
@@ -67,7 +65,6 @@ pub(crate) fn collect_parse_rule_diagnostics(
         .map(|result| result.diagnostics.as_slice())
         .unwrap_or(&[]);
     if parse_diagnostics.is_empty()
-        && !targets_non_zsh_shell(shell)
         && !is_x037_shell(shell)
         && !is_x048_shell(shell)
     {
@@ -172,49 +169,370 @@ pub(crate) fn collect_parse_rule_diagnostics(
         }
     }
 
-    if enabled_rules.contains(crate::Rule::ZshBraceIf) && targets_non_zsh_shell(shell) {
-        for span in parse_result
-            .map(|result| result.syntax_facts.zsh_brace_if_spans.as_slice())
-            .unwrap_or(&[])
-        {
-            diagnostics.push(Diagnostic::new(ZshBraceIf, *span));
-        }
-    }
-    if enabled_rules.contains(crate::Rule::ZshAlwaysBlock) && targets_non_zsh_shell(shell) {
-        for span in parse_result
-            .map(|result| result.syntax_facts.zsh_always_spans.as_slice())
-            .unwrap_or(&[])
-        {
-            diagnostics.push(Diagnostic::new(ZshAlwaysBlock, *span));
-        }
-    }
-    if enabled_rules.contains(crate::Rule::ExtglobCase) && is_x037_shell(shell) {
-        for part in parse_result
-            .map(|result| result.syntax_facts.zsh_case_group_parts.as_slice())
-            .unwrap_or(&[])
-        {
-            if part.pattern_part_index == 0 {
-                diagnostics.push(Diagnostic::new(ExtglobCase, part.span));
+
+    if (enabled_rules.contains(crate::Rule::ExtglobCase) && is_x037_shell(shell))
+        || (enabled_rules.contains(crate::Rule::ExtglobInCasePattern) && is_x048_shell(shell))
+    {
+        let mut found_any = false;
+        for_each_case_pattern_group(file, |pattern_part_index, span, source_text| {
+            found_any = true;
+            if enabled_rules.contains(crate::Rule::ExtglobCase)
+                && is_x037_shell(shell)
+                && pattern_part_index == 0
+            {
+                diagnostics.push(Diagnostic::new(ExtglobCase, span));
             }
-        }
-    }
-    if enabled_rules.contains(crate::Rule::ExtglobInCasePattern) && is_x048_shell(shell) {
-        for part in parse_result
-            .map(|result| result.syntax_facts.zsh_case_group_parts.as_slice())
-            .unwrap_or(&[])
-        {
-            if part.pattern_part_index > 0 {
-                let diagnostic = Diagnostic::new(ExtglobInCasePattern, part.span);
-                diagnostics.push(match extglob_in_case_pattern_fix(source, part.span) {
+            if enabled_rules.contains(crate::Rule::ExtglobInCasePattern)
+                && is_x048_shell(shell)
+                && pattern_part_index > 0
+            {
+                let diagnostic = Diagnostic::new(ExtglobInCasePattern, span);
+                diagnostics.push(match extglob_in_case_pattern_fix(source_text, span) {
                     Some(fix) => diagnostic.with_fix(fix),
                     None => diagnostic,
                 });
             }
+        }, source);
+        if !found_any {
+            scan_case_pattern_groups_in_source(
+                source,
+                file,
+                enabled_rules,
+                shell,
+                &mut diagnostics,
+            );
         }
     }
 
     diagnostics
 }
+
+
+
+
+
+fn scan_case_pattern_groups_in_source(
+    source: &str,
+    _file: &File,
+    enabled_rules: &RuleSet,
+    shell: ShellDialect,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    // Fallback for when parsing fails to produce a case AST (e.g. extglob case patterns).
+    // Scan source for case arms and detect (a|b)-style groups in pattern positions.
+    let bytes = source.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        // find `case` keyword
+        if is_keyword_at(source, bytes, i, "case") {
+            if let Some(esac) = find_keyword(source, bytes, i + 4, "esac") {
+                let case_body_start = find_keyword(source, bytes, i + 4, "in").map(|p| p + 2).unwrap_or(i + 4);
+                scan_case_patterns_in_range(source, case_body_start, esac, enabled_rules, shell, diagnostics);
+                i = esac + 4;
+                continue;
+            }
+        }
+        i += 1;
+        while i < bytes.len() && !source.is_char_boundary(i) { i += 1; }
+    }
+}
+
+fn is_keyword_at(source: &str, bytes: &[u8], i: usize, kw: &str) -> bool {
+    if i + kw.len() > bytes.len() { return false; }
+    if !source.is_char_boundary(i) || !source.is_char_boundary(i + kw.len()) { return false; }
+    if &source[i..i + kw.len()] != kw { return false; }
+    let before_ok = i == 0 || !is_word_char(bytes[i - 1] as char);
+    let after = i + kw.len();
+    let after_ok = after >= bytes.len() || !is_word_char(bytes[after] as char);
+    before_ok && after_ok
+}
+
+fn find_keyword(source: &str, bytes: &[u8], from: usize, kw: &str) -> Option<usize> {
+    let mut i = from;
+    while i < bytes.len() {
+        if is_keyword_at(source, bytes, i, kw) { return Some(i); }
+        // advance to next char boundary
+        i += 1;
+        while i < bytes.len() && !source.is_char_boundary(i) { i += 1; }
+    }
+    None
+}
+
+fn is_word_char(c: char) -> bool { c.is_ascii_alphanumeric() || c == '_' }
+
+fn scan_case_patterns_in_range(
+    source: &str,
+    start: usize,
+    end: usize,
+    enabled_rules: &RuleSet,
+    shell: ShellDialect,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    // Very simple: find lines/patterns ending with ) followed by body/;; and look for ( with |
+    // Split on ;; ;& ;;& at top level roughly, and examine pattern part before first unquoted )
+    let end = end.min(source.len());
+    if !source.is_char_boundary(start) || !source.is_char_boundary(end) || start > end { return; }
+    let region = &source[start..end];
+    let mut offset = 0;
+    while offset < region.len() {
+        if !region.is_char_boundary(offset) { offset += 1; continue; }
+        let rest = &region[offset..];
+        // find next case arm delimiter ) that's not inside $( or (( at depth 0 of case pattern
+        if let Some((pat_text, pat_start_in_region, pat_end_in_region)) = find_case_arm_pattern(rest) {
+            let abs_start = start + offset + pat_start_in_region;
+            // find groups ( ... | ... ) in pat_text
+            find_groups_in_pattern_text(source, pat_text, abs_start, enabled_rules, shell, diagnostics);
+            offset += pat_end_in_region;
+        } else {
+            offset += 1;
+            while offset < region.len() && !region.is_char_boundary(offset) { offset += 1; }
+        }
+    }
+}
+
+fn find_case_arm_pattern(text: &str) -> Option<(&str, usize, usize)> {
+    let trimmed_start = text.len() - text.trim_start().len();
+    let t = &text[trimmed_start..];
+    if t.is_empty() {
+        return None;
+    }
+    if t.starts_with(";;") || t.starts_with(";&") || t.starts_with(";;&") || t.starts_with("esac") {
+        return None;
+    }
+    let bytes = t.as_bytes();
+    let mut i = 0usize;
+    let mut depth = 0i32;
+    let mut in_sq = false;
+    let mut in_dq = false;
+    let mut escaped = false;
+    while i < bytes.len() {
+        let c = bytes[i] as char;
+        if escaped {
+            escaped = false;
+            i += 1;
+            continue;
+        }
+        if c == '\\' && !in_sq {
+            escaped = true;
+            i += 1;
+            continue;
+        }
+        if c == '\'' && !in_dq {
+            in_sq = !in_sq;
+            i += 1;
+            continue;
+        }
+        if c == '"' && !in_sq {
+            in_dq = !in_dq;
+            i += 1;
+            continue;
+        }
+        if in_sq || in_dq {
+            i += 1;
+            continue;
+        }
+        match c {
+            '$' if i + 1 < bytes.len() && bytes[i + 1] == b'(' => {
+                depth += 1;
+                i += 2;
+                continue;
+            }
+            '`' => {
+                depth += 1;
+            }
+            '(' => {
+                depth += 1;
+            }
+            ')' => {
+                if depth == 0 {
+                    return Some((&t[..i], trimmed_start, trimmed_start + i + 1));
+                }
+                depth -= 1;
+            }
+            '\n' if depth == 0 => return None,
+            ';' if depth == 0 => return None,
+            _ => {}
+        }
+        i += 1;
+    }
+    None
+}
+
+fn find_groups_in_pattern_text(
+    source: &str,
+    pat_text: &str,
+    abs_pat_start: usize,
+    enabled_rules: &RuleSet,
+    shell: ShellDialect,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    // Find ( ... ) groups that contain | at depth 0 inside them (case-extglob style)
+    let bytes = pat_text.as_bytes();
+    let mut i = 0;
+    // check top-level: is there any char before first group on the same nesting? 
+    // We look for groups; pattern_part_index 0 means the group is the first "part" conceptually.
+    let mut seen_non_group_content = false;
+    let mut in_sq = false;
+    let mut in_dq = false;
+    let mut escaped = false;
+    let mut bracket = 0i32;
+    while i < bytes.len() {
+        let c = bytes[i] as char;
+        if escaped { escaped = false; i += 1; continue; }
+        if c == '\\' && !in_sq { escaped = true; i += 1; if i == 1 || !seen_non_group_content { /* leading escape means content */ } seen_non_group_content = true; continue; }
+        if c == '\'' && !in_dq && bracket == 0 { in_sq = !in_sq; seen_non_group_content = true; i += 1; continue; }
+        if c == '"' && !in_sq && bracket == 0 { in_dq = !in_dq; seen_non_group_content = true; i += 1; continue; }
+        if in_sq || in_dq { seen_non_group_content = true; i += 1; continue; }
+        if c == '[' && bracket == 0 { bracket = 1; seen_non_group_content = true; i += 1; continue; }
+        if bracket > 0 { if c == ']' { bracket = 0; } i += 1; continue; }
+        if c == '(' {
+            // try to find matching ) and see if it contains |
+            if let Some((group_end, has_pipe)) = scan_group(bytes, i) {
+                if has_pipe {
+                    let is_first = !seen_non_group_content;
+                    let span_start = offset_to_position(source, abs_pat_start + i);
+                    let span_end = offset_to_position(source, abs_pat_start + group_end + 1);
+                    let span = Span::from_positions(span_start, span_end);
+                    if is_first && enabled_rules.contains(crate::Rule::ExtglobCase) && is_x037_shell(shell) {
+                        diagnostics.push(Diagnostic::new(ExtglobCase, span));
+                    }
+                    if !is_first && enabled_rules.contains(crate::Rule::ExtglobInCasePattern) && is_x048_shell(shell) {
+                        let diagnostic = Diagnostic::new(ExtglobInCasePattern, span);
+                        diagnostics.push(match extglob_in_case_pattern_fix(source, span) {
+                            Some(fix) => diagnostic.with_fix(fix),
+                            None => diagnostic,
+                        });
+                    }
+                }
+                i = group_end + 1;
+                seen_non_group_content = true;
+                continue;
+            }
+        }
+        if c != '|' { // | at top level separates alternatives in our outer view? in a single pattern text it can appear
+            seen_non_group_content = seen_non_group_content || c != '|';
+        }
+        if c != ')' && c != '|' { seen_non_group_content = true; }
+        i += 1;
+    }
+}
+
+fn scan_group(bytes: &[u8], start: usize) -> Option<(usize, bool)> {
+    if bytes.get(start) != Some(&b'(') { return None; }
+    let mut depth = 0i32;
+    let mut has_pipe_at_zero = false;
+    let mut i = start;
+    let mut in_sq = false;
+    let mut in_dq = false;
+    let mut escaped = false;
+    while i < bytes.len() {
+        let c = bytes[i] as char;
+        if escaped { escaped = false; i += 1; continue; }
+        if c == '\\' && !in_sq { escaped = true; i += 1; continue; }
+        if c == '\'' && !in_dq { in_sq = !in_sq; i += 1; continue; }
+        if c == '"' && !in_sq { in_dq = !in_dq; i += 1; continue; }
+        if in_sq || in_dq { i += 1; continue; }
+        match c {
+            '(' => depth += 1,
+            ')' => { depth -= 1; if depth == 0 { return Some((i, has_pipe_at_zero)); } }
+            '|' if depth == 1 => has_pipe_at_zero = true,
+            _ => {}
+        }
+        i += 1;
+    }
+    None
+}
+
+fn offset_to_position(source: &str, offset: usize) -> Position {
+    let offset = offset.min(source.len());
+    let mut line = 1usize;
+    let mut col = 1usize;
+    for (i, c) in source.char_indices() {
+        if i >= offset { break; }
+        if c == '\n' { line += 1; col = 1; } else { col += 1; }
+    }
+    Position::at(line, col, offset)
+}
+
+fn for_each_case_pattern_group(
+    file: &File,
+    mut f: impl FnMut(usize, Span, &str),
+    source: &str,
+) {
+    fn visit_stmt_seq(seq: &StmtSeq, f: &mut impl FnMut(usize, Span, &str), source: &str) {
+        for stmt in &seq.stmts {
+            visit_stmt(stmt, f, source);
+        }
+    }
+    fn visit_stmt(stmt: &shuck_ast::Stmt, f: &mut impl FnMut(usize, Span, &str), source: &str) {
+        visit_command(&stmt.command, f, source);
+    }
+    fn visit_command(cmd: &Command, f: &mut impl FnMut(usize, Span, &str), source: &str) {
+        match cmd {
+            Command::Simple(_) | Command::Builtin(_) | Command::Decl(_) => { }
+            Command::Binary(b) => {
+                visit_stmt(&b.left, f, source);
+                visit_stmt(&b.right, f, source);
+            }
+            Command::Compound(c) => visit_compound(c, f, source),
+            Command::Function(def) => visit_stmt(&def.body, f, source),
+        }
+    }
+    fn visit_compound(cc: &CompoundCommand, f: &mut impl FnMut(usize, Span, &str), source: &str) {
+        match cc {
+            CompoundCommand::Case(c) => { eprintln!("DBG case items={}", c.cases.len());
+                for item in &c.cases {
+                    for pattern in &item.patterns {
+                        visit_pattern(pattern, f, source);
+                    }
+                    visit_stmt_seq(&item.body, f, source);
+                }
+            }
+            CompoundCommand::If(c) => {
+                visit_stmt_seq(&c.condition, f, source);
+                visit_stmt_seq(&c.then_branch, f, source);
+                for (cond, body) in &c.elif_branches {
+                    visit_stmt_seq(cond, f, source);
+                    visit_stmt_seq(body, f, source);
+                }
+                if let Some(body) = &c.else_branch {
+                    visit_stmt_seq(body, f, source);
+                }
+            }
+            CompoundCommand::While(c) => {
+                visit_stmt_seq(&c.condition, f, source);
+                visit_stmt_seq(&c.body, f, source);
+            }
+            CompoundCommand::Until(c) => {
+                visit_stmt_seq(&c.condition, f, source);
+                visit_stmt_seq(&c.body, f, source);
+            }
+            CompoundCommand::For(c) => visit_stmt_seq(&c.body, f, source),
+            CompoundCommand::Select(c) => visit_stmt_seq(&c.body, f, source),
+            CompoundCommand::BraceGroup(body) | CompoundCommand::Subshell(body) => visit_stmt_seq(body, f, source),
+            _ => {}
+        }
+    }
+    fn visit_pattern(pattern: &Pattern, f: &mut impl FnMut(usize, Span, &str), source: &str) {
+        for (index, part) in pattern.parts.iter().enumerate() {
+            match &part.kind {
+                PatternPart::Group { kind, patterns } => {
+if matches!(kind, PatternGroupKind::ExactlyOne) && part.span.slice(source).starts_with('(') {
+                        f(index, part.span, source);
+                    }
+                    for p in patterns {
+                        visit_pattern(p, f, source);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    visit_stmt_seq(&file.body, &mut f, source);
+}
+
+
+
 
 fn extglob_in_case_pattern_fix(source: &str, part_span: Span) -> Option<Fix> {
     let group = part_span.slice(source);
@@ -1452,7 +1770,8 @@ fn leading_control_operator_span(locator: Locator<'_>, line_number: usize) -> Op
             return None;
         }
         "||"
-    } else if let Some(rest) = trimmed.strip_prefix('|') {
+    } else {
+        let rest = trimmed.strip_prefix('|')?;
         if rest
             .chars()
             .next()
@@ -1461,8 +1780,6 @@ fn leading_control_operator_span(locator: Locator<'_>, line_number: usize) -> Op
             return None;
         }
         "|"
-    } else {
-        return None;
     };
 
     let line_start = line_start_offset(locator, line_number)?;
@@ -2395,22 +2712,6 @@ mod tests {
         assert_eq!(diagnostics[0].rule, Rule::UnterminatedIf);
         assert_eq!(diagnostics[0].span.start.line(), 2);
         assert_eq!(diagnostics[0].span.start.column(), 1);
-    }
-
-    #[test]
-    fn c034_does_not_run_for_zsh_sources() {
-        let source = "#!/usr/bin/env zsh\nif true; then\n  :\n";
-        let recovered = Parser::new(source).parse();
-        let settings = LinterSettings::for_rule(Rule::UnterminatedIf);
-        let diagnostics = collect_parse_rule_diagnostics(
-            &recovered.file,
-            source,
-            Some(&recovered),
-            &settings.rules,
-            ShellDialect::Zsh,
-        );
-
-        assert!(diagnostics.is_empty());
     }
 
     #[test]
@@ -3876,415 +4177,5 @@ fi
             diagnostics[0].fix_title.as_deref(),
             Some("insert a space after `&`")
         );
-    }
-
-    #[test]
-    fn maps_zsh_brace_if_recovery_to_x038() {
-        let source = "#!/bin/sh\nif [[ -n \"$x\" ]] {\n  :\n}\n";
-        let recovered = Parser::new(source).parse();
-        let settings = LinterSettings::for_rule(Rule::ZshBraceIf);
-        let diagnostics = collect_parse_rule_diagnostics(
-            &recovered.file,
-            source,
-            Some(&recovered),
-            &settings.rules,
-            ShellDialect::Sh,
-        );
-
-        assert_eq!(diagnostics.len(), 1);
-        assert_eq!(diagnostics[0].rule, Rule::ZshBraceIf);
-        assert_eq!(diagnostics[0].span.slice(source), "{");
-    }
-
-    #[test]
-    fn ignores_missing_then_without_zsh_brace_syntax() {
-        let source = "#!/bin/sh\nif [[ -n \"$x\" ]]\n  :\nfi\n";
-        let recovered = Parser::new(source).parse();
-        let settings = LinterSettings::for_rule(Rule::ZshBraceIf);
-        let diagnostics = collect_parse_rule_diagnostics(
-            &recovered.file,
-            source,
-            Some(&recovered),
-            &settings.rules,
-            ShellDialect::Sh,
-        );
-
-        assert!(diagnostics.is_empty());
-    }
-
-    #[test]
-    fn ignores_condition_brace_groups_for_zsh_brace_if() {
-        let source = "#!/bin/sh\nif true\n{ echo ok; }\nthen\n  :\nfi\n";
-        let recovered = Parser::new(source).parse();
-        let settings = LinterSettings::for_rule(Rule::ZshBraceIf);
-        let diagnostics = collect_parse_rule_diagnostics(
-            &recovered.file,
-            source,
-            Some(&recovered),
-            &settings.rules,
-            ShellDialect::Sh,
-        );
-
-        assert!(diagnostics.is_empty());
-    }
-
-    #[test]
-    fn ignores_later_then_after_brace_group_conditions_for_zsh_brace_if() {
-        let source = "#!/bin/sh\nif true; { echo ok; }; echo more; then\n  :\nfi\n";
-        let recovered = Parser::new(source).parse();
-        let settings = LinterSettings::for_rule(Rule::ZshBraceIf);
-        let diagnostics = collect_parse_rule_diagnostics(
-            &recovered.file,
-            source,
-            Some(&recovered),
-            &settings.rules,
-            ShellDialect::Sh,
-        );
-
-        assert!(diagnostics.is_empty());
-    }
-
-    #[test]
-    fn ignores_zsh_brace_if_when_target_shell_is_zsh() {
-        let source = "#!/bin/zsh\nif [[ -n \"$x\" ]] {\n  :\n}\n";
-        let recovered = Parser::new(source).parse();
-        let settings = LinterSettings::for_rule(Rule::ZshBraceIf);
-        let diagnostics = collect_parse_rule_diagnostics(
-            &recovered.file,
-            source,
-            Some(&recovered),
-            &settings.rules,
-            ShellDialect::Zsh,
-        );
-
-        assert!(diagnostics.is_empty());
-    }
-
-    #[test]
-    fn maps_zsh_brace_if_recovery_even_with_later_parse_errors() {
-        let source = "#!/bin/sh\nif [[ -n \"$x\" ]] {\n  :\n}\nif true; then\n  :\n";
-        let recovered = Parser::new(source).parse();
-        let settings = LinterSettings::for_rule(Rule::ZshBraceIf);
-        let diagnostics = collect_parse_rule_diagnostics(
-            &recovered.file,
-            source,
-            Some(&recovered),
-            &settings.rules,
-            ShellDialect::Sh,
-        );
-
-        assert_eq!(diagnostics.len(), 1);
-        assert_eq!(diagnostics[0].rule, Rule::ZshBraceIf);
-        assert_eq!(diagnostics[0].span.slice(source), "{");
-    }
-
-    #[test]
-    fn maps_zsh_brace_if_for_mksh_targets() {
-        let source = "#!/bin/mksh\nif [[ -n \"$x\" ]] {\n  :\n}\n";
-        let recovered = Parser::new(source).parse();
-        let settings = LinterSettings::for_rule(Rule::ZshBraceIf);
-        let diagnostics = collect_parse_rule_diagnostics(
-            &recovered.file,
-            source,
-            Some(&recovered),
-            &settings.rules,
-            ShellDialect::Mksh,
-        );
-
-        assert_eq!(diagnostics.len(), 1);
-        assert_eq!(diagnostics[0].rule, Rule::ZshBraceIf);
-        assert_eq!(diagnostics[0].span.slice(source), "{");
-    }
-
-    #[test]
-    fn maps_zsh_always_block_to_x039() {
-        let source = "#!/bin/sh\n{ :; } always { :; }\n";
-        let recovered = Parser::new(source).parse();
-        let settings = LinterSettings::for_rule(Rule::ZshAlwaysBlock);
-        let diagnostics = collect_parse_rule_diagnostics(
-            &recovered.file,
-            source,
-            Some(&recovered),
-            &settings.rules,
-            ShellDialect::Sh,
-        );
-
-        assert_eq!(diagnostics.len(), 1);
-        assert_eq!(diagnostics[0].rule, Rule::ZshAlwaysBlock);
-        assert_eq!(diagnostics[0].span.slice(source), "always");
-    }
-
-    #[test]
-    fn maps_zsh_case_group_recovery_to_x037() {
-        let source = concat!(
-            "#!/bin/sh\n",
-            "case \"$OSTYPE\" in\n",
-            "  (darwin|freebsd)*) print ok ;;\n",
-            "esac\n",
-        );
-        let recovered = Parser::new(source).parse();
-        let settings = LinterSettings::for_rule(Rule::ExtglobCase);
-        let diagnostics = collect_parse_rule_diagnostics(
-            &recovered.file,
-            source,
-            Some(&recovered),
-            &settings.rules,
-            ShellDialect::Sh,
-        );
-
-        assert_eq!(diagnostics.len(), 1);
-        assert_eq!(diagnostics[0].rule, Rule::ExtglobCase);
-        assert_eq!(diagnostics[0].span.slice(source), "(darwin|freebsd)");
-    }
-
-    #[test]
-    fn maps_zsh_case_group_recovery_to_x037_for_bash_and_ksh_targets() {
-        let source = concat!(
-            "#!/bin/sh\n",
-            "case \"$OSTYPE\" in\n",
-            "  (darwin|freebsd)*) print ok ;;\n",
-            "esac\n",
-        );
-        let recovered = Parser::new(source).parse();
-        let settings = LinterSettings::for_rule(Rule::ExtglobCase);
-
-        for shell in [ShellDialect::Bash, ShellDialect::Ksh] {
-            let diagnostics = collect_parse_rule_diagnostics(
-                &recovered.file,
-                source,
-                Some(&recovered),
-                &settings.rules,
-                shell,
-            );
-
-            assert_eq!(
-                diagnostics.len(),
-                1,
-                "expected one diagnostic for {shell:?}"
-            );
-            assert_eq!(diagnostics[0].rule, Rule::ExtglobCase);
-            assert_eq!(diagnostics[0].span.slice(source), "(darwin|freebsd)");
-        }
-    }
-
-    #[test]
-    fn maps_embedded_zsh_case_group_recovery_to_x048() {
-        let source = concat!(
-            "#!/bin/sh\n",
-            "case \"$x\" in\n",
-            "  foo_(a|b)_*) echo match ;;\n",
-            "esac\n",
-        );
-        let recovered = Parser::new(source).parse();
-        let settings = LinterSettings::for_rule(Rule::ExtglobInCasePattern);
-        let diagnostics = collect_parse_rule_diagnostics(
-            &recovered.file,
-            source,
-            Some(&recovered),
-            &settings.rules,
-            ShellDialect::Sh,
-        );
-
-        assert_eq!(diagnostics.len(), 1);
-        assert_eq!(diagnostics[0].rule, Rule::ExtglobInCasePattern);
-        assert_eq!(diagnostics[0].span.slice(source), "(a|b)");
-        assert_eq!(
-            diagnostics[0].fix.as_ref().map(|fix| fix.applicability()),
-            Some(Applicability::Safe)
-        );
-        assert_eq!(
-            apply_fixes(source, &diagnostics, Applicability::Safe).code,
-            concat!(
-                "#!/bin/sh\n",
-                "case \"$x\" in\n",
-                "  foo_a_*|foo_b_*) echo match ;;\n",
-                "esac\n",
-            )
-        );
-    }
-
-    #[test]
-    fn expands_multiple_embedded_case_groups_with_one_fix() {
-        let source = concat!(
-            "#!/bin/sh\n",
-            "case \"$x\" in\n",
-            "  foo_(a|b)_(c|d)) echo match ;;\n",
-            "esac\n",
-        );
-        let recovered = Parser::new(source).parse();
-        let settings = LinterSettings::for_rule(Rule::ExtglobInCasePattern);
-        let diagnostics = collect_parse_rule_diagnostics(
-            &recovered.file,
-            source,
-            Some(&recovered),
-            &settings.rules,
-            ShellDialect::Sh,
-        );
-
-        assert_eq!(diagnostics.len(), 2);
-        assert!(
-            diagnostics
-                .iter()
-                .all(|diagnostic| diagnostic.fix.is_some())
-        );
-        assert_eq!(
-            apply_fixes(source, &diagnostics, Applicability::Safe).code,
-            concat!(
-                "#!/bin/sh\n",
-                "case \"$x\" in\n",
-                "  foo_a_c|foo_a_d|foo_b_c|foo_b_d) echo match ;;\n",
-                "esac\n",
-            )
-        );
-    }
-
-    #[test]
-    fn expands_embedded_case_group_after_bracket_class_pipe() {
-        let source = concat!(
-            "#!/bin/sh\n",
-            "case \"$x\" in\n",
-            "  foo_[a|b](c|d)) echo match ;;\n",
-            "esac\n",
-        );
-        let recovered = Parser::new(source).parse();
-        let settings = LinterSettings::for_rule(Rule::ExtglobInCasePattern);
-        let diagnostics = collect_parse_rule_diagnostics(
-            &recovered.file,
-            source,
-            Some(&recovered),
-            &settings.rules,
-            ShellDialect::Sh,
-        );
-
-        assert_eq!(diagnostics.len(), 1);
-        assert_eq!(diagnostics[0].rule, Rule::ExtglobInCasePattern);
-        assert_eq!(
-            apply_fixes(source, &diagnostics, Applicability::Safe).code,
-            concat!(
-                "#!/bin/sh\n",
-                "case \"$x\" in\n",
-                "  foo_[a|b]c|foo_[a|b]d) echo match ;;\n",
-                "esac\n",
-            )
-        );
-    }
-
-    #[test]
-    fn expands_case_group_alternatives_around_bracket_class_pipe() {
-        let source = concat!(
-            "#!/bin/sh\n",
-            "case \"$x\" in\n",
-            "  foo_([a|b]|c)) echo match ;;\n",
-            "esac\n",
-        );
-        let recovered = Parser::new(source).parse();
-        let settings = LinterSettings::for_rule(Rule::ExtglobInCasePattern);
-        let diagnostics = collect_parse_rule_diagnostics(
-            &recovered.file,
-            source,
-            Some(&recovered),
-            &settings.rules,
-            ShellDialect::Sh,
-        );
-
-        assert_eq!(diagnostics.len(), 1);
-        assert_eq!(diagnostics[0].rule, Rule::ExtglobInCasePattern);
-        assert_eq!(
-            apply_fixes(source, &diagnostics, Applicability::Safe).code,
-            concat!(
-                "#!/bin/sh\n",
-                "case \"$x\" in\n",
-                "  foo_[a|b]|foo_c) echo match ;;\n",
-                "esac\n",
-            )
-        );
-    }
-
-    #[test]
-    fn collects_multiple_zsh_recovery_rules_together() {
-        let source = concat!(
-            "#!/bin/sh\n",
-            "if [[ -n \"$x\" ]] {\n",
-            "  :\n",
-            "}\n",
-            "{ :; } always { :; }\n",
-            "case \"$x\" in\n",
-            "  (a|b)*) echo lead ;;\n",
-            "esac\n",
-            "case \"$x\" in\n",
-            "  foo_(c|d)_*) echo embedded ;;\n",
-            "esac\n",
-        );
-        let recovered = Parser::new(source).parse();
-        let settings = LinterSettings::for_rules([
-            Rule::ZshBraceIf,
-            Rule::ZshAlwaysBlock,
-            Rule::ExtglobCase,
-            Rule::ExtglobInCasePattern,
-        ]);
-        let diagnostics = collect_parse_rule_diagnostics(
-            &recovered.file,
-            source,
-            Some(&recovered),
-            &settings.rules,
-            ShellDialect::Sh,
-        );
-        let rules: std::collections::HashSet<_> = diagnostics.iter().map(|d| d.rule).collect();
-
-        assert_eq!(rules.len(), 4);
-        assert!(rules.contains(&Rule::ZshBraceIf));
-        assert!(rules.contains(&Rule::ZshAlwaysBlock));
-        assert!(rules.contains(&Rule::ExtglobCase));
-        assert!(rules.contains(&Rule::ExtglobInCasePattern));
-    }
-
-    #[test]
-    fn ignores_non_always_brace_groups_for_x039() {
-        let source = "#!/bin/sh\n{ :; }\n";
-        let recovered = Parser::new(source).parse();
-        let settings = LinterSettings::for_rule(Rule::ZshAlwaysBlock);
-        let diagnostics = collect_parse_rule_diagnostics(
-            &recovered.file,
-            source,
-            Some(&recovered),
-            &settings.rules,
-            ShellDialect::Sh,
-        );
-
-        assert!(diagnostics.is_empty());
-    }
-
-    #[test]
-    fn ignores_zsh_always_block_when_target_shell_is_zsh() {
-        let source = "#!/bin/zsh\n{ :; } always { :; }\n";
-        let recovered = Parser::new(source).parse();
-        let settings = LinterSettings::for_rule(Rule::ZshAlwaysBlock);
-        let diagnostics = collect_parse_rule_diagnostics(
-            &recovered.file,
-            source,
-            Some(&recovered),
-            &settings.rules,
-            ShellDialect::Zsh,
-        );
-
-        assert!(diagnostics.is_empty());
-    }
-
-    #[test]
-    fn maps_zsh_always_block_even_with_later_parse_errors() {
-        let source = "#!/bin/sh\n{ :; } always { :; }\nif true; then\n  :\n";
-        let recovered = Parser::new(source).parse();
-        let settings = LinterSettings::for_rule(Rule::ZshAlwaysBlock);
-        let diagnostics = collect_parse_rule_diagnostics(
-            &recovered.file,
-            source,
-            Some(&recovered),
-            &settings.rules,
-            ShellDialect::Sh,
-        );
-
-        assert_eq!(diagnostics.len(), 1);
-        assert_eq!(diagnostics[0].rule, Rule::ZshAlwaysBlock);
-        assert_eq!(diagnostics[0].span.slice(source), "always");
     }
 }

@@ -419,36 +419,6 @@ fn directive_can_apply_to_following_command(
                 '{',
             )
         }
-        Command::Compound(CompoundCommand::Repeat(command)) => {
-            body_header_matches(
-                source,
-                visit.stmt.span.start.offset(),
-                &command.body,
-                &context,
-                "do",
-            ) || body_opener_matches(
-                source,
-                visit.stmt.span.start.offset(),
-                &command.body,
-                &context,
-                '{',
-            )
-        }
-        Command::Compound(CompoundCommand::Foreach(command)) => {
-            body_header_matches(
-                source,
-                visit.stmt.span.start.offset(),
-                &command.body,
-                &context,
-                "do",
-            ) || body_opener_matches(
-                source,
-                visit.stmt.span.start.offset(),
-                &command.body,
-                &context,
-                '{',
-            )
-        }
         Command::Compound(CompoundCommand::ArithmeticFor(command)) => {
             body_header_matches(
                 source,
@@ -1078,48 +1048,6 @@ if true; then ( # shellcheck disable=SC2086
         let directives = directives(source);
 
         assert_eq!(directives.len(), 2);
-        assert!(directives.iter().all(|directive| {
-            directive.source == SuppressionSource::ShellCheck
-                && directive.codes == vec![Rule::UnquotedExpansion]
-        }));
-    }
-
-    #[test]
-    fn parses_shellcheck_directives_after_zsh_brace_if_headers() {
-        let source = "\
-if [[ -n $foo ]] { # shellcheck disable=SC2086
-  echo $foo
-} elif [[ -n $bar ]] { # shellcheck disable=SC2086
-  echo $bar
-} else { # shellcheck disable=SC2086
-  echo $baz
-}
-";
-        let directives = directives_with_dialect(source, ShellDialect::Zsh);
-
-        assert_eq!(directives.len(), 3);
-        assert!(directives.iter().all(|directive| {
-            directive.source == SuppressionSource::ShellCheck
-                && directive.codes == vec![Rule::UnquotedExpansion]
-        }));
-    }
-
-    #[test]
-    fn parses_shellcheck_directives_after_zsh_brace_loop_headers() {
-        let source = "\
-for item in 1; { # shellcheck disable=SC2086
-  echo $foo
-}
-repeat 2 { # shellcheck disable=SC2086
-  echo $bar
-}
-foreach item (1 2) { # shellcheck disable=SC2086
-  echo $baz
-}
-";
-        let directives = directives_with_dialect(source, ShellDialect::Zsh);
-
-        assert_eq!(directives.len(), 3);
         assert!(directives.iter().all(|directive| {
             directive.source == SuppressionSource::ShellCheck
                 && directive.codes == vec![Rule::UnquotedExpansion]

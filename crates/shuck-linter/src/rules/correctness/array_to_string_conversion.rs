@@ -117,14 +117,6 @@ pub fn array_to_string_conversion(checker: &mut Checker) {
                     name.clone(),
                     ArrayHistoryState::from_binding(checker, binding, true, prior),
                 );
-            } else if checker.shell() == ShellDialect::Zsh
-                && binding_establishes_local_scalar_history(semantic, binding)
-            {
-                push_array_history(
-                    &mut array_history,
-                    name.clone(),
-                    ArrayHistoryState::from_binding(checker, binding, false, None),
-                );
             }
 
             saw_array_history.then_some(binding.span)
@@ -209,42 +201,18 @@ impl ArrayHistoryState {
         }
     }
 
-    fn visible_to_binding(self, checker: &Checker<'_>, binding: &Binding) -> bool {
-        if checker.shell() != ShellDialect::Zsh {
-            return true;
-        }
-
-        !self.local
-            || self.function_scope == checker.semantic().enclosing_function_scope(binding.scope)
+    fn visible_to_binding(self, _checker: &Checker<'_>, _binding: &Binding) -> bool {
+        true
     }
 }
 
 fn zsh_selectorless_subscript_value_resets_scalar_history(
-    checker: &Checker<'_>,
-    binding: &Binding,
-    saw_array_history: bool,
-    visible_array_state: Option<ArrayHistoryState>,
+    _checker: &Checker<'_>,
+    _binding: &Binding,
+    _saw_array_history: bool,
+    _visible_array_state: Option<ArrayHistoryState>,
 ) -> bool {
-    checker.shell() == ShellDialect::Zsh
-        && !matches!(
-            checker
-                .semantic()
-                .shell_behavior_at(binding.span.start.offset())
-                .array_reference_policy(),
-            ArrayReferencePolicy::RequiresExplicitSelector
-        )
-        && checker
-            .facts()
-            .assignments()
-            .binding_value(binding.id)
-            .is_some_and(|value| {
-                value.zsh_selectorless_subscript_value()
-                    && (!saw_array_history
-                        || (binding_establishes_local_scalar_history(checker.semantic(), binding)
-                            && !visible_array_state.is_some_and(|state| state.local))
-                        || value
-                            .zsh_selectorless_subscript_value_references_base_name(&binding.name))
-            })
+    false
 }
 
 fn array_history_events(
@@ -563,16 +531,6 @@ fn binding_establishes_array_history(
     }
 }
 
-fn binding_establishes_local_scalar_history(semantic: &SemanticModel, binding: &Binding) -> bool {
-    matches!(
-        binding.kind,
-        BindingKind::Declaration(DeclarationBuiltin::Local)
-    ) && binding
-        .attributes
-        .contains(BindingAttributes::DECLARATION_INITIALIZED)
-        && !semantic.binding_has_array_value_shape(binding.id)
-}
-
 fn binding_resets_array_history(binding: &Binding, builtin_history: &BuiltinArrayHistory) -> bool {
     match binding.kind {
         BindingKind::LoopVariable
@@ -828,104 +786,6 @@ f() {
     }
 
     #[test]
-    fn ignores_shadowed_local_scalars_after_sibling_function_local_arrays() {
-        let source = "\
-#!/bin/zsh
-f() {
-  local -a cmd
-  cmd=(curl -I)
-}
-g() {
-  local cmd=cp
-}
-h() {
-  local -a ___opt
-  ___opt=(-a -b)
-}
-i() {
-  local ___opt=\"$1\"
-}
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::ArrayToStringConversion),
-        );
-
-        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
-    }
-
-    #[test]
-    fn reports_global_scalar_after_hidden_function_local_array_history() {
-        let source = "\
-#!/bin/zsh
-arr=(global)
-f() {
-  local -a arr
-  arr=(local)
-}
-arr=scalar
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::ArrayToStringConversion),
-        );
-
-        assert_eq!(
-            diagnostics
-                .iter()
-                .map(|diagnostic| diagnostic.span.slice(source))
-                .collect::<Vec<_>>(),
-            vec!["arr"],
-            "{diagnostics:#?}"
-        );
-    }
-
-    #[test]
-    fn ignores_shadowed_array_history_after_initialized_local_scalar() {
-        let source = "\
-#!/bin/zsh
-f() {
-  local cmd=cp
-  cmd=(curl -I)
-}
-g() {
-  local cmd=mv
-}
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::ArrayToStringConversion),
-        );
-
-        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
-    }
-
-    #[test]
-    fn reports_same_function_local_scalar_after_initialized_local_array() {
-        let source = "\
-#!/bin/zsh
-f() {
-  local -a p
-  p=(one two)
-  local p=$'\\n'
-}
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::ArrayToStringConversion),
-        );
-
-        assert_eq!(
-            diagnostics
-                .iter()
-                .map(|diagnostic| diagnostic.span.slice(source))
-                .collect::<Vec<_>>(),
-            vec!["p"],
-            "{diagnostics:#?}"
-        );
-    }
-
-    #[test]
     fn combined_declaration_array_flags_keep_array_history() {
         let source = "\
 #!/bin/bash
@@ -1127,112 +987,6 @@ fi
     }
 
     #[test]
-    fn zsh_selected_element_scalar_reassignment_clears_array_history() {
-        let source = "\
-#!/bin/zsh
-for program in $programs; do
-  sha_str=($(command shasum $program))
-  sha_str=$sha_str[1]
-done
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::ArrayToStringConversion),
-        );
-
-        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
-    }
-
-    #[test]
-    fn zsh_cross_variable_selected_element_assignment_preserves_array_history() {
-        let source = "\
-#!/bin/zsh
-src=(one two)
-dst=(old new)
-dst=$src[1]
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::ArrayToStringConversion),
-        );
-
-        assert_eq!(
-            diagnostics
-                .iter()
-                .map(|diagnostic| diagnostic.span.slice(source))
-                .collect::<Vec<_>>(),
-            vec!["dst"]
-        );
-    }
-
-    #[test]
-    fn zsh_cross_variable_subscript_index_reads_do_not_clear_array_history() {
-        let source = "\
-#!/bin/zsh
-src=(one two)
-dst=(old new)
-dst=${src[$dst]}
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::ArrayToStringConversion),
-        );
-
-        assert_eq!(
-            diagnostics
-                .iter()
-                .map(|diagnostic| diagnostic.span.slice(source))
-                .collect::<Vec<_>>(),
-            vec!["dst"]
-        );
-    }
-
-    #[test]
-    fn zsh_local_cross_variable_selected_element_assignment_preserves_array_history() {
-        let source = "\
-#!/bin/zsh
-f() {
-  local src=(one two)
-  local dst=(old new)
-  local dst=$src[1]
-}
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::ArrayToStringConversion),
-        );
-
-        assert_eq!(
-            diagnostics
-                .iter()
-                .map(|diagnostic| diagnostic.span.slice(source))
-                .collect::<Vec<_>>(),
-            vec!["dst"]
-        );
-    }
-
-    #[test]
-    fn zsh_split_then_selected_element_scalar_reassignment_is_intentional() {
-        let source = "\
-#!/bin/zsh
-issue_arg=${issue_arg##*/}
-issue_arg=(${(s:_:)issue_arg})
-if [[ ${#issue_arg[@]} = 1 && ${issue_arg} == *-* ]]; then
-  issue_arg=(${(s:-:)issue_arg})
-  issue_arg=\"${issue_arg[1]}-${issue_arg[2]}\"
-else
-  issue_arg=${issue_arg[1]}
-fi
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::ArrayToStringConversion),
-        );
-
-        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
-    }
-
-    #[test]
     fn reports_scalar_reassignments_after_read_array_targets() {
         let source = "\
 #!/bin/bash
@@ -1349,54 +1103,6 @@ fuzzer=$1
             vec!["fuzzer", "fuzzer"],
             "{diagnostics:#?}"
         );
-    }
-
-    #[test]
-    fn ignores_zsh_sibling_and_global_scalars_after_function_local_array_use() {
-        let source = "\
-#!/bin/zsh
-f() {
-  local fuzzer=$1
-  if [[ $fuzzer == *\"@\"* ]]; then
-    fuzzer=(${fuzzer//@/ }[0])
-  fi
-}
-g() {
-  local fuzzer=$1
-}
-fuzzer=$1
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::ArrayToStringConversion),
-        );
-
-        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
-    }
-
-    #[test]
-    fn zsh_local_array_collapse_does_not_escape_to_later_local_scalars() {
-        let source = "\
-#!/bin/zsh
-upglob() {
-  local cached=$_cache[$1]
-  if [[ -n $cached ]]; then
-    cached=(${(s: :)cached})
-  fi
-}
-read_pyenv() {
-  local -a stat
-  zstat -A stat +mtime -- $1 2>/dev/null || stat=(-1)
-  local cached=$_other_cache[$1:$2]
-  print -r -- $cached
-}
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::ArrayToStringConversion),
-        );
-
-        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
     }
 
     #[test]
@@ -1694,35 +1400,6 @@ exts+=\" ${exts^^}\"
                 .map(|diagnostic| diagnostic.span.slice(source))
                 .collect::<Vec<_>>(),
             vec!["exts"],
-            "{diagnostics:#?}"
-        );
-    }
-
-    #[test]
-    fn zsh_scalar_string_slices_do_not_hide_array_element_conversions() {
-        let source = "\
-#!/bin/zsh
-ret=abcdef
-ret[-1,-1]=''
-ret=${ret[2,-1]}
-items=(one two)
-items=$items[1]
-setopt ksh_arrays
-kitems=(one two)
-kitems=$kitems[1]
-echo \"$ret\"
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::ArrayToStringConversion),
-        );
-
-        assert_eq!(
-            diagnostics
-                .iter()
-                .map(|diagnostic| diagnostic.span.slice(source))
-                .collect::<Vec<_>>(),
-            vec!["kitems"],
             "{diagnostics:#?}"
         );
     }

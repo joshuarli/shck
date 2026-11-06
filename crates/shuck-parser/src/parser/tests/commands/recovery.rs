@@ -66,26 +66,3 @@ fn test_empty_else_rejected() {
     );
 }
 
-#[test]
-fn test_parse_zsh_array_slice_assignment_to_empty_array() {
-    let input = "if true; then\n  tokens[1,e]=()\nelse\n  tokens[1,e]=()\nfi\n";
-    Parser::with_dialect(input, ShellDialect::Zsh)
-        .parse()
-        .unwrap();
-}
-
-#[test]
-fn test_parse_zsh_split_indexed_assignment_to_empty_array() {
-    let input = "tokens[1,e]=()\n";
-    Parser::with_dialect(input, ShellDialect::Zsh)
-        .parse()
-        .unwrap();
-}
-
-#[test]
-fn test_parse_zsh_if_with_empty_then_before_elif() {
-    let input = "if false; then\nelif [[ $arg = $'\\x7d' ]]; then\n  print ok\nfi\n";
-    Parser::with_dialect(input, ShellDialect::Zsh)
-        .parse()
-        .unwrap();
-}

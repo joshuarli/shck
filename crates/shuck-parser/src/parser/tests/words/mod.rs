@@ -42,7 +42,6 @@ fn collect_bourne_parameter_names(parts: &[WordPartNode], names: &mut Vec<String
                         prefix,
                         ..
                     }) => Some(prefix.to_string()),
-                    ParameterExpansionSyntax::Zsh(_) => None,
                 };
                 if let Some(name) = name {
                     names.push(name);
@@ -94,6 +93,3 @@ mod decode;
 mod expansions;
 mod integration;
 mod patterns;
-mod zsh_extensions;
-mod zsh_glob;
-mod zsh_parameter;

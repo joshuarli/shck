@@ -2,8 +2,7 @@ use shuck_ast::{
     BourneParameterExpansion, Command, CompoundCommand, ConditionalBinaryExpr, ConditionalBinaryOp,
     ConditionalExpr, ConditionalUnaryExpr, ConditionalUnaryOp, File, HeredocBody, HeredocBodyPart,
     ParameterExpansion, ParameterExpansionSyntax, ParameterOp, SourceText, Stmt, StmtSeq, VarRef,
-    Word, WordPart, WordPartNode, ZshExpansionOperation, ZshExpansionTarget,
-};
+    Word, WordPart, WordPartNode };
 
 use crate::command::render_var_ref_to_buf;
 use crate::visit::{self, AstVisitorMut};
@@ -17,14 +16,12 @@ const QUOTE_TIGHTENING: &str = "quote-tightening";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SimplifyReport {
-    pub applied: Vec<RewriteApplication>,
-}
+    pub applied: Vec<RewriteApplication> }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RewriteApplication {
     pub name: &'static str,
-    pub changes: usize,
-}
+    pub changes: usize }
 
 #[derive(Default)]
 struct RewriteCounts {
@@ -32,8 +29,7 @@ struct RewriteCounts {
     arithmetic_vars: std::cell::Cell<usize>,
     conditionals: std::cell::Cell<usize>,
     nested_subshells: std::cell::Cell<usize>,
-    quote_tightening: std::cell::Cell<usize>,
-}
+    quote_tightening: std::cell::Cell<usize> }
 
 impl RewriteCounts {
     fn add_paren_cleanup(&self, changes: usize) {
@@ -82,8 +78,7 @@ pub fn simplify_file(file: &mut File, source: &str) -> SimplifyReport {
         let mut visitor = SimplifyVisitor {
             source,
             counts: &counts,
-            mode: SimplifyTraversalMode::Full,
-        };
+            mode: SimplifyTraversalMode::Full };
         visitor.visit_file(file);
     }
     counts.into_report()
@@ -92,14 +87,12 @@ pub fn simplify_file(file: &mut File, source: &str) -> SimplifyReport {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SimplifyTraversalMode {
     Full,
-    HeredocCommandSubstitution,
-}
+    HeredocCommandSubstitution }
 
 struct SimplifyVisitor<'source, 'counts> {
     source: &'source str,
     counts: &'counts RewriteCounts,
-    mode: SimplifyTraversalMode,
-}
+    mode: SimplifyTraversalMode }
 
 impl SimplifyVisitor<'_, '_> {
     fn with_mode(
@@ -175,8 +168,7 @@ impl AstVisitorMut for SimplifyVisitor<'_, '_> {
                     self.visit_source_text(expression)
                 }
                 HeredocBodyPart::Parameter(parameter) => self.visit_parameter_expansion(parameter),
-                HeredocBodyPart::Literal(_) | HeredocBodyPart::Variable(_) => 0,
-            };
+                HeredocBodyPart::Literal(_) | HeredocBodyPart::Variable(_) => 0 };
         }
 
         if count > 0 {
@@ -246,8 +238,7 @@ fn collapse_nested_subshells_in_word(word: &mut Word) -> usize {
         .map(|part| match &mut part.kind {
             WordPart::CommandSubstitution { body, .. }
             | WordPart::ProcessSubstitution { body, .. } => collapse_nested_subshell_sequence(body),
-            _ => 0,
-        })
+            _ => 0 })
         .sum()
 }
 
@@ -256,8 +247,7 @@ fn render_parameter_raw_body(parameter: &ParameterExpansion, source: &str) -> St
         ParameterExpansionSyntax::Bourne(syntax) => {
             render_bourne_parameter_raw_body(syntax, source)
         }
-        ParameterExpansionSyntax::Zsh(syntax) => render_zsh_parameter_raw_body(syntax, source),
-    }
+}
 }
 
 fn render_bourne_parameter_raw_body(syntax: &BourneParameterExpansion, source: &str) -> String {
@@ -368,123 +358,14 @@ fn render_bourne_parameter_raw_body(syntax: &BourneParameterExpansion, source: &
                 ParameterOp::UpperFirst => rendered.push('^'),
                 ParameterOp::UpperAll => rendered.push_str("^^"),
                 ParameterOp::LowerFirst => rendered.push(','),
-                ParameterOp::LowerAll => rendered.push_str(",,"),
-            }
+                ParameterOp::LowerAll => rendered.push(',') }
             rendered
         }
         BourneParameterExpansion::Transformation {
             reference,
-            operator,
-        } => format!("{}@{}", render_var_ref_syntax(reference, source), operator),
-    }
+            operator } => format!("{}@{}", render_var_ref_syntax(reference, source), operator) }
 }
 
-fn render_zsh_parameter_raw_body(
-    syntax: &shuck_ast::ZshParameterExpansion,
-    source: &str,
-) -> String {
-    let mut rendered = String::new();
-    let mut modifier_index = 0usize;
-
-    while modifier_index < syntax.modifiers.len() {
-        let group_span = syntax.modifiers[modifier_index].span;
-        rendered.push('(');
-        while modifier_index < syntax.modifiers.len()
-            && syntax.modifiers[modifier_index].span == group_span
-        {
-            let modifier = &syntax.modifiers[modifier_index];
-            rendered.push(modifier.name);
-            if let Some(delimiter) = modifier.argument_delimiter {
-                rendered.push(delimiter);
-                if let Some(argument) = &modifier.argument {
-                    rendered.push_str(argument.slice(source));
-                }
-                rendered.push(delimiter);
-            }
-            modifier_index += 1;
-        }
-        rendered.push(')');
-    }
-
-    match &syntax.target {
-        ZshExpansionTarget::Reference(reference) => {
-            rendered.push_str(&render_var_ref_syntax(reference, source));
-        }
-        ZshExpansionTarget::Word(word) => {
-            rendered.push_str(&word.render(source));
-        }
-        ZshExpansionTarget::Nested(parameter) => {
-            rendered.push_str("${");
-            rendered.push_str(&render_parameter_raw_body(parameter, source));
-            rendered.push('}');
-        }
-        ZshExpansionTarget::Empty => {}
-    }
-
-    if let Some(operation) = &syntax.operation {
-        match operation {
-            ZshExpansionOperation::PatternOperation { operand, .. } => {
-                rendered.push_str(":#");
-                rendered.push_str(operand.slice(source));
-            }
-            ZshExpansionOperation::Defaulting {
-                kind,
-                operand,
-                colon_variant,
-                ..
-            } => {
-                if *colon_variant {
-                    rendered.push(':');
-                }
-                rendered.push_str(match kind {
-                    shuck_ast::ZshDefaultingOp::UseDefault => "-",
-                    shuck_ast::ZshDefaultingOp::AssignDefault => "=",
-                    shuck_ast::ZshDefaultingOp::UseReplacement => "+",
-                    shuck_ast::ZshDefaultingOp::Error => "?",
-                });
-                rendered.push_str(operand.slice(source));
-            }
-            ZshExpansionOperation::TrimOperation { kind, operand, .. } => {
-                rendered.push_str(match kind {
-                    shuck_ast::ZshTrimOp::RemovePrefixShort => "#",
-                    shuck_ast::ZshTrimOp::RemovePrefixLong => "##",
-                    shuck_ast::ZshTrimOp::RemoveSuffixShort => "%",
-                    shuck_ast::ZshTrimOp::RemoveSuffixLong => "%%",
-                });
-                rendered.push_str(operand.slice(source));
-            }
-            ZshExpansionOperation::ReplacementOperation {
-                kind,
-                pattern,
-                replacement,
-                ..
-            } => {
-                rendered.push_str(match kind {
-                    shuck_ast::ZshReplacementOp::ReplaceFirst => "/",
-                    shuck_ast::ZshReplacementOp::ReplaceAll => "//",
-                    shuck_ast::ZshReplacementOp::ReplacePrefix => "/#",
-                    shuck_ast::ZshReplacementOp::ReplaceSuffix => "/%",
-                });
-                rendered.push_str(pattern.slice(source));
-                if let Some(replacement) = replacement {
-                    rendered.push('/');
-                    rendered.push_str(replacement.slice(source));
-                }
-            }
-            ZshExpansionOperation::Slice { offset, length, .. } => {
-                rendered.push(':');
-                rendered.push_str(offset.slice(source));
-                if let Some(length) = length {
-                    rendered.push(':');
-                    rendered.push_str(length.slice(source));
-                }
-            }
-            ZshExpansionOperation::Unknown { text, .. } => rendered.push_str(text.slice(source)),
-        }
-    }
-
-    rendered
-}
 
 fn render_var_ref_syntax(reference: &VarRef, source: &str) -> String {
     let mut rendered = String::new();
@@ -637,8 +518,7 @@ fn simplify_conditional_expr(expression: &mut ConditionalExpr, source: &str) -> 
         ConditionalExpr::Word(_)
         | ConditionalExpr::Pattern(_)
         | ConditionalExpr::Regex(_)
-        | ConditionalExpr::VarRef(_) => 0,
-    };
+        | ConditionalExpr::VarRef(_) => 0 };
 
     loop {
         let Some(next) = simplify_conditional_node(expression) else {
@@ -662,20 +542,17 @@ fn simplify_conditional_node(expression: &ConditionalExpr) -> Option<Conditional
                     Some(ConditionalExpr::Unary(ConditionalUnaryExpr {
                         op: ConditionalUnaryOp::EmptyString,
                         op_span: inner.op_span,
-                        expr: inner.expr.clone(),
-                    }))
+                        expr: inner.expr.clone() }))
                 }
                 ConditionalExpr::Unary(inner) if inner.op == ConditionalUnaryOp::EmptyString => {
                     Some(ConditionalExpr::Unary(ConditionalUnaryExpr {
                         op: ConditionalUnaryOp::NonEmptyString,
                         op_span: inner.op_span,
-                        expr: inner.expr.clone(),
-                    }))
+                        expr: inner.expr.clone() }))
                 }
                 ConditionalExpr::Binary(inner) => invert_conditional_binary(inner),
                 ConditionalExpr::Parenthesized(inner) => Some((*inner.expr).clone()),
-                _ => None,
-            }
+                _ => None }
         }
         ConditionalExpr::Parenthesized(expr)
             if matches!(
@@ -689,8 +566,7 @@ fn simplify_conditional_node(expression: &ConditionalExpr) -> Option<Conditional
         {
             Some((*expr.expr).clone())
         }
-        _ => None,
-    }
+        _ => None }
 }
 
 fn invert_conditional_binary(expression: &ConditionalBinaryExpr) -> Option<ConditionalExpr> {
@@ -699,14 +575,12 @@ fn invert_conditional_binary(expression: &ConditionalBinaryExpr) -> Option<Condi
             ConditionalBinaryOp::PatternNe
         }
         ConditionalBinaryOp::PatternNe => ConditionalBinaryOp::PatternEq,
-        _ => return None,
-    };
+        _ => return None };
     Some(ConditionalExpr::Binary(ConditionalBinaryExpr {
         left: expression.left.clone(),
         op,
         op_span: expression.op_span,
-        right: expression.right.clone(),
-    }))
+        right: expression.right.clone() }))
 }
 
 fn strip_redundant_conditional_quotes(expression: &mut ConditionalExpr, source: &str) -> usize {
@@ -726,8 +600,7 @@ fn strip_redundant_conditional_quotes(expression: &mut ConditionalExpr, source: 
     *word = Word {
         parts,
         span: word.span,
-        brace_syntax: Vec::new(),
-    };
+        brace_syntax: Vec::new() };
     let _ = source;
     1
 }
@@ -765,13 +638,11 @@ fn tighten_literal_quotes(word: &mut Word, source: &str) -> usize {
         parts: vec![WordPartNode::new(
             WordPart::SingleQuoted {
                 value: SourceText::cooked(word.span, literal),
-                dollar: false,
-            },
+                dollar: false },
             word.span,
         )],
         span: word.span,
-        brace_syntax: Vec::new(),
-    };
+        brace_syntax: Vec::new() };
     1
 }
 
@@ -786,8 +657,7 @@ fn literal_text_from_double_quoted(parts: &[WordPartNode], source: &str) -> Opti
                 }
                 value.push_str(raw);
             }
-            _ => return None,
-        }
+            _ => return None }
     }
     Some(value)
 }
@@ -811,8 +681,7 @@ mod tests {
         .unwrap()
         {
             crate::FormattedSource::Unchanged => source.to_string(),
-            crate::FormattedSource::Formatted(formatted) => formatted,
-        }
+            crate::FormattedSource::Formatted(formatted) => formatted }
     }
 
     fn format_with_simplify(source: &str) -> String {

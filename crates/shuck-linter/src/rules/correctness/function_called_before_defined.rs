@@ -36,9 +36,7 @@ struct RuntimeTarget<'a> {
 }
 
 pub fn function_called_before_defined(checker: &mut Checker) {
-    if checker.shell() == ShellDialect::Zsh {
-        return;
-    }
+    // zsh support removed; rule applies to supported shells
 
     let semantic = checker.semantic();
     let mut reported = FxHashSet::<CallKey>::default();
@@ -105,14 +103,8 @@ fn call_is_reportable_for_function(
             call.scope,
             call.name_span.start.offset(),
         );
-    if prior_visible_definition
-        .is_some_and(|prior| prior_visible_definition_guaranteed_before_call(checker, prior, call))
-        && !short_circuit_call_can_target_later_definition(checker, call)
-    {
-        return false;
-    }
-
-    true
+    !(prior_visible_definition
+        .is_some_and(|prior| prior_visible_definition_guaranteed_before_call(checker, prior, call)) && !short_circuit_call_can_target_later_definition(checker, call))
 }
 
 fn prior_visible_definition_guaranteed_before_call(
@@ -1789,21 +1781,4 @@ do_thing() {
         assert_eq!(diagnostics[0].span.slice(source), "do_thing");
     }
 
-    #[test]
-    fn ignores_zsh() {
-        let source = "\
-#!/bin/zsh
-do_thing
-do_thing() {
-  echo hi
-}
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::FunctionCalledBeforeDefined)
-                .with_shell(ShellDialect::Zsh),
-        );
-
-        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
-    }
 }

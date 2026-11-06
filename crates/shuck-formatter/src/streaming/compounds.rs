@@ -43,8 +43,7 @@ fn time_inner_stmt_needs_trailing_comment(stmt: &Stmt) -> bool {
             true
         }
         Command::Binary(command) => time_inner_stmt_needs_trailing_comment(&command.right),
-        _ => false,
-    }
+        _ => false }
 }
 
 impl<'source, 'facts, S> ShellRenderer<'source, 'facts, S>
@@ -52,10 +51,7 @@ where
     S: StreamSink,
 {
     pub(super) fn format_if(&mut self, command: &IfCommand) -> Result<()> {
-        match command.syntax {
-            IfSyntax::ThenFi { .. } => self.format_then_fi_if(command),
-            IfSyntax::Brace { .. } => self.format_brace_if(command),
-        }
+        self.format_then_fi_if(command)
     }
 
     pub(super) fn format_then_fi_if(&mut self, command: &IfCommand) -> Result<()> {
@@ -63,8 +59,7 @@ where
         let IfLayoutPlan {
             then_span,
             fi_span,
-            style,
-        } = plan;
+            style } = plan;
 
         match style {
             IfLayoutStyle::RawGroupedCondition { raw_condition } => {
@@ -73,8 +68,7 @@ where
             IfLayoutStyle::SplitCondition => {
                 self.format_split_condition_then_fi_if(command, then_span, fi_span)
             }
-            layout => self.format_inline_condition_then_fi_if(command, then_span, fi_span, layout),
-        }
+            layout => self.format_inline_condition_then_fi_if(command, then_span, fi_span, layout) }
     }
 
     pub(super) fn format_raw_grouped_then_fi_if(
@@ -581,32 +575,6 @@ where
         Ok(())
     }
 
-    pub(super) fn format_brace_if(&mut self, command: &IfCommand) -> Result<()> {
-        let source = self.source();
-        self.write_text("if ");
-        self.format_inline_stmts(&command.condition)?;
-        self.write_space();
-        let then_upper_bound =
-            if_branch_upper_bound(command, 0, source, self.source_map(), self.facts());
-        let then_site =
-            CompoundBodySite::if_then_branch(command, &command.then_branch, then_upper_bound);
-        self.format_brace_group(then_site.body(), then_site.bounds().render_limit())?;
-        for (index, (condition, body)) in command.elif_branches.iter().enumerate() {
-            self.write_text(" elif ");
-            self.format_inline_stmts(condition)?;
-            self.write_space();
-            let upper_bound =
-                if_branch_upper_bound(command, index + 1, source, self.source_map(), self.facts());
-            let site = CompoundBodySite::if_then_branch(command, body, upper_bound);
-            self.format_brace_group(site.body(), site.bounds().render_limit())?;
-        }
-        if let Some(body) = &command.else_branch {
-            self.write_text(" else ");
-            let site = CompoundBodySite::if_else_branch(command, body, command.span.end.offset());
-            self.format_brace_group(site.body(), site.bounds().render_limit())?;
-        }
-        Ok(())
-    }
 
     pub(super) fn format_for(&mut self, command: &ForCommand) -> Result<()> {
         self.write_text("for ");
@@ -618,15 +586,8 @@ where
         }
 
         match command.syntax {
-            ForSyntax::InDoDone { in_span, .. }
-            | ForSyntax::InDirect { in_span }
-            | ForSyntax::InBrace { in_span, .. } => {
+            ForSyntax::InDoDone { in_span, .. } | ForSyntax::InDirect { in_span } => {
                 self.write_for_in_words(command.words.as_deref(), in_span);
-            }
-            ForSyntax::ParenDoDone { .. }
-            | ForSyntax::ParenDirect { .. }
-            | ForSyntax::ParenBrace { .. } => {
-                self.write_parenthesized_word_list(command.words.as_deref());
             }
         }
 
@@ -636,17 +597,12 @@ where
             self.facts().compound_close_span_for_span(command.span),
         );
         let header_end = match command.syntax {
-            ForSyntax::InDoDone { in_span, .. }
-            | ForSyntax::InDirect { in_span }
-            | ForSyntax::InBrace { in_span, .. } => command
+            ForSyntax::InDoDone { in_span, .. } | ForSyntax::InDirect { in_span } => command
                 .words
                 .as_deref()
                 .and_then(<[Word]>::last)
                 .map(|word| word.span.end.offset())
                 .or_else(|| in_span.map(|span| span.end.offset())),
-            ForSyntax::ParenDoDone { .. }
-            | ForSyntax::ParenDirect { .. }
-            | ForSyntax::ParenBrace { .. } => None,
         }
         .or_else(|| {
             command
@@ -732,6 +688,7 @@ where
         }
     }
 
+    #[allow(dead_code)]
     pub(super) fn write_parenthesized_word_list(&mut self, words: Option<&[Word]>) {
         self.write_text(" (");
         if let Some(words) = words {
@@ -740,6 +697,7 @@ where
         self.write_text(")");
     }
 
+    #[allow(dead_code)]
     pub(super) fn write_space_separated_words(&mut self, words: &[Word]) {
         for (index, word) in words.iter().enumerate() {
             if index > 0 {
@@ -749,17 +707,6 @@ where
         }
     }
 
-    pub(super) fn format_repeat(&mut self, command: &RepeatCommand) -> Result<()> {
-        self.write_text("repeat ");
-        self.write_word(&command.count);
-        let site = CompoundBodySite::repeat_command(
-            command,
-            self.source_map(),
-            self.facts().compound_close_span_for_span(command.span),
-        );
-        let plan = CompoundBodyPlan::loop_body(site, " ", self.render_context());
-        self.format_compound_body_plan(plan)
-    }
 
     pub(super) fn format_compound_body_plan(&mut self, plan: CompoundBodyPlan<'_>) -> Result<()> {
         match plan.layout() {
@@ -817,33 +764,6 @@ where
         Ok(())
     }
 
-    pub(super) fn format_foreach(&mut self, command: &ForeachCommand) -> Result<()> {
-        self.write_text("foreach ");
-        self.write_text(command.variable.as_ref());
-        let site = CompoundBodySite::foreach_command(
-            command,
-            self.source_map(),
-            self.facts().compound_close_span_for_span(command.span),
-        );
-        match command.syntax {
-            ForeachSyntax::ParenBrace { .. } => {
-                self.write_parenthesized_word_list(Some(&command.words));
-                let plan = CompoundBodyPlan::brace_group(site, " ", self.render_context());
-                self.format_compound_body_plan(plan)?;
-            }
-            ForeachSyntax::InDoDone { .. } => {
-                self.write_for_in_words(Some(&command.words), None);
-                let header_end = command
-                    .words
-                    .last()
-                    .map(|word| word.span.end.offset())
-                    .unwrap_or(command.variable_span.end.offset());
-                let plan = CompoundBodyPlan::do_done(site, self.render_context());
-                self.format_loop_body_plan_after_header(plan, Some(header_end))?;
-            }
-        }
-        Ok(())
-    }
 
     pub(super) fn format_select(&mut self, command: &SelectCommand) -> Result<()> {
         self.write_text("select ");
@@ -916,8 +836,7 @@ where
         let CaseLayoutPlan {
             style,
             body_fallback_upper_bound,
-            esac_span,
-        } = plan;
+            esac_span } = plan;
         if matches!(&style, CaseLayoutStyle::Inline) {
             return self.format_inline_case(command);
         }
@@ -939,8 +858,7 @@ where
         } else if let CaseLayoutStyle::Multiline {
             header_item_count,
             blank_line_after_in,
-            close,
-        } = style
+            close } = style
         {
             self.format_case_items_on_header_line(
                 command,
@@ -1532,11 +1450,6 @@ where
         self.format_stmt(&command.body)
     }
 
-    pub(super) fn format_always(&mut self, command: &AlwaysCommand) -> Result<()> {
-        self.format_brace_group(&command.body, Some(command.span.end.offset()))?;
-        self.write_text(" always ");
-        self.format_brace_group(&command.always_body, Some(command.span.end.offset()))
-    }
 
     pub(super) fn format_function(&mut self, function: &FunctionDef) -> Result<()> {
         let header_comment = self.function_header_trailing_comment(function);
@@ -1554,28 +1467,6 @@ where
         }
     }
 
-    pub(super) fn format_anonymous_function(
-        &mut self,
-        function: &AnonymousFunctionCommand,
-    ) -> Result<()> {
-        self.write_text(match function.surface {
-            shuck_ast::AnonymousFunctionSurface::FunctionKeyword { .. } => "function",
-            shuck_ast::AnonymousFunctionSurface::Parens { .. } => "()",
-        });
-        if self.options().function_next_line() {
-            self.newline();
-        } else {
-            self.write_space();
-        }
-        self.format_function_body(function.body.as_ref(), function.span.end.offset())?;
-        if !function.args.is_empty() {
-            for argument in &function.args {
-                self.write_space();
-                self.write_word(argument);
-            }
-        }
-        Ok(())
-    }
 
     pub(super) fn format_named_function_header(&mut self, function: &FunctionDef) {
         if function.header.entries.len() == 1
@@ -1714,8 +1605,7 @@ where
                 site.body(),
                 false,
                 site.bounds().render_limit(),
-            ),
-        }
+            ) }
     }
 
     pub(super) fn format_function_brace_group_with_header_comment(
@@ -2078,8 +1968,7 @@ where
             {
                 self.conditional_needs_tight_close(&expression.expr)
             }
-            _ => false,
-        }
+            _ => false }
     }
 
     pub(super) fn conditional_word_needs_tight_close(&mut self, word: &Word) -> bool {

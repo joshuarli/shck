@@ -424,8 +424,7 @@ pub(crate) fn parts_have_all_elements_array_expansion_syntax(
             | WordPart::ProcessSubstitution { .. }
             | WordPart::Transformation { .. }
             | WordPart::Substring { .. }
-            | WordPart::ArrayLength(_)
-            | WordPart::ZshQualifiedGlob(_) => false,
+            | WordPart::ArrayLength(_) => false,
         };
 
         if has_match {
@@ -624,43 +623,11 @@ fn collect_direct_all_elements_array_expansion_spans_with_escaped_templates(
 }
 
 fn part_is_single_argument_zsh_slice(
-    part: &WordPart,
-    source: &str,
-    shell_dialect: shuck_semantic::ShellDialect,
+    _part: &WordPart,
+    _source: &str,
+    _shell_dialect: shuck_semantic::ShellDialect,
 ) -> bool {
-    if shell_dialect != shuck_semantic::ShellDialect::Zsh {
-        return false;
-    }
-
-    let (reference, offset, length) = match part {
-        WordPart::ArraySlice {
-            reference,
-            offset,
-            length,
-            ..
-        } => (reference.as_ref(), offset.as_ref(), length.as_deref()),
-        WordPart::Parameter(parameter) => match &parameter.syntax {
-            ParameterExpansionSyntax::Bourne(BourneParameterExpansion::Slice {
-                reference,
-                offset,
-                length,
-                ..
-            }) => (reference, offset, length.as_ref()),
-            _ => return false,
-        },
-        _ => return false,
-    };
-
-    if reference.name.as_str() != "@" || reference.subscript.is_some() {
-        return false;
-    }
-
-    // A final-argument slice or a literal length of zero or one cannot join
-    // multiple arguments. Leave dynamic bounds classified conservatively.
-    match length {
-        Some(length) => matches!(length.slice(source).trim(), "0" | "1"),
-        None => offset.slice(source).trim() == "-1",
-    }
+    false
 }
 
 impl EscapedParameterTemplateBody {
@@ -1155,11 +1122,7 @@ pub(crate) fn candidate_is_direct_all_elements_array_expansion(
         stripped
     };
 
-    if suffix.starts_with('+') || suffix.starts_with(":+") {
-        return false;
-    }
-
-    true
+    !(suffix.starts_with('+') || suffix.starts_with(":+"))
 }
 
 fn strip_special_at_splat_suffix(
@@ -1172,9 +1135,7 @@ fn strip_special_at_splat_suffix(
         return Some(stripped);
     }
 
-    if shell_dialect == shuck_semantic::ShellDialect::Zsh && suffix.starts_with('[') {
-        return None;
-    }
+
 
     Some(suffix)
 }
@@ -1189,40 +1150,19 @@ fn strip_zsh_positional_selector_suffix(suffix: &str) -> Option<&str> {
 }
 
 fn source_starts_with_non_at_selector_subscript(
-    text: &str,
-    shell_dialect: shuck_semantic::ShellDialect,
+    _text: &str,
+    _shell_dialect: shuck_semantic::ShellDialect,
 ) -> bool {
-    if shell_dialect != shuck_semantic::ShellDialect::Zsh {
-        return false;
-    }
-
-    let Some(rest) = text.strip_prefix('[') else {
-        return false;
-    };
-    let Some(close) = rest.find(']') else {
-        return false;
-    };
-
-    !matches!(&rest[..close], "@" | "*")
+    false
 }
 
 fn part_has_zsh_short_positional_subscript(
-    parts: &[WordPartNode],
-    index: usize,
-    source: &str,
-    shell_dialect: shuck_semantic::ShellDialect,
+    _parts: &[WordPartNode],
+    _index: usize,
+    _source: &str,
+    _shell_dialect: shuck_semantic::ShellDialect,
 ) -> bool {
-    shell_dialect == shuck_semantic::ShellDialect::Zsh
-        && parts.get(index).is_some_and(
-            |part| matches!(&part.kind, WordPart::Variable(name) if name.as_str() == "@"),
-        )
-        && parts.get(index + 1).is_some_and(|next| {
-            matches!(
-                &next.kind,
-                WordPart::Literal(text)
-                    if literal_starts_with_zsh_subscript(text.as_str(source, next.span))
-            )
-        })
+    false
 }
 
 fn literal_starts_with_zsh_subscript(text: &str) -> bool {
@@ -1233,27 +1173,18 @@ fn literal_starts_with_zsh_subscript(text: &str) -> bool {
 }
 
 fn var_ref_is_zsh_indexed_positional_at(
-    reference: &VarRef,
-    shell_dialect: shuck_semantic::ShellDialect,
+    _reference: &VarRef,
+    _shell_dialect: shuck_semantic::ShellDialect,
 ) -> bool {
-    shell_dialect == shuck_semantic::ShellDialect::Zsh
-        && reference.name.as_str() == "@"
-        && reference
-            .subscript
-            .as_deref()
-            .is_some_and(|subscript| subscript.selector().is_none())
+    false
 }
 
 fn var_ref_is_zsh_ranged_positional_at(
-    reference: &VarRef,
-    source: &str,
-    shell_dialect: shuck_semantic::ShellDialect,
+    _reference: &VarRef,
+    _source: &str,
+    _shell_dialect: shuck_semantic::ShellDialect,
 ) -> bool {
-    shell_dialect == shuck_semantic::ShellDialect::Zsh
-        && reference.name.as_str() == "@"
-        && reference.subscript.as_deref().is_some_and(|subscript| {
-            subscript.selector().is_none() && subscript.syntax_text(source).contains(',')
-        })
+    false
 }
 
 fn parameter_uses_zsh_ranged_positional_at(
@@ -1261,9 +1192,7 @@ fn parameter_uses_zsh_ranged_positional_at(
     source: &str,
     shell_dialect: shuck_semantic::ShellDialect,
 ) -> bool {
-    let ParameterExpansionSyntax::Bourne(syntax) = &parameter.syntax else {
-        return false;
-    };
+    let ParameterExpansionSyntax::Bourne(syntax) = &parameter.syntax;
 
     match syntax {
         BourneParameterExpansion::Access { reference }
@@ -1287,22 +1216,12 @@ fn parameter_uses_zsh_ranged_positional_at(
 }
 
 fn part_has_zsh_short_positional_range(
-    parts: &[WordPartNode],
-    index: usize,
-    source: &str,
-    shell_dialect: shuck_semantic::ShellDialect,
+    _parts: &[WordPartNode],
+    _index: usize,
+    _source: &str,
+    _shell_dialect: shuck_semantic::ShellDialect,
 ) -> bool {
-    shell_dialect == shuck_semantic::ShellDialect::Zsh
-        && parts.get(index).is_some_and(
-            |part| matches!(&part.kind, WordPart::Variable(name) if name.as_str() == "@"),
-        )
-        && parts.get(index + 1).is_some_and(|next| {
-            matches!(
-                &next.kind,
-                WordPart::Literal(text)
-                    if literal_starts_with_zsh_positional_range(text.as_str(source, next.span))
-            )
-        })
+    false
 }
 
 fn literal_starts_with_zsh_positional_range(text: &str) -> bool {
@@ -1327,34 +1246,11 @@ pub fn word_zsh_positional_parameter_range_spans(
 }
 
 fn collect_zsh_positional_parameter_range_spans(
-    parts: &[WordPartNode],
-    source: &str,
-    shell_dialect: shuck_semantic::ShellDialect,
-    spans: &mut Vec<Span>,
+    _parts: &[WordPartNode],
+    _source: &str,
+    _shell_dialect: shuck_semantic::ShellDialect,
+    _spans: &mut Vec<Span>,
 ) {
-    if shell_dialect != shuck_semantic::ShellDialect::Zsh {
-        return;
-    }
-
-    for (index, part) in parts.iter().enumerate() {
-        match &part.kind {
-            WordPart::SingleQuoted { .. } => {}
-            WordPart::DoubleQuoted { parts, .. } => {
-                collect_zsh_positional_parameter_range_spans(parts, source, shell_dialect, spans);
-            }
-            WordPart::Parameter(parameter)
-                if parameter_uses_zsh_ranged_positional_at(parameter, source, shell_dialect) =>
-            {
-                spans.push(part.span);
-            }
-            WordPart::Variable(_)
-                if part_has_zsh_short_positional_range(parts, index, source, shell_dialect) =>
-            {
-                spans.push(part.span);
-            }
-            _ => {}
-        }
-    }
 }
 
 pub(crate) fn parameter_is_array_like(parameter: &ParameterExpansion) -> bool {
@@ -1376,7 +1272,6 @@ pub(crate) fn parameter_is_array_like(parameter: &ParameterExpansion) -> bool {
             }
             _ => false,
         },
-        ParameterExpansionSyntax::Zsh(_) => false,
     }
 }
 
@@ -1406,14 +1301,6 @@ pub(crate) fn parameter_might_use_all_elements_array_expansion(
                 matches!(kind, PrefixMatchKind::At)
             }
         },
-        ParameterExpansionSyntax::Zsh(syntax) => match &syntax.target {
-            ZshExpansionTarget::Reference(reference) => {
-                !var_ref_is_zsh_indexed_positional_at(reference, shell_dialect)
-            }
-            ZshExpansionTarget::Nested(_)
-            | ZshExpansionTarget::Word(_)
-            | ZshExpansionTarget::Empty => true,
-        },
     }
 }
 
@@ -1431,14 +1318,11 @@ pub(crate) fn parameter_is_scalar_like(parameter: &ParameterExpansion) -> bool {
             BourneParameterExpansion::Indices { .. } => false,
             BourneParameterExpansion::Slice { reference, .. } => !reference.has_array_selector(),
         },
-        ParameterExpansionSyntax::Zsh(_) => true,
     }
 }
 
 pub(crate) fn parameter_uses_replacement_operator(parameter: &ParameterExpansion) -> bool {
-    let ParameterExpansionSyntax::Bourne(syntax) = &parameter.syntax else {
-        return false;
-    };
+    let ParameterExpansionSyntax::Bourne(syntax) = &parameter.syntax;
 
     match syntax {
         BourneParameterExpansion::Indirect {
@@ -1584,9 +1468,7 @@ pub(crate) fn var_ref_uses_all_elements_at_splat_in_dialect(
 }
 
 pub(crate) fn parameter_uses_all_elements_array_slice(parameter: &ParameterExpansion) -> bool {
-    let ParameterExpansionSyntax::Bourne(syntax) = &parameter.syntax else {
-        return false;
-    };
+    let ParameterExpansionSyntax::Bourne(syntax) = &parameter.syntax;
 
     matches!(
         syntax,
@@ -1599,9 +1481,7 @@ pub(crate) fn parameter_uses_unquoted_all_elements_array_expansion(
     parameter: &ParameterExpansion,
     shell_dialect: shuck_semantic::ShellDialect,
 ) -> bool {
-    let ParameterExpansionSyntax::Bourne(syntax) = &parameter.syntax else {
-        return false;
-    };
+    let ParameterExpansionSyntax::Bourne(syntax) = &parameter.syntax;
 
     match syntax {
         BourneParameterExpansion::Access { reference }
@@ -1628,9 +1508,7 @@ pub(crate) fn parameter_uses_direct_all_elements_array_expansion(
     parameter: &ParameterExpansion,
     shell_dialect: shuck_semantic::ShellDialect,
 ) -> bool {
-    let ParameterExpansionSyntax::Bourne(syntax) = &parameter.syntax else {
-        return false;
-    };
+    let ParameterExpansionSyntax::Bourne(syntax) = &parameter.syntax;
 
     match syntax {
         BourneParameterExpansion::Access { reference }
@@ -1656,9 +1534,7 @@ pub(crate) fn parameter_uses_direct_all_elements_array_expansion(
 pub(crate) fn parameter_uses_replacement_all_elements_array_expansion(
     parameter: &ParameterExpansion,
 ) -> bool {
-    let ParameterExpansionSyntax::Bourne(syntax) = &parameter.syntax else {
-        return false;
-    };
+    let ParameterExpansionSyntax::Bourne(syntax) = &parameter.syntax;
 
     matches!(
         syntax,
@@ -1673,9 +1549,7 @@ pub(crate) fn parameter_uses_replacement_all_elements_array_expansion(
 
 #[cfg(test)]
 pub(crate) fn parameter_is_unindexed_bash_source(parameter: &ParameterExpansion) -> bool {
-    let ParameterExpansionSyntax::Bourne(syntax) = &parameter.syntax else {
-        return false;
-    };
+    let ParameterExpansionSyntax::Bourne(syntax) = &parameter.syntax;
 
     matches!(
         syntax,
@@ -1685,9 +1559,7 @@ pub(crate) fn parameter_is_unindexed_bash_source(parameter: &ParameterExpansion)
 }
 
 pub(crate) fn parameter_uses_star_splat(parameter: &ParameterExpansion) -> bool {
-    let ParameterExpansionSyntax::Bourne(syntax) = &parameter.syntax else {
-        return false;
-    };
+    let ParameterExpansionSyntax::Bourne(syntax) = &parameter.syntax;
 
     match syntax {
         BourneParameterExpansion::Access { reference }
@@ -1705,9 +1577,7 @@ pub(crate) fn var_ref_uses_positional_at_splat(reference: &VarRef) -> bool {
 }
 
 pub(crate) fn parameter_uses_positional_at_splat(parameter: &ParameterExpansion) -> bool {
-    let ParameterExpansionSyntax::Bourne(syntax) = &parameter.syntax else {
-        return false;
-    };
+    let ParameterExpansionSyntax::Bourne(syntax) = &parameter.syntax;
 
     match syntax {
         BourneParameterExpansion::Access { reference }
@@ -1720,9 +1590,7 @@ pub(crate) fn parameter_uses_positional_at_splat(parameter: &ParameterExpansion)
 }
 
 pub(crate) fn parameter_is_pure_positional_at_splat(parameter: &ParameterExpansion) -> bool {
-    let ParameterExpansionSyntax::Bourne(syntax) = &parameter.syntax else {
-        return false;
-    };
+    let ParameterExpansionSyntax::Bourne(syntax) = &parameter.syntax;
 
     match syntax {
         BourneParameterExpansion::Access { reference }
@@ -1734,9 +1602,7 @@ pub(crate) fn parameter_is_pure_positional_at_splat(parameter: &ParameterExpansi
 }
 
 pub(crate) fn parameter_uses_assign_default_operator(parameter: &ParameterExpansion) -> bool {
-    let ParameterExpansionSyntax::Bourne(syntax) = &parameter.syntax else {
-        return false;
-    };
+    let ParameterExpansionSyntax::Bourne(syntax) = &parameter.syntax;
 
     match syntax {
         BourneParameterExpansion::Operation { operator, .. } => {
@@ -2082,7 +1948,6 @@ mod tests {
                 WordPart::Literal(_)
                 | WordPart::SingleQuoted { .. }
                 | WordPart::DoubleQuoted { .. } => {}
-                WordPart::ZshQualifiedGlob(_) => {}
                 WordPart::CommandSubstitution { .. } | WordPart::ProcessSubstitution { .. } => {}
                 WordPart::Parameter(parameter) => {
                     if parameter_is_scalar_like(parameter) && (!self.only_unquoted || !quoted) {
@@ -2502,147 +2367,6 @@ printf '%s\\n' \"\\$@\" \"\\\\$@\" \"\\${@:2}\" \"\\\\${@:2}\" \"\\${arr[@]}\" \
             .collect::<Vec<_>>();
 
         assert_eq!(matches, vec![false, true, false, true, false, true]);
-    }
-
-    #[test]
-    fn word_has_direct_all_elements_array_expansion_ignores_zsh_positional_subscripts() {
-        let source = "print \"${@[_i]}\" \"$@[_i]\" \"${@[2,-1]:-}\" \"${@[5,-1]:-fallback}\"\n";
-        let output = Parser::with_dialect(source, shuck_parser::parser::ShellDialect::Zsh)
-            .parse()
-            .unwrap();
-        let command = &output.file.body[0].command;
-        let shuck_ast::Command::Simple(command) = command else {
-            panic!("expected simple command");
-        };
-
-        let matches = command
-            .args
-            .iter()
-            .map(|word| {
-                word_has_direct_all_elements_array_expansion_in_source_with_dialect(
-                    word,
-                    source,
-                    ShellDialect::Zsh,
-                )
-            })
-            .collect::<Vec<_>>();
-
-        assert_eq!(matches, vec![false, false, false, false]);
-    }
-
-    #[test]
-    fn direct_array_expansion_spans_exclude_single_argument_zsh_slices() {
-        let source = r#"print "${@: -1}:$@" "${@:2:1}" "${@:2:0}" "${@: -2}" "${@:2:count}" "${@:2}" "${@:-fallback}""#;
-        let output = Parser::with_dialect(source, shuck_parser::parser::ShellDialect::Zsh)
-            .parse()
-            .unwrap();
-        let shuck_ast::Command::Simple(command) = &output.file.body[0].command else {
-            panic!("expected simple command");
-        };
-        let line_index = LineIndex::new(source);
-        let locator = Locator::new(source, &line_index);
-
-        let spans = command
-            .args
-            .iter()
-            .flat_map(|word| {
-                super::direct_all_elements_array_expansion_part_spans(
-                    word,
-                    locator,
-                    ShellDialect::Zsh,
-                )
-            })
-            .map(|span| span.slice(source))
-            .collect::<Vec<_>>();
-
-        assert_eq!(
-            spans,
-            vec!["$@", "${@: -2}", "${@:2:count}", "${@:2}", "${@:-fallback}"]
-        );
-
-        // Keep the existing classification in other dialects unchanged.
-        assert_eq!(
-            super::direct_all_elements_array_expansion_part_spans(
-                &command.args[0],
-                locator,
-                ShellDialect::Bash,
-            )
-            .len(),
-            2
-        );
-    }
-
-    #[test]
-    fn positional_subscript_exemption_is_zsh_only() {
-        assert!(super::candidate_is_all_elements_array_expansion(
-            "${@[_i]:-}",
-            ShellDialect::Bash,
-        ));
-        assert!(!super::candidate_is_all_elements_array_expansion(
-            "${@[_i]:-}",
-            ShellDialect::Zsh,
-        ));
-        assert!(super::candidate_is_direct_all_elements_array_expansion(
-            "${@[2,-1]:-fallback}",
-            ShellDialect::Bash,
-        ));
-        assert!(!super::candidate_is_direct_all_elements_array_expansion(
-            "${@[2,-1]:-fallback}",
-            ShellDialect::Zsh,
-        ));
-
-        let source = "print \"$@[_i]\"\n";
-        let output = Parser::new(source).parse().unwrap();
-        let command = &output.file.body[0].command;
-        let shuck_ast::Command::Simple(command) = command else {
-            panic!("expected simple command");
-        };
-
-        assert!(super::word_has_all_elements_array_expansion_syntax(
-            &command.args[0],
-            source,
-            ShellDialect::Bash,
-        ));
-        assert!(!super::word_has_all_elements_array_expansion_syntax(
-            &command.args[0],
-            source,
-            ShellDialect::Zsh,
-        ));
-    }
-
-    #[test]
-    fn zsh_positional_selector_subscripts_still_count_as_all_elements_splats() {
-        assert!(super::candidate_is_all_elements_array_expansion(
-            "${@[*]:-fallback}",
-            ShellDialect::Zsh,
-        ));
-        assert!(super::candidate_is_direct_all_elements_array_expansion(
-            "${@[*]:-fallback}",
-            ShellDialect::Zsh,
-        ));
-
-        let source = "print \"${@[*]}\" \"$@[*]\" \"${@[@]}\" \"$@[@]\"\n";
-        let output = Parser::with_dialect(source, shuck_parser::parser::ShellDialect::Zsh)
-            .parse()
-            .unwrap();
-        let command = &output.file.body[0].command;
-        let shuck_ast::Command::Simple(command) = command else {
-            panic!("expected simple command");
-        };
-
-        let matches = command
-            .args
-            .iter()
-            .map(|word| {
-                word_has_direct_all_elements_array_expansion_in_source_with_dialect(
-                    word,
-                    source,
-                    ShellDialect::Zsh,
-                )
-            })
-            .collect::<Vec<_>>();
-
-        assert_eq!(matches, vec![true, true, true, true]);
     }
 
     #[test]

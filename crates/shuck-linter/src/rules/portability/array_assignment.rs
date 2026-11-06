@@ -39,7 +39,7 @@ fn command_array_assignment_spans(
             .iter()
             .filter_map(|assignment| array_assignment_span(assignment, source))
             .collect(),
-        Command::Builtin(command) => builtin_assignments(command)
+        Command::Builtin(command) => builtin_assignments(&command)
             .iter()
             .filter_map(|assignment| array_assignment_span(assignment, source))
             .collect(),
@@ -54,8 +54,7 @@ fn command_array_assignment_spans(
             .collect(),
         Command::Binary(_)
         | Command::Compound(_)
-        | Command::Function(_)
-        | Command::AnonymousFunction(_) => Vec::new(),
+        | Command::Function(_) => Vec::new(),
     }
 }
 

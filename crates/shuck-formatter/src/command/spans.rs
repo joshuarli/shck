@@ -40,9 +40,6 @@ fn command_verbatim_span(command: &Command, source_map: &SourceMap<'_>) -> Span 
         Command::Compound(command) => compound_verbatim_span(command, source_map),
         Command::Function(command) => function_header_span(command)
             .merge(function_body_verbatim_span(&command.body, source_map)),
-        Command::AnonymousFunction(command) => anonymous_function_header_span(command)
-            .merge(function_body_verbatim_span(&command.body, source_map))
-            .merge(words_span(&command.args)),
     }
 }
 
@@ -99,8 +96,6 @@ fn compound_span(command: &CompoundCommand) -> Span {
     match command {
         CompoundCommand::If(command) => command.span,
         CompoundCommand::For(command) => command.span,
-        CompoundCommand::Repeat(command) => command.span,
-        CompoundCommand::Foreach(command) => command.span,
         CompoundCommand::ArithmeticFor(command) => command.span,
         CompoundCommand::While(command) => command.span,
         CompoundCommand::Until(command) => command.span,
@@ -115,7 +110,6 @@ fn compound_span(command: &CompoundCommand) -> Span {
         CompoundCommand::Time(command) => command.span,
         CompoundCommand::Conditional(command) => command.span,
         CompoundCommand::Coproc(command) => command.span,
-        CompoundCommand::Always(command) => command.span,
     }
 }
 
@@ -171,7 +165,6 @@ pub(crate) fn command_format_span(command: &Command) -> Span {
         }
         Command::Compound(command) => compound_format_span(command),
         Command::Function(command) => function_attachment_span(command),
-        Command::AnonymousFunction(command) => anonymous_function_attachment_span(command),
     }
 }
 
@@ -301,25 +294,13 @@ pub(crate) fn function_attachment_span(command: &FunctionDef) -> Span {
     function_header_span(command).merge(stmt_span(&command.body))
 }
 
-pub(crate) fn anonymous_function_attachment_span(command: &AnonymousFunctionCommand) -> Span {
-    anonymous_function_header_span(command)
-        .merge(stmt_span(&command.body))
-        .merge(words_span(&command.args))
-}
 
 pub(crate) fn function_header_span(command: &FunctionDef) -> Span {
     command.header.span()
 }
 
-pub(crate) fn anonymous_function_header_span(command: &AnonymousFunctionCommand) -> Span {
-    match command.surface {
-        shuck_ast::AnonymousFunctionSurface::FunctionKeyword {
-            function_keyword_span,
-        } => function_keyword_span,
-        shuck_ast::AnonymousFunctionSurface::Parens { parens_span } => parens_span,
-    }
-}
 
+    #[allow(dead_code)]
 pub(crate) fn words_span(words: &[shuck_ast::Word]) -> Span {
     words.iter().fold(Span::new(), |span, word| {
         merge_non_empty_span(span, word.span)

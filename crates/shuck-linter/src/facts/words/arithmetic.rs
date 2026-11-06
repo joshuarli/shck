@@ -240,8 +240,7 @@ pub(crate) fn collect_dollar_prefixed_indexed_subscript_word_spans(
             | WordPart::IndirectExpansion { .. }
             | WordPart::PrefixMatch { .. }
             | WordPart::ProcessSubstitution { .. }
-            | WordPart::Transformation { .. }
-            | WordPart::ZshQualifiedGlob(_) => {}
+            | WordPart::Transformation { .. } => {}
         }
     }
 }
@@ -682,13 +681,6 @@ pub(crate) fn parameter_needs_wrapped_arithmetic_fallback(
             offset,
             ..
         }) => offset.is_source_backed() && offset.slice(source).starts_with("$(("),
-        ParameterExpansionSyntax::Zsh(syntax) => match &syntax.target {
-            ZshExpansionTarget::Nested(parameter) => {
-                parameter_needs_wrapped_arithmetic_fallback(parameter, source)
-            }
-            ZshExpansionTarget::Word(word) => word_needs_wrapped_arithmetic_fallback(word, source),
-            ZshExpansionTarget::Reference(_) | ZshExpansionTarget::Empty => false,
-        },
         _ => false,
     }
 }
@@ -748,8 +740,7 @@ pub(crate) fn collect_dollar_spans_in_nested_arithmetic_expansions_from_parts(
             | WordPart::IndirectExpansion { .. }
             | WordPart::PrefixMatch { .. }
             | WordPart::ProcessSubstitution { .. }
-            | WordPart::Transformation { .. }
-            | WordPart::ZshQualifiedGlob(_) => {}
+            | WordPart::Transformation { .. } => {}
         }
     }
 }
@@ -801,8 +792,7 @@ fn collect_arithmetic_context_command_substitution_spans(
             | WordPart::IndirectExpansion { .. }
             | WordPart::PrefixMatch { .. }
             | WordPart::ProcessSubstitution { .. }
-            | WordPart::Transformation { .. }
-            | WordPart::ZshQualifiedGlob(_) => {}
+            | WordPart::Transformation { .. } => {}
         }
     }
 }
@@ -1033,8 +1023,7 @@ impl<'word> WordSubtreeVisitor<'word> for ArithmeticSummarySpanVisitor<'_, '_> {
             | WordPart::Variable(_)
             | WordPart::CommandSubstitution { .. }
             | WordPart::PrefixMatch { .. }
-            | WordPart::ProcessSubstitution { .. }
-            | WordPart::ZshQualifiedGlob(_) => {}
+            | WordPart::ProcessSubstitution { .. } => {}
         }
     }
 }
@@ -1190,8 +1179,7 @@ pub(crate) fn collect_arithmetic_expansion_spans_from_parts(
             | WordPart::Variable(_)
             | WordPart::CommandSubstitution { .. }
             | WordPart::PrefixMatch { .. }
-            | WordPart::ProcessSubstitution { .. }
-            | WordPart::ZshQualifiedGlob(_) => {}
+            | WordPart::ProcessSubstitution { .. } => {}
         }
     }
 }
@@ -1361,8 +1349,7 @@ pub(crate) fn collect_arithmetic_update_operator_spans_from_parts_impl(
             WordPart::Literal(_)
             | WordPart::SingleQuoted { .. }
             | WordPart::Variable(_)
-            | WordPart::PrefixMatch { .. }
-            | WordPart::ZshQualifiedGlob(_) => {}
+            | WordPart::PrefixMatch { .. } => {}
             WordPart::CommandSubstitution { body, .. }
             | WordPart::ProcessSubstitution { body, .. } => {
                 if include_nested_commands {
@@ -1570,39 +1557,6 @@ pub(crate) fn collect_arithmetic_update_operator_spans_in_parameter_expansion_im
             }
             BourneParameterExpansion::PrefixMatch { .. } => {}
         },
-        ParameterExpansionSyntax::Zsh(syntax) => match &syntax.target {
-            ZshExpansionTarget::Reference(reference) => {
-                collect_arithmetic_update_operator_spans_in_var_ref_impl(
-                    reference,
-                    semantic,
-                    semantic_artifacts,
-                    source,
-                    spans,
-                    include_nested_commands,
-                );
-            }
-            ZshExpansionTarget::Nested(parameter) => {
-                collect_arithmetic_update_operator_spans_in_parameter_expansion_impl(
-                    parameter,
-                    semantic,
-                    semantic_artifacts,
-                    source,
-                    spans,
-                    include_nested_commands,
-                );
-            }
-            ZshExpansionTarget::Word(word) => {
-                collect_arithmetic_update_operator_spans_from_parts_impl(
-                    &word.parts,
-                    semantic,
-                    semantic_artifacts,
-                    source,
-                    spans,
-                    include_nested_commands,
-                );
-            }
-            ZshExpansionTarget::Empty => {}
-        },
     }
 }
 
@@ -1800,32 +1754,6 @@ pub(crate) fn collect_arithmetic_spans_in_parameter_expansion(
                 }
             }
             BourneParameterExpansion::PrefixMatch { .. } => {}
-        },
-        ParameterExpansionSyntax::Zsh(syntax) => match &syntax.target {
-            ZshExpansionTarget::Reference(reference) => collect_arithmetic_spans_in_var_ref(
-                reference,
-                source,
-                collect_dollar_spans,
-                dollar_spans,
-                command_substitution_spans,
-            ),
-            ZshExpansionTarget::Nested(parameter) => {
-                collect_arithmetic_spans_in_parameter_expansion(
-                    parameter,
-                    source,
-                    collect_dollar_spans,
-                    dollar_spans,
-                    command_substitution_spans,
-                )
-            }
-            ZshExpansionTarget::Word(word) => collect_arithmetic_expansion_spans_from_parts(
-                &word.parts,
-                source,
-                collect_dollar_spans,
-                dollar_spans,
-                command_substitution_spans,
-            ),
-            ZshExpansionTarget::Empty => {}
         },
     }
 }

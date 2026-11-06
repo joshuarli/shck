@@ -60,17 +60,8 @@ const CONFIG_OVERRIDE_LINT_KEYS: &[&str] = &[
     "source-paths",
     "lint-sources",
     "contracts",
-    "zsh",
 ];
 const CONFIG_OVERRIDE_LINT_CONTRACT_KEYS: &[&str] = &["well-known", "disabled", "custom"];
-const CONFIG_OVERRIDE_LINT_ZSH_KEYS: &[&str] = &["plugins"];
-const CONFIG_OVERRIDE_LINT_ZSH_PLUGIN_KEYS: &[&str] = &[
-    "resolution",
-    "roots",
-    "plugin-loads",
-    "theme-loads",
-    "entrypoints",
-];
 const CONFIG_OVERRIDE_LINT_RULE_OPTION_KEYS: &[&str] = &[
     "c001", "c063", "s078", "s079", "s080", "s081", "s082", "s083", "s084", "s085", "c158", "c159",
     "c160", "c161",
@@ -107,7 +98,7 @@ const CONFIG_OVERRIDE_C160_RULE_OPTION_KEYS: &[&str] = &["allowed-anchors"];
 const CONFIG_OVERRIDE_C161_RULE_OPTION_KEYS: &[&str] = &["ignore-after-source"];
 const CONFIG_OVERRIDE_RUN_KEYS: &[&str] = &["shell", "shell-version", "shells"];
 const CONFIG_OVERRIDE_RUN_SHELL_NAMES: &[&str] =
-    &["bash", "gbash", "bashkit", "zsh", "dash", "mksh", "busybox"];
+    &["bash", "gbash", "bashkit", "dash", "mksh", "busybox"];
 
 /// Top-level Shuck configuration loaded from project config files.
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
@@ -285,8 +276,6 @@ pub struct LintConfig {
     pub lint_sources: Option<bool>,
     /// Ambient contract configuration for framework and plugin assumptions.
     pub contracts: Option<LintContractsConfig>,
-    /// Zsh-specific analysis configuration.
-    pub zsh: Option<LintZshConfig>,
 }
 
 /// Configuration for ambient contracts used during lint analysis.
@@ -351,12 +340,9 @@ pub struct LintContractActivationConfig {
 /// Supported contract activation classes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 pub enum LintContractActivationTypeConfig {
-    /// Activate for a zsh plugin.
-    #[serde(rename = "zsh_plugin")]
-    ZshPlugin,
-    /// Activate for a zsh theme.
-    #[serde(rename = "zsh_theme")]
-    ZshTheme,
+    /// Reserved for removed activation types.
+    #[serde(other)]
+    Unknown,
 }
 
 /// Variables consumed by an ambient contract.
@@ -391,64 +377,6 @@ pub struct LintContractFunctionConfig {
     pub reads: Option<Vec<String>>,
     /// Variables set by the function.
     pub sets: Option<Vec<String>>,
-}
-
-/// Zsh-specific lint configuration.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
-#[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
-pub struct LintZshConfig {
-    /// Zsh plugin resolution settings.
-    pub plugins: Option<ZshPluginsConfig>,
-}
-
-/// Configuration for zsh plugin and theme resolution.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
-#[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
-pub struct ZshPluginsConfig {
-    /// Whether plugin resolution is enabled.
-    pub resolution: Option<bool>,
-    /// Named plugin root directories.
-    pub roots: Option<BTreeMap<String, String>>,
-    /// Patterns that identify plugin loads.
-    pub plugin_loads: Option<Vec<ZshPluginLoadConfig>>,
-    /// Patterns that identify theme loads.
-    pub theme_loads: Option<Vec<ZshThemeLoadConfig>>,
-    /// Patterns that provide plugin entrypoint paths.
-    pub entrypoints: Option<Vec<ZshPluginEntrypointConfig>>,
-}
-
-/// A configured zsh plugin load pattern.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
-pub struct ZshPluginLoadConfig {
-    /// Pattern matched against shell source.
-    pub pattern: String,
-    /// Framework name that owns the plugin.
-    pub framework: String,
-    /// Plugin name.
-    pub name: String,
-}
-
-/// A configured zsh theme load pattern.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
-pub struct ZshThemeLoadConfig {
-    /// Pattern matched against shell source.
-    pub pattern: String,
-    /// Framework name that owns the theme.
-    pub framework: String,
-    /// Theme name.
-    pub name: String,
-}
-
-/// A configured zsh plugin entrypoint pattern.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
-pub struct ZshPluginEntrypointConfig {
-    /// Pattern matched against shell source.
-    pub pattern: String,
-    /// Entrypoint paths associated with the pattern.
-    pub paths: Vec<String>,
 }
 
 /// Rule-specific lint options.
@@ -948,7 +876,7 @@ const CONFIGURATION_METADATA: [ConfigSectionMetadata; 5] = [
     },
     ConfigSectionMetadata {
         key: "per-file-shell",
-        docs: "Select the shell dialect used to parse matching files in `shuck check`, `shuck format`, and the language server. Patterns are resolved relative to the project root, and overlapping patterns cannot select different dialects for one file. Supported values are `sh`, `bash`, `dash`, `ksh`, `mksh`, and `zsh`; generic `ksh` is linter-only because the formatter has no corresponding grammar. An explicit `shuck format --dialect` override takes precedence.\n\n```toml\n[per-file-shell]\n\"dot_z*\" = \"zsh\"\n\"scripts/**/*.sh\" = \"bash\"\n```",
+        docs: "Select the shell dialect used to parse matching files in `shuck check`, `shuck format`, and the language server. Patterns are resolved relative to the project root, and overlapping patterns cannot select different dialects for one file. Supported values are `sh`, `bash`, `dash`, `ksh`, and `mksh`; generic `ksh` is linter-only because the formatter has no corresponding grammar. An explicit `shuck format --dialect` override takes precedence.\n\n```toml\n[per-file-shell]\n\"dot_profile*\" = \"sh\"\n\"scripts/**/*.sh\" = \"bash\"\n```",
         fields: &[],
         sections: &[],
     },
@@ -1030,7 +958,7 @@ const CONFIGURATION_METADATA: [ConfigSectionMetadata; 5] = [
                         docs: "Disable built-in ambient contracts by exact ID, by group selector, or with `*` for every built-in contract.",
                         default: "[]",
                         value_type: "list[string]",
-                        example: r#"disabled = ["zsh/oh-my-zsh", "runtime/github-actions/env"]"#,
+                        example: r#"disabled = ["runtime/github-actions/env"]"#,
                     },
                 ],
                 sections: &[ConfigSectionMetadata {
@@ -1049,21 +977,21 @@ const CONFIGURATION_METADATA: [ConfigSectionMetadata; 5] = [
                             docs: "Built-in contract selectors that this custom contract replaces.",
                             default: "[]",
                             value_type: "list[string]",
-                            example: r#"replaces = ["zsh/oh-my-zsh/plugin/tmux"]"#,
+                            example: r#"replaces = ["bash/example-contract"]"#,
                         },
                         ConfigFieldMetadata {
                             key: "when",
-                            docs: "Activation for the contract, either `\"always\"` or an object such as `{ type = \"zsh_plugin\", framework = \"oh-my-zsh\", plugin = \"tmux\" }`.",
+                            docs: "Activation for the contract, either `\"always\"` or an object selector supported by the current contract system.",
                             default: "required",
                             value_type: "string | table",
-                            example: r#"when = { type = "zsh_plugin", framework = "oh-my-zsh", plugin = "tmux" }"#,
+                            example: r#"when = "always""#,
                         },
                         ConfigFieldMetadata {
                             key: "files",
                             docs: "Optional file globs that limit where the contract applies.",
                             default: "[]",
                             value_type: "list[glob]",
-                            example: r#"files = ["**/.zshrc"]"#,
+                            example: r#"files = ["**/.bashrc"]"#,
                         },
                         ConfigFieldMetadata {
                             key: "reads",
@@ -1170,7 +1098,7 @@ const CONFIGURATION_METADATA: [ConfigSectionMetadata; 5] = [
                             docs: "Interpreter names accepted in shebangs for this project.",
                             default: r#"["bash"]"#,
                             value_type: "list[string]",
-                            example: r#"allowed-shells = ["bash", "zsh"]"#,
+                            example: r#"allowed-shells = ["bash", "dash"]"#,
                         }],
                         sections: &[],
                     },
@@ -1860,9 +1788,6 @@ impl LintConfig {
                 .get_or_insert_default()
                 .apply_overrides(contracts);
         }
-        if let Some(zsh) = overrides.zsh {
-            self.zsh.get_or_insert_default().apply_overrides(zsh);
-        }
     }
 }
 
@@ -1876,38 +1801,6 @@ impl LintContractsConfig {
         }
         if let Some(custom) = overrides.custom {
             self.custom.get_or_insert_default().extend(custom);
-        }
-    }
-}
-
-impl LintZshConfig {
-    fn apply_overrides(&mut self, overrides: LintZshConfig) {
-        if let Some(plugins) = overrides.plugins {
-            self.plugins
-                .get_or_insert_default()
-                .apply_overrides(plugins);
-        }
-    }
-}
-
-impl ZshPluginsConfig {
-    fn apply_overrides(&mut self, overrides: ZshPluginsConfig) {
-        if overrides.resolution.is_some() {
-            self.resolution = overrides.resolution;
-        }
-        if let Some(roots) = overrides.roots {
-            self.roots.get_or_insert_default().extend(roots);
-        }
-        if let Some(plugin_loads) = overrides.plugin_loads {
-            self.plugin_loads
-                .get_or_insert_default()
-                .extend(plugin_loads);
-        }
-        if let Some(theme_loads) = overrides.theme_loads {
-            self.theme_loads.get_or_insert_default().extend(theme_loads);
-        }
-        if let Some(entrypoints) = overrides.entrypoints {
-            self.entrypoints.get_or_insert_default().extend(entrypoints);
         }
     }
 }
@@ -1980,9 +1873,6 @@ fn validate_override_table(table: &toml::Table) -> std::result::Result<(), Strin
         if let Some(contracts_value) = lint.get("contracts") {
             validate_lint_contracts_override(contracts_value)?;
         }
-        if let Some(zsh_value) = lint.get("zsh") {
-            validate_lint_zsh_override(zsh_value)?;
-        }
     }
 
     if let Some(run_value) = table.get("run") {
@@ -2001,42 +1891,6 @@ fn validate_lint_contracts_override(value: &toml::Value) -> std::result::Result<
             return Err(format!(
                 "unsupported `[lint.contracts]` option `{key}`; expected one of: {}",
                 CONFIG_OVERRIDE_LINT_CONTRACT_KEYS.join(", ")
-            ));
-        }
-    }
-
-    Ok(())
-}
-
-fn validate_lint_zsh_override(value: &toml::Value) -> std::result::Result<(), String> {
-    let zsh = value
-        .as_table()
-        .ok_or_else(|| "`[lint.zsh]` must be a TOML table".to_owned())?;
-    for key in zsh.keys() {
-        if !CONFIG_OVERRIDE_LINT_ZSH_KEYS.contains(&key.as_str()) {
-            return Err(format!(
-                "unsupported `[lint.zsh]` option `{key}`; expected one of: {}",
-                CONFIG_OVERRIDE_LINT_ZSH_KEYS.join(", ")
-            ));
-        }
-    }
-
-    if let Some(plugins_value) = zsh.get("plugins") {
-        validate_lint_zsh_plugins_override(plugins_value)?;
-    }
-
-    Ok(())
-}
-
-fn validate_lint_zsh_plugins_override(value: &toml::Value) -> std::result::Result<(), String> {
-    let plugins = value
-        .as_table()
-        .ok_or_else(|| "`[lint.zsh.plugins]` must be a TOML table".to_owned())?;
-    for key in plugins.keys() {
-        if !CONFIG_OVERRIDE_LINT_ZSH_PLUGIN_KEYS.contains(&key.as_str()) {
-            return Err(format!(
-                "unsupported `[lint.zsh.plugins]` option `{key}`; expected one of: {}",
-                CONFIG_OVERRIDE_LINT_ZSH_PLUGIN_KEYS.join(", ")
             ));
         }
     }
@@ -2575,14 +2429,14 @@ mod tests {
 
     #[test]
     fn inline_config_overrides_accept_shared_per_file_shell() {
-        let config = parse_config_override("per-file-shell.'dot_z*' = 'zsh'").unwrap();
+        let config = parse_config_override("per-file-shell.'dot_b*' = 'bash'").unwrap();
         assert_eq!(
             config
                 .per_file_shell
                 .as_ref()
-                .and_then(|entries| entries.get("dot_z*"))
+                .and_then(|entries| entries.get("dot_b*"))
                 .map(String::as_str),
-            Some("zsh")
+            Some("bash")
         );
     }
 
@@ -2862,7 +2716,7 @@ mod tests {
     #[test]
     fn inline_config_overrides_validate_supported_s078_rule_option_keys() {
         let config =
-            parse_config_override("lint.rule-options.s078.allowed-shells = ['bash', 'zsh']")
+            parse_config_override("lint.rule-options.s078.allowed-shells = ['bash', 'dash']")
                 .unwrap();
         assert_eq!(
             config
@@ -2872,7 +2726,7 @@ mod tests {
                 .and_then(|options| options.s078.as_ref())
                 .and_then(|s078| s078.allowed_shells.as_ref())
                 .map(Vec::as_slice),
-            Some(&["bash".to_owned(), "zsh".to_owned()][..])
+            Some(&["bash".to_owned(), "dash".to_owned()][..])
         );
     }
 
@@ -2940,55 +2794,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn inline_config_overrides_validate_supported_zsh_plugin_keys() {
-        let config = parse_config_override(
-            "lint.zsh.plugins.resolution = false\n\
-             lint.zsh.plugins.roots.oh-my-zsh = '~/.oh-my-zsh'\n\
-             lint.zsh.plugins.plugin-loads = [{ pattern = '**/.zshrc', framework = 'oh-my-zsh', name = 'git' }]\n\
-             lint.zsh.plugins.theme-loads = [{ pattern = '**/.zshrc', framework = 'oh-my-zsh', name = 'agnoster' }]\n\
-             lint.zsh.plugins.entrypoints = [{ pattern = '**/.zshrc', paths = ['./vendor/prompt.plugin.zsh'] }]",
-        )
-        .unwrap();
-        let plugins = config
-            .lint
-            .zsh
-            .as_ref()
-            .and_then(|zsh| zsh.plugins.as_ref())
-            .expect("missing zsh plugin config");
-        assert_eq!(plugins.resolution, Some(false));
-        assert_eq!(
-            plugins
-                .roots
-                .as_ref()
-                .and_then(|roots| roots.get("oh-my-zsh")),
-            Some(&"~/.oh-my-zsh".to_owned())
-        );
-        assert_eq!(
-            plugins
-                .plugin_loads
-                .as_ref()
-                .and_then(|loads| loads.first())
-                .map(|load| load.name.as_str()),
-            Some("git")
-        );
-        assert_eq!(
-            plugins
-                .theme_loads
-                .as_ref()
-                .and_then(|loads| loads.first())
-                .map(|load| load.name.as_str()),
-            Some("agnoster")
-        );
-        assert_eq!(
-            plugins
-                .entrypoints
-                .as_ref()
-                .and_then(|loads| loads.first())
-                .map(|load| load.paths.as_slice()),
-            Some(&["./vendor/prompt.plugin.zsh".to_owned()][..])
-        );
-    }
 
     #[test]
     fn inline_config_overrides_reject_uninitialized_declaration_rule_option() {
@@ -2999,17 +2804,7 @@ mod tests {
         assert!(err.contains("unsupported `[lint.rule-options.c001]` option"));
     }
 
-    #[test]
-    fn inline_config_overrides_reject_unknown_lint_zsh_keys() {
-        let err = parse_config_override("lint.zsh.preview = true").unwrap_err();
-        assert!(err.contains("unsupported `[lint.zsh]` option `preview`"));
-    }
 
-    #[test]
-    fn inline_config_overrides_reject_unknown_lint_zsh_plugin_keys() {
-        let err = parse_config_override("lint.zsh.plugins.preview = true").unwrap_err();
-        assert!(err.contains("unsupported `[lint.zsh.plugins]` option `preview`"));
-    }
 
     #[test]
     fn inline_config_overrides_reject_unknown_lint_keys() {
@@ -3422,7 +3217,7 @@ mod tests {
                         .unwrap(),
                 )),
                 SingleConfigArgument::SettingsOverride(Box::new(
-                    parse_config_override("lint.rule-options.s078.allowed-shells = ['zsh']")
+                    parse_config_override("lint.rule-options.s078.allowed-shells = ['dash']")
                         .unwrap(),
                 )),
             ],
@@ -3439,7 +3234,7 @@ mod tests {
                 .and_then(|options| options.s078.as_ref())
                 .and_then(|s078| s078.allowed_shells.as_ref())
                 .map(Vec::as_slice),
-            Some(&["zsh".to_owned()][..])
+            Some(&["dash".to_owned()][..])
         );
     }
 
@@ -3572,52 +3367,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn zsh_plugin_config_arguments_merge_roots_and_append_loads() {
-        let tempdir = tempdir().unwrap();
-        let config = ConfigArguments::from_cli(
-            vec![
-                SingleConfigArgument::SettingsOverride(Box::new(
-                    parse_config_override(
-                        "lint.zsh.plugins.roots.oh-my-zsh = '/first'\n\
-                         lint.zsh.plugins.plugin-loads = [{ pattern = '**/.zshrc', framework = 'oh-my-zsh', name = 'git' }]",
-                    )
-                    .unwrap(),
-                )),
-                SingleConfigArgument::SettingsOverride(Box::new(
-                    parse_config_override(
-                        "lint.zsh.plugins.roots.oh-my-zsh = '/second'\n\
-                         lint.zsh.plugins.plugin-loads = [{ pattern = '**/.zshrc', framework = 'oh-my-zsh', name = 'docker' }]",
-                    )
-                    .unwrap(),
-                )),
-            ],
-            false,
-        )
-        .unwrap();
-
-        let loaded = load_project_config(tempdir.path(), &config).unwrap();
-        let plugins = loaded
-            .lint
-            .zsh
-            .as_ref()
-            .and_then(|zsh| zsh.plugins.as_ref())
-            .expect("missing zsh plugin config");
-        assert_eq!(
-            plugins
-                .roots
-                .as_ref()
-                .and_then(|roots| roots.get("oh-my-zsh")),
-            Some(&"/second".to_owned())
-        );
-        assert_eq!(
-            plugins.plugin_loads.as_ref().map(|loads| loads
-                .iter()
-                .map(|load| load.name.clone())
-                .collect::<Vec<_>>()),
-            Some(vec!["git".to_owned(), "docker".to_owned()])
-        );
-    }
 
     #[test]
     fn run_config_arguments_allow_last_override_to_win() {
@@ -3688,21 +3437,6 @@ mod tests {
         assert!(format!("{err:#}").contains("preview"));
     }
 
-    #[test]
-    fn config_file_rejects_unknown_nested_zsh_plugin_fields() {
-        let tempdir = tempdir().unwrap();
-        let config_path = tempdir.path().join("shuck.toml");
-        fs::write(&config_path, "[lint.zsh.plugins]\npreview = true\n").unwrap();
-
-        let err = load_project_config(
-            tempdir.path(),
-            &ConfigArguments::from_cli(vec![SingleConfigArgument::FilePath(config_path)], false)
-                .unwrap(),
-        )
-        .unwrap_err();
-
-        assert!(format!("{err:#}").contains("preview"));
-    }
 
     #[test]
     fn isolated_only_uses_inline_overrides() {

@@ -8,8 +8,7 @@ use crate::source::SourceView;
 #[derive(Debug, Clone)]
 pub struct SourceMap<'a> {
     source: &'a str,
-    data: Arc<SourceMapData>,
-}
+    data: Arc<SourceMapData> }
 
 #[derive(Debug)]
 struct SourceMapData {
@@ -17,8 +16,7 @@ struct SourceMapData {
     close_delimiters: CloseDelimiterIndex,
     first_non_whitespace: Vec<OnceLock<Option<usize>>>,
     hash_offsets: Vec<usize>,
-    track_alignment: bool,
-}
+    track_alignment: bool }
 
 impl<'a> SourceMap<'a> {
     #[must_use]
@@ -105,9 +103,7 @@ impl<'a> SourceMap<'a> {
                 close_delimiters,
                 first_non_whitespace,
                 hash_offsets,
-                track_alignment,
-            }),
-        }
+                track_alignment }) }
     }
 
     #[must_use]
@@ -189,8 +185,7 @@ impl<'a> SourceMap<'a> {
             text: &self.source[start..end],
             span: self.span_for_offsets(start, end),
             line: self.line_number_for_offset(start),
-            inline: self.is_inline_comment(start),
-        })
+            inline: self.is_inline_comment(start) })
     }
 
     #[must_use]
@@ -201,8 +196,7 @@ impl<'a> SourceMap<'a> {
             text: &self.source[start..end],
             span: self.span_for_offsets(start, end),
             line: comment.line,
-            inline: !comment.is_own_line,
-        })
+            inline: !comment.is_own_line })
     }
 
     #[must_use]
@@ -418,8 +412,7 @@ fn slice_has_alignment_padding(slice: &str) -> bool {
             b'\t' => return true,
             b' ' if previous_was_space => return true,
             b' ' => previous_was_space = true,
-            _ => previous_was_space = false,
-        }
+            _ => previous_was_space = false }
     }
     false
 }
@@ -451,8 +444,7 @@ pub struct SourceComment<'a> {
     text: &'a str,
     span: Span,
     line: usize,
-    inline: bool,
-}
+    inline: bool }
 
 impl<'a> SourceComment<'a> {
     #[must_use]
@@ -480,14 +472,12 @@ impl<'a> SourceComment<'a> {
 pub(crate) struct BranchPrefixComment {
     pub(crate) offset: usize,
     pub(crate) text: String,
-    pub(crate) source_indent: usize,
-}
+    pub(crate) source_indent: usize }
 
 /// Formatter-owned attachment view over parser-indexed comments.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct CommentAttachmentModel<'a> {
-    comments: Box<[SourceComment<'a>]>,
-}
+    comments: Box<[SourceComment<'a>]> }
 
 impl<'a> CommentAttachmentModel<'a> {
     pub(crate) fn from_indexer(source_map: &SourceMap<'a>, indexer: &Indexer) -> Self {
@@ -501,8 +491,7 @@ impl<'a> CommentAttachmentModel<'a> {
         comments.sort_by_key(|comment| comment.span().start.offset());
 
         Self {
-            comments: comments.into_boxed_slice(),
-        }
+            comments: comments.into_boxed_slice() }
     }
 
     pub(crate) fn attach_sequence(
@@ -558,8 +547,7 @@ pub struct SequenceCommentAttachment<'a> {
     trailing: Option<Vec<Vec<SourceComment<'a>>>>,
     dangling: Vec<SourceComment<'a>>,
     child_count: usize,
-    ambiguous: bool,
-}
+    ambiguous: bool }
 
 impl<'a> SequenceCommentAttachment<'a> {
     pub(crate) fn new(child_count: usize) -> Self {
@@ -568,8 +556,7 @@ impl<'a> SequenceCommentAttachment<'a> {
             trailing: None,
             dangling: Vec::new(),
             child_count,
-            ambiguous: false,
-        }
+            ambiguous: false }
     }
 
     pub(crate) fn with_dangling(dangling: Vec<SourceComment<'a>>, ambiguous: bool) -> Self {
@@ -578,8 +565,7 @@ impl<'a> SequenceCommentAttachment<'a> {
             trailing: None,
             dangling,
             child_count: 0,
-            ambiguous,
-        }
+            ambiguous }
     }
 
     fn leading_mut(&mut self, index: usize) -> &mut Vec<SourceComment<'a>> {
@@ -707,8 +693,7 @@ fn compute_sequence_attachment<'a>(
                 {
                     attachment.trailing_mut(prev_idx).push(comment);
                 }
-                _ => attachment.ambiguous = true,
-            }
+                _ => attachment.ambiguous = true }
             index += 1;
             continue;
         }

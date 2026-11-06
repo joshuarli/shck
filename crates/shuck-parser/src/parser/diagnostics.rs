@@ -65,7 +65,7 @@ impl<'a> Parser<'a> {
 
     pub(super) fn ensure_repeat_loop(&self) -> Result<()> {
         self.ensure_feature(
-            self.zsh_short_repeat_enabled(),
+            false,
             "repeat loops",
             "are not available in this shell mode",
         )

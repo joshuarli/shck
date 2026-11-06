@@ -19,9 +19,7 @@ impl Violation for IndentedHeredocClose {
 }
 
 pub fn indented_heredoc_close(checker: &mut Checker) {
-    if checker.shell() == ShellDialect::Zsh {
-        return;
-    }
+    // Rule applies to all supported shell dialects.
 
     let diagnostics = checker
         .facts()
@@ -128,17 +126,6 @@ hi
 
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(diagnostics[0].span.start.line(), 4);
-    }
-
-    #[test]
-    fn skips_zsh() {
-        let source = "#!/bin/zsh\ncat <<EOF\nhi\n EOF\n";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::IndentedHeredocClose).with_shell(ShellDialect::Zsh),
-        );
-
-        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
     }
 
     #[test]

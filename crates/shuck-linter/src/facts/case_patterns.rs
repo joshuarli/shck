@@ -354,7 +354,7 @@ impl StaticCasePatternMatcher {
     fn from_pattern(
         pattern: &Pattern,
         source: &str,
-        behavior: &ShellBehaviorAt<'_>,
+        behavior: &ShellBehaviorAt,
     ) -> Option<Self> {
         ensure_case_pattern_is_statically_analyzable(pattern, source, behavior)?;
 
@@ -978,7 +978,7 @@ pub(crate) fn merged_case_pattern_symbols(
 pub(crate) fn ensure_case_pattern_is_statically_analyzable(
     pattern: &Pattern,
     source: &str,
-    behavior: &ShellBehaviorAt<'_>,
+    behavior: &ShellBehaviorAt,
 ) -> Option<()> {
     for (part, _) in pattern.parts_with_spans() {
         match part {
@@ -990,7 +990,7 @@ pub(crate) fn ensure_case_pattern_is_statically_analyzable(
         }
     }
 
-    if behavior.shell_dialect() == shuck_semantic::ShellDialect::Zsh
+    if behavior.shell_dialect() == shuck_semantic::ShellDialect::Bash
         && pattern_operator_may_be_active(behavior.glob_pattern().extended_glob())
         && text_has_unquoted_zsh_extended_glob_operator(pattern.span.slice(source))
     {
@@ -1135,7 +1135,6 @@ pub(crate) fn collect_static_case_subject_tokens(
                 *saw_dynamic = true;
                 push_case_pattern_token(out, CasePatternToken::AnyString);
             }
-            WordPart::ZshQualifiedGlob(_) => return None,
         }
     }
 
@@ -1223,7 +1222,7 @@ pub(crate) fn build_case_pattern_facts(
                 CaseTerminator::FallThrough => {
                     fallthrough_arm_patterns.append(&mut same_item_patterns);
                 }
-                CaseTerminator::Continue | CaseTerminator::ContinueMatching => {
+                CaseTerminator::Continue => {
                     fallthrough_arm_patterns.clear();
                 }
             }
@@ -1399,7 +1398,7 @@ pub(crate) fn first_getopts_case_match_in_command(
             first_getopts_case_match_in_commands(commands, target_name, source)
         }
         // Helper definitions are not part of the executable getopts dispatch path.
-        Command::Function(_) | Command::AnonymousFunction(_) => None,
+        Command::Function(_) => None,
         Command::Compound(_) | Command::Simple(_) | Command::Builtin(_) | Command::Decl(_) => None,
     }
 }

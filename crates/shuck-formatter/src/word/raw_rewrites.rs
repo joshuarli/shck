@@ -53,8 +53,7 @@ pub(super) fn consume_escaped_newline_indent(
     let newline_len = match probe.next() {
         Some('\n') => 1,
         Some('\r') if probe.next().is_some_and(|next| next == '\n') => 2,
-        _ => return None,
-    };
+        _ => return None };
 
     for _ in 0..newline_len {
         chars.next();
@@ -148,8 +147,7 @@ pub(super) fn parameter_bourne_operand_needs_subscript_compaction(
                 ..
             },
         ) => operand.slice(source),
-        _ => return false,
-    };
+        _ => return false };
     compact_parameter_operand_subscripts(operand) != operand
 }
 
@@ -162,8 +160,7 @@ pub(super) fn parameter_needs_special_rendering(parameter: &shuck_ast::Parameter
             )
         }
         BourneParameterExpansion::Slice { .. } => true,
-        _ => false,
-    })
+        _ => false })
 }
 
 pub(super) fn parameter_prefers_raw_source(
@@ -178,15 +175,13 @@ pub(super) fn parameter_prefers_raw_source(
                 !replacement.slice(source).is_empty()
                     || raw_source_slice(span, source).is_some_and(|raw| raw.ends_with("/}"))
             }
-            _ => true,
-        },
+            _ => true },
         BourneParameterExpansion::Slice {
             offset_ast,
             length_ast,
             ..
         } => offset_ast.is_none() && length_ast.is_none(),
-        _ => true,
-    })
+        _ => true })
 }
 
 pub(super) fn stmt_seq_contains_comments(facts: &FormatterFacts<'_>, sequence: &StmtSeq) -> bool {
@@ -258,22 +253,19 @@ pub(super) fn normalize_continuations_before_matching_lines(
 pub(super) struct RawCompoundIndentShift {
     pub(super) source_indent: String,
     pub(super) extra_units: usize,
-    pub(super) close_keyword: &'static str,
-}
+    pub(super) close_keyword: &'static str }
 
 pub(super) struct RawCompoundCommentIndent {
     /// Rendered indent of the line that opened the compound command.
     pub(super) open_indent: String,
     pub(super) child_indent: String,
     pub(super) close_keyword: &'static str,
-    pub(super) pipeline_continuation: bool,
-}
+    pub(super) pipeline_continuation: bool }
 
 #[derive(Default)]
 pub(super) struct RawCompoundIndentState {
     pub(super) shifts: Vec<RawCompoundIndentShift>,
-    pub(super) comments: Vec<RawCompoundCommentIndent>,
-}
+    pub(super) comments: Vec<RawCompoundCommentIndent> }
 
 impl RawCompoundIndentState {
     pub(super) fn shifted_line(
@@ -343,16 +335,14 @@ impl RawCompoundIndentState {
                 open_indent: rendered_indent.to_string(),
                 child_indent: source_indent_plus_one_unit(rendered_indent, options),
                 close_keyword,
-                pipeline_continuation,
-            });
+                pipeline_continuation });
             let before_units = raw_indent_units(source_indent, options);
             let after_units = raw_indent_units(shifted_indent, options);
             if after_units > before_units {
                 self.shifts.push(RawCompoundIndentShift {
                     source_indent: source_indent.to_string(),
                     extra_units: after_units - before_units,
-                    close_keyword,
-                });
+                    close_keyword });
             }
         }
         if self
@@ -906,8 +896,7 @@ pub(super) fn raw_shell_body_needs_structural_spacing(body: &str) -> bool {
                 horizontal_run = 0;
             }
             ';' if !rest.starts_with(";;") => return true,
-            _ => horizontal_run = 0,
-        }
+            _ => horizontal_run = 0 }
 
         index = next_index;
     }
@@ -1465,8 +1454,7 @@ pub(super) fn raw_indent_units(indent: &str, options: &ResolvedShellFormatOption
             normalized.chars().filter(|ch| *ch == '\t').count()
                 + normalized.chars().filter(|ch| *ch == ' ').count() / width
         }
-        IndentStyle::Space => normalized.len() / width,
-    }
+        IndentStyle::Space => normalized.len() / width }
 }
 
 pub(super) fn strip_one_indent_unit<'a>(
@@ -1480,8 +1468,7 @@ pub(super) fn strip_one_indent_unit<'a>(
         }),
         IndentStyle::Space => line
             .strip_prefix(&" ".repeat(usize::from(options.indent_width())))
-            .unwrap_or(line),
-    }
+            .unwrap_or(line) }
 }
 
 pub(super) fn strip_outer_indent_or_one_unit<'a>(
@@ -1535,8 +1522,7 @@ pub(super) fn source_indent_plus_one_unit(
     } else {
         let width = match options.indent_style() {
             IndentStyle::Tab => usize::from(options.indent_width()).clamp(1, 4),
-            IndentStyle::Space => usize::from(options.indent_width()),
-        };
+            IndentStyle::Space => usize::from(options.indent_width()) };
         let mut extended = indent.to_string();
         extended.push_str(&" ".repeat(width));
         extended

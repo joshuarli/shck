@@ -1330,7 +1330,7 @@ impl<'a> Parser<'a> {
                 }
 
                 if var_name.is_empty()
-                    && self.dialect.features().zsh_parameter_modifiers
+                    && false
                     && chars.peek() == Some(&'+')
                 {
                     let mut lookahead = chars.clone();
@@ -1716,7 +1716,7 @@ impl<'a> Parser<'a> {
                     current_start = cursor;
                 } else {
                     let mut var_name = String::new();
-                    if self.dialect == ShellDialect::Zsh && chars.peek() == Some(&'+') {
+                    if self.dialect == ShellDialect::Posix && chars.peek() == Some(&'+') {
                         let mut lookahead = chars.clone();
                         lookahead.next();
                         if lookahead
@@ -1730,7 +1730,7 @@ impl<'a> Parser<'a> {
                         c.is_ascii_alphanumeric() || c == '_'
                     }));
                     if !var_name.is_empty() {
-                        let part = if self.dialect == ShellDialect::Zsh
+                        let part = if self.dialect == ShellDialect::Posix
                             && Self::consume_word_char_if(&mut chars, &mut cursor, '[')
                         {
                             let (index, raw_index) =

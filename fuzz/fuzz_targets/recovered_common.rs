@@ -5,11 +5,10 @@ use shuck_parser::{
     parser::{ParseResult, Parser},
 };
 
-pub(crate) const PARSER_DIALECTS: [ParseDialect; 4] = [
+pub(crate) const PARSER_DIALECTS: [ParseDialect; 3] = [
     ParseDialect::Bash,
     ParseDialect::Posix,
     ParseDialect::Mksh,
-    ParseDialect::Zsh,
 ];
 
 pub(crate) fn assert_span_valid(span: Span, source: &str) {

@@ -21,9 +21,7 @@ impl Violation for BraceVariableBeforeBracket {
 }
 
 pub fn brace_variable_before_bracket(checker: &mut Checker) {
-    if checker.shell() == ShellDialect::Zsh {
-        return;
-    }
+    // Rule applies to all supported shell dialects.
 
     let source = checker.source();
     let diagnostics = checker
@@ -150,22 +148,6 @@ sed_var() {
                 .collect::<Vec<_>>(),
             vec![(4, 33), (7, 14)]
         );
-    }
-
-    #[test]
-    fn ignores_zsh_array_subscripts() {
-        let source = "\
-#!/bin/zsh
-echo \"$foo[1]\"
-print $reply[2]
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::BraceVariableBeforeBracket)
-                .with_shell(ShellDialect::Zsh),
-        );
-
-        assert!(diagnostics.is_empty());
     }
 
     #[test]

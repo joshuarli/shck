@@ -14,7 +14,6 @@ pub(in crate::facts) enum WordTraversalOrigin {
     ArithmeticExpansion,
     ParameterOperand,
     ParameterPattern,
-    ZshQualifiedGlobPattern,
     ZshParameterTarget,
     ZshModifierArgument,
 }
@@ -22,7 +21,7 @@ pub(in crate::facts) enum WordTraversalOrigin {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(in crate::facts) enum WordTraversalPatternContext {
     ParameterOperator,
-    ZshQualifiedGlob,
+
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -139,7 +138,7 @@ pub(in crate::facts) trait WordSubtreeVisitor<'a> {
     fn visit_zsh_qualified_glob(
         &mut self,
         _part: &'a WordPartNode,
-        _glob: &'a ZshQualifiedGlob,
+        _glob: &'a (),
         _state: WordTraversalState<'a>,
     ) {
     }
@@ -305,11 +304,7 @@ fn walk_word_parts<'a>(
                     );
                 }
             }
-            WordPart::ZshQualifiedGlob(glob) => {
-                visitor.visit_zsh_qualified_glob(part, glob, part_state);
-                walk_zsh_qualified_glob(glob, context, part_state, visitor);
-            }
-        }
+}
     }
 }
 
@@ -380,9 +375,6 @@ fn walk_parameter_expansion<'a>(
     match &parameter.syntax {
         ParameterExpansionSyntax::Bourne(syntax) => {
             walk_bourne_parameter_expansion(syntax, context, state, visitor);
-        }
-        ParameterExpansionSyntax::Zsh(syntax) => {
-            walk_zsh_parameter_expansion(syntax, context, state, visitor);
         }
     }
 }
@@ -511,117 +503,8 @@ fn walk_parameter_operator<'a>(
     }
 }
 
-fn walk_zsh_parameter_expansion<'a>(
-    syntax: &'a ZshParameterExpansion,
-    context: WordTraversalContext<'a>,
-    state: WordTraversalState<'a>,
-    visitor: &mut impl WordSubtreeVisitor<'a>,
-) {
-    match &syntax.target {
-        ZshExpansionTarget::Nested(parameter) => {
-            walk_parameter_expansion(parameter, context, state, visitor);
-        }
-        ZshExpansionTarget::Word(word) => {
-            walk_embedded_word(
-                word,
-                context,
-                state,
-                WordTraversalOrigin::ZshParameterTarget,
-                visitor,
-            );
-        }
-        ZshExpansionTarget::Reference(_) | ZshExpansionTarget::Empty => {}
-    }
 
-    for modifier in &syntax.modifiers {
-        if let Some(word) = modifier.argument_word_ast() {
-            walk_embedded_word(
-                word,
-                context,
-                state,
-                WordTraversalOrigin::ZshModifierArgument,
-                visitor,
-            );
-        }
-    }
 
-    if let Some(operation) = syntax.operation.as_ref() {
-        walk_zsh_expansion_operation(operation, context, state, visitor);
-    }
-}
-
-fn walk_zsh_expansion_operation<'a>(
-    operation: &'a ZshExpansionOperation,
-    context: WordTraversalContext<'a>,
-    state: WordTraversalState<'a>,
-    visitor: &mut impl WordSubtreeVisitor<'a>,
-) {
-    if let Some(word) = operation.operand_word_ast() {
-        walk_embedded_word(
-            word,
-            context,
-            state,
-            WordTraversalOrigin::ParameterOperand,
-            visitor,
-        );
-    }
-    if let Some(word) = operation.pattern_word_ast() {
-        walk_embedded_word(
-            word,
-            context,
-            state,
-            WordTraversalOrigin::ParameterPattern,
-            visitor,
-        );
-    }
-    if let Some(word) = operation.replacement_word_ast() {
-        walk_embedded_word(
-            word,
-            context,
-            state,
-            WordTraversalOrigin::ParameterOperand,
-            visitor,
-        );
-    }
-    if let Some(word) = operation.offset_word_ast() {
-        walk_embedded_word(
-            word,
-            context,
-            state,
-            WordTraversalOrigin::ParameterOperand,
-            visitor,
-        );
-    }
-    if let Some(word) = operation.length_word_ast() {
-        walk_embedded_word(
-            word,
-            context,
-            state,
-            WordTraversalOrigin::ParameterOperand,
-            visitor,
-        );
-    }
-}
-
-fn walk_zsh_qualified_glob<'a>(
-    glob: &'a ZshQualifiedGlob,
-    context: WordTraversalContext<'a>,
-    state: WordTraversalState<'a>,
-    visitor: &mut impl WordSubtreeVisitor<'a>,
-) {
-    let state = state.with_pattern_context(WordTraversalPatternContext::ZshQualifiedGlob);
-    for segment in &glob.segments {
-        if let ZshGlobSegment::Pattern(pattern) = segment {
-            walk_pattern(
-                pattern,
-                context,
-                state,
-                WordTraversalOrigin::ZshQualifiedGlobPattern,
-                visitor,
-            );
-        }
-    }
-}
 
 fn walk_pattern<'a>(
     pattern: &'a Pattern,
@@ -726,7 +609,7 @@ mod tests {
         fn visit_zsh_qualified_glob(
             &mut self,
             _part: &'a WordPartNode,
-            _glob: &'a ZshQualifiedGlob,
+            _glob: &'a (),
             state: WordTraversalState<'a>,
         ) {
             self.events.push(format!("zsh-glob:{:?}", state.origin));
@@ -826,40 +709,6 @@ mod tests {
                 .events
                 .iter()
                 .any(|event| event == "command:ArithmeticExpansion:false")
-        );
-    }
-
-    #[test]
-    fn walker_visits_zsh_qualified_glob_pattern_words() {
-        let source = "prefix";
-        let inner = Word::literal_with_span("prefix", span_for(source, 0, source.len()));
-        let pattern = Pattern {
-            parts: vec![PatternPartNode::new(
-                PatternPart::Word(inner),
-                span_for(source, 0, source.len()),
-            )],
-            span: span_for(source, 0, source.len()),
-        };
-        let word = Word {
-            parts: vec![WordPartNode::new(
-                WordPart::ZshQualifiedGlob(Box::new(ZshQualifiedGlob {
-                    span: span_for(source, 0, source.len()),
-                    segments: vec![ZshGlobSegment::Pattern(pattern)],
-                    qualifiers: None,
-                })),
-                span_for(source, 0, source.len()),
-            )],
-            span: span_for(source, 0, source.len()),
-            brace_syntax: Vec::new(),
-        };
-        let visitor = walk_recorded(source, &word);
-
-        assert!(visitor.events.iter().any(|event| event == "zsh-glob:Root"));
-        assert!(
-            visitor
-                .events
-                .iter()
-                .any(|event| event == "pattern-word:ZshQualifiedGlobPattern")
         );
     }
 

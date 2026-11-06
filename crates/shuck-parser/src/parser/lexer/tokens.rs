@@ -46,7 +46,7 @@ impl<'a> Lexer<'a> {
                     }
                 } else if self.second_char() == Some('|') {
                     self.consume_ascii_chars(2);
-                    Some(LexedToken::punctuation(TokenKind::SemiPipe)) // ;|
+                    Some(LexedToken::punctuation(TokenKind::Semicolon)) /* ;| no longer special */ // ;|
                 } else if self.second_char() == Some('&') {
                     self.consume_ascii_chars(2);
                     Some(LexedToken::punctuation(TokenKind::SemiAmp)) // ;&

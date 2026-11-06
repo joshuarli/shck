@@ -1370,8 +1370,7 @@ pub(crate) fn collect_dynamic_brace_exclusions(
             | WordPart::ArraySlice { .. }
             | WordPart::IndirectExpansion { .. }
             | WordPart::PrefixMatch { .. }
-            | WordPart::Transformation { .. }
-            | WordPart::ZshQualifiedGlob(_) => out.push(runtime_shell_dynamic_brace_exclusion(
+            | WordPart::Transformation { .. } => out.push(runtime_shell_dynamic_brace_exclusion(
                 part,
                 word_base_offset,
                 region_index,
@@ -1590,8 +1589,7 @@ pub(crate) fn collect_raw_escaped_parameter_exclusions(
             | WordPart::ArraySlice { .. }
             | WordPart::IndirectExpansion { .. }
             | WordPart::PrefixMatch { .. }
-            | WordPart::Transformation { .. }
-            | WordPart::ZshQualifiedGlob(_) => {}
+            | WordPart::Transformation { .. } => {}
             WordPart::DoubleQuoted { .. } if !part.span.slice(source).starts_with("\\\"") => {
                 out.push(DynamicBraceExcludedSpan {
                     start_offset: part.span.start.offset() - word_base_offset,

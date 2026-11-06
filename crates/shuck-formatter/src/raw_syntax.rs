@@ -11,8 +11,7 @@ pub(crate) fn leading_shell_indent(line: &str) -> &str {
 pub(crate) struct HeredocStart<'line> {
     pub(crate) delimiter: &'line str,
     pub(crate) strip_tabs: bool,
-    pub(crate) operator_end: usize,
-}
+    pub(crate) operator_end: usize }
 
 pub(crate) fn heredoc_start(line: &str) -> Option<HeredocStart<'_>> {
     let marker = heredoc_operator_offset(line)?;
@@ -32,8 +31,7 @@ pub(crate) fn heredoc_start(line: &str) -> Option<HeredocStart<'_>> {
     (!delimiter.is_empty()).then_some(HeredocStart {
         delimiter,
         strip_tabs,
-        operator_end: marker + if strip_tabs { 3 } else { 2 },
-    })
+        operator_end: marker + if strip_tabs { 3 } else { 2 } })
 }
 
 /// Finds the first `<<` that can start a heredoc, skipping single-quoted text
@@ -88,8 +86,7 @@ pub(crate) fn common_indent_prefix<'a>(left: &'a str, right: &str) -> &'a str {
 pub(crate) fn refine_common_indent(common: &mut Option<String>, indent: &str) -> bool {
     *common = Some(match common.take() {
         Some(previous) => common_indent_prefix(&previous, indent).to_string(),
-        None => indent.to_string(),
-    });
+        None => indent.to_string() });
     common.as_deref() == Some("")
 }
 
@@ -117,8 +114,7 @@ pub(crate) fn redirect_operator_end(bytes: &[u8], start: usize) -> Option<usize>
     match bytes.get(start).copied()? {
         b'>' => Some(match bytes.get(start + 1).copied() {
             Some(b'>' | b'|' | b'&') => start + 2,
-            _ => start + 1,
-        }),
+            _ => start + 1 }),
         b'<' => Some(match bytes.get(start + 1).copied() {
             Some(b'<' | b'>' | b'&') => {
                 if bytes.get(start + 2) == Some(&b'<') {
@@ -127,10 +123,8 @@ pub(crate) fn redirect_operator_end(bytes: &[u8], start: usize) -> Option<usize>
                     start + 2
                 }
             }
-            _ => start + 1,
-        }),
-        _ => None,
-    }
+            _ => start + 1 }),
+        _ => None }
 }
 
 pub(crate) fn skip_single_quoted(source: &str, offset: usize, upper: usize) -> usize {
@@ -153,8 +147,7 @@ pub(crate) fn skip_escaped_or_quoted(
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct RawShellText<'source> {
-    text: &'source str,
-}
+    text: &'source str }
 
 impl<'source> RawShellText<'source> {
     pub(crate) fn new(text: &'source str) -> Self {
@@ -274,8 +267,7 @@ impl<'source> RawShellText<'source> {
         match bytes.get(index) {
             Some(b'<' | b'>') => true,
             Some(b'&') => bytes.get(index + 1) == Some(&b'>'),
-            _ => false,
-        }
+            _ => false }
     }
 
     pub(crate) fn continuation_inside_unclosed_substitution(&self) -> bool {
@@ -305,8 +297,7 @@ impl<'source> RawShellText<'source> {
                 let escaped_newline = match probe.next() {
                     Some('\n') => true,
                     Some('\r') => probe.next().is_some_and(|next| next == '\n'),
-                    _ => false,
-                };
+                    _ => false };
                 if escaped_newline {
                     return in_single_quotes || in_double_quotes;
                 }
@@ -424,8 +415,7 @@ fn trailing_comment_start(line: &str) -> Option<usize> {
 pub(crate) struct RenderedHeredocTail {
     pub(crate) delimiter: String,
     pub(crate) strip_tabs: bool,
-    pub(crate) command_indent: String,
-}
+    pub(crate) command_indent: String }
 
 impl RenderedHeredocTail {
     pub(crate) fn body_line<'a>(&self, line: &'a str) -> &'a str {
@@ -468,8 +458,7 @@ pub(crate) fn rendered_heredoc_tail_start(line: &str) -> Option<RenderedHeredocT
     Some(RenderedHeredocTail {
         delimiter: start.delimiter.to_string(),
         strip_tabs: start.strip_tabs,
-        command_indent: leading_shell_indent(line).to_string(),
-    })
+        command_indent: leading_shell_indent(line).to_string() })
 }
 
 pub(crate) fn normalize_rendered_heredoc_start_spacing(line: &str) -> Option<String> {
@@ -492,15 +481,13 @@ pub(crate) fn normalize_rendered_heredoc_start_spacing(line: &str) -> Option<Str
 pub(crate) enum CommandSubstitutionPipelineContinuation {
     None,
     Comment,
-    StructuralPipe { line_started_in_quote: bool },
-}
+    StructuralPipe { line_started_in_quote: bool } }
 
 #[derive(Default)]
 pub(crate) struct RawLineQuoteState {
     single_quoted: bool,
     double_quoted: bool,
-    escaped: bool,
-}
+    escaped: bool }
 
 impl RawLineQuoteState {
     fn reset(&mut self) {
@@ -566,8 +553,7 @@ pub(crate) fn command_substitution_pipeline_stage_continuation(
         quote_state,
     ) {
         CommandSubstitutionPipelineContinuation::StructuralPipe {
-            line_started_in_quote,
-        }
+            line_started_in_quote }
     } else {
         CommandSubstitutionPipelineContinuation::None
     }
@@ -726,12 +712,10 @@ enum LiteralFrame {
     /// pattern's `)` is not mistaken for the end of `$( ... )`.
     Code {
         paren_depth: usize,
-        case_depth: usize,
-    },
+        case_depth: usize },
     Single,
     AnsiC,
-    Double,
-}
+    Double }
 
 /// Tracks whether rendered shell lines start inside a quoted string literal.
 ///
@@ -741,17 +725,14 @@ enum LiteralFrame {
 /// part of the string's value and must never be re-indented.
 #[derive(Debug, Clone)]
 pub(crate) struct LiteralLineTracker {
-    stack: Vec<LiteralFrame>,
-}
+    stack: Vec<LiteralFrame> }
 
 impl Default for LiteralLineTracker {
     fn default() -> Self {
         Self {
             stack: vec![LiteralFrame::Code {
                 paren_depth: 0,
-                case_depth: 0,
-            }],
-        }
+                case_depth: 0 }] }
     }
 }
 
@@ -788,16 +769,14 @@ impl LiteralLineTracker {
                     b'$' if next == Some(b'(') => {
                         self.stack.push(LiteralFrame::Code {
                             paren_depth: 0,
-                            case_depth: 0,
-                        });
+                            case_depth: 0 });
                         index += 1;
                     }
                     _ => {}
                 },
                 LiteralFrame::Code {
                     paren_depth,
-                    case_depth,
-                } => match byte {
+                    case_depth } => match byte {
                     b'\\' => index += 1,
                     b'c' if shell_keyword_at(line, index, "case") => *case_depth += 1,
                     b'e' if *case_depth > 0 && shell_keyword_at(line, index, "esac") => {
@@ -813,8 +792,7 @@ impl LiteralLineTracker {
                     b'$' if next == Some(b'(') => {
                         self.stack.push(LiteralFrame::Code {
                             paren_depth: 0,
-                            case_depth: 0,
-                        });
+                            case_depth: 0 });
                         index += 1;
                     }
                     b'(' => *paren_depth += 1,
@@ -828,8 +806,7 @@ impl LiteralLineTracker {
                         }
                     }
                     _ => {}
-                },
-            }
+                } }
             index += 1;
         }
     }

@@ -42,7 +42,7 @@ fn public_api_loads_shared_per_file_shell_config() {
     let tempdir = tempdir().unwrap();
     fs::write(
         tempdir.path().join("shuck.toml"),
-        "[per-file-shell]\n'dot_z*' = 'zsh'\n",
+        "[per-file-shell]\n'tests/*.sh' = 'bash'\n",
     )
     .unwrap();
 
@@ -52,9 +52,9 @@ fn public_api_loads_shared_per_file_shell_config() {
         loaded
             .per_file_shell
             .as_ref()
-            .and_then(|entries| entries.get("dot_z*"))
+            .and_then(|entries| entries.get("tests/*.sh"))
             .map(String::as_str),
-        Some("zsh")
+        Some("bash")
     );
 }
 
@@ -104,7 +104,7 @@ fn public_api_resolves_project_roots_and_discovered_config_paths() {
 #[test]
 fn public_api_rejects_format_dialect_in_config_patch() {
     let config = FormatConfig {
-        dialect: Some(toml::Value::String("zsh".to_owned())),
+        dialect: Some(toml::Value::String("bash".to_owned())),
         ..FormatConfig::default()
     };
 

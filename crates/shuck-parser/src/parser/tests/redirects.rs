@@ -116,67 +116,6 @@ fn test_parse_named_fd_redirect_read_write() {
 }
 
 #[test]
-fn test_parse_zsh_output_append_redirect_from_upstream() {
-    let input = "command >> output.txt\n";
-    let script = Parser::with_dialect(input, ShellDialect::Zsh)
-        .parse()
-        .unwrap()
-        .file;
-    let stmt = &script.body[0];
-    let command = expect_simple(stmt);
-
-    assert_eq!(command.name.render(input), "command");
-    assert_eq!(stmt.redirects.len(), 1);
-    assert_eq!(stmt.redirects[0].kind, RedirectKind::Append);
-    assert_eq!(
-        redirect_word_target(&stmt.redirects[0]).render(input),
-        "output.txt"
-    );
-}
-
-#[test]
-fn test_parse_zsh_here_string_examples_from_upstream() {
-    for (input, expected_name) in [
-        ("cat <<< \"hello\"\n", "cat"),
-        ("grep pattern <<< \"$variable\"\n", "grep"),
-        ("cat 0<<< \"data\"\n", "cat"),
-    ] {
-        let script = Parser::with_dialect(input, ShellDialect::Zsh)
-            .parse()
-            .unwrap()
-            .file;
-        let stmt = &script.body[0];
-        let command = expect_simple(stmt);
-
-        assert_eq!(command.name.render(input), expected_name);
-        assert_eq!(stmt.redirects.len(), 1);
-        assert_eq!(stmt.redirects[0].kind, RedirectKind::HereString);
-    }
-}
-
-#[test]
-fn test_parse_zsh_here_string_pipeline_binds_to_left_command() {
-    let input = "command <<< \"input\" | other\n";
-    let script = Parser::with_dialect(input, ShellDialect::Zsh)
-        .parse()
-        .unwrap()
-        .file;
-    let stmt = &script.body[0];
-    let AstCommand::Binary(binary) = &stmt.command else {
-        panic!("expected pipeline command");
-    };
-    assert_eq!(binary.op, BinaryOp::Pipe);
-
-    let left = expect_simple(&binary.left);
-    assert_eq!(left.name.render(input), "command");
-    assert_eq!(binary.left.redirects.len(), 1);
-    assert_eq!(binary.left.redirects[0].kind, RedirectKind::HereString);
-
-    let right = expect_simple(&binary.right);
-    assert_eq!(right.name.render(input), "other");
-}
-
-#[test]
 fn test_parse_process_substitution_argument_with_here_string_inside_outer_process_substitution() {
     let input = "\
 readarray -t deps < <(
@@ -218,26 +157,6 @@ readarray -t deps < <(
     );
     assert_eq!(body[0].redirects.len(), 1);
     assert_eq!(body[0].redirects[0].kind, RedirectKind::HereString);
-}
-
-#[test]
-fn test_parse_redirect_with_descriptor_on_continuation_line_from_upstream() {
-    let input = "echo foo \\\n    2>/dev/null\n";
-    let script = Parser::with_dialect(input, ShellDialect::Zsh)
-        .parse()
-        .unwrap()
-        .file;
-    let stmt = &script.body[0];
-    let command = expect_simple(stmt);
-
-    assert_eq!(command.name.render(input), "echo");
-    assert_eq!(stmt.redirects.len(), 1);
-    assert_eq!(stmt.redirects[0].fd, Some(2));
-    assert_eq!(stmt.redirects[0].kind, RedirectKind::Output);
-    assert_eq!(
-        redirect_word_target(&stmt.redirects[0]).render(input),
-        "/dev/null"
-    );
 }
 
 #[test]
@@ -326,23 +245,6 @@ fn test_prefix_redirect_before_for_loop_is_rejected_in_bash_mode() {
         error.to_string().contains("expected command"),
         "unexpected error: {error}"
     );
-}
-
-#[test]
-fn test_prefix_redirect_before_for_loop_is_allowed_in_zsh_mode() {
-    let input = ">out for item in a b; do echo \"$item\"; done\n";
-    let script = Parser::with_dialect(input, ShellDialect::Zsh)
-        .parse()
-        .unwrap()
-        .file;
-    let (compound, redirects) = expect_compound(&script.body[0]);
-    let AstCompoundCommand::For(command) = compound else {
-        panic!("expected for loop");
-    };
-
-    assert_eq!(command.targets[0].word.render(input), "item");
-    assert_eq!(redirects.len(), 1);
-    assert_eq!(redirect_word_target(&redirects[0]).render(input), "out");
 }
 
 #[test]
@@ -527,29 +429,3 @@ fn test_multi_digit_fd_prefixes_are_redirects_in_bash_and_posix() {
     }
 }
 
-#[test]
-fn test_multi_digit_word_before_redirect_stays_an_argument() {
-    for (dialect, input, arg, fd) in [
-        // zsh and mksh only read a single digit as a descriptor prefix.
-        (ShellDialect::Zsh, "echo 10>out", "10", None),
-        (ShellDialect::Mksh, "echo 10>out", "10", None),
-        (ShellDialect::Zsh, "echo 99>&-", "99", Some(1)),
-        // Like bash, a number too large for a descriptor stays a word.
-        (
-            ShellDialect::Bash,
-            "echo 2147483648>out",
-            "2147483648",
-            None,
-        ),
-    ] {
-        let script = Parser::with_dialect(input, dialect).parse().unwrap().file;
-        let stmt = &script.body[0];
-        let AstCommand::Simple(command) = &stmt.command else {
-            panic!("{dialect:?} {input}: expected a simple command");
-        };
-        assert_eq!(command.args.len(), 1, "{dialect:?} {input}");
-        assert_eq!(command.args[0].render(input), arg, "{dialect:?} {input}");
-        assert_eq!(stmt.redirects.len(), 1, "{dialect:?} {input}");
-        assert_eq!(stmt.redirects[0].fd, fd, "{dialect:?} {input}");
-    }
-}

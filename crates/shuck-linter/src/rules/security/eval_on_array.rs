@@ -161,19 +161,4 @@ eval \"echo \\${1##*/} $@\"
         assert_eq!(diagnostics[0].span.slice(source), "$@");
     }
 
-    #[test]
-    fn reports_zsh_positional_parameter_ranges_passed_to_eval() {
-        let source = "\
-#!/bin/zsh
-correct=0
-eval \"${@[2-correct,-1]}\"
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::EvalOnArray).with_shell(ShellDialect::Zsh),
-        );
-
-        assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
-        assert_eq!(diagnostics[0].span.slice(source), "${@[2-correct,-1]}");
-    }
 }

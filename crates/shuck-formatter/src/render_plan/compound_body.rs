@@ -5,8 +5,7 @@ use crate::context::RenderContext;
 use super::body_site::{CompoundBodyOpen, CompoundBodySite};
 use super::shape::{
     body_starts_with_inline_do_brace_group, body_starts_with_inline_do_if,
-    can_inline_body_with_upper_bound, inline_do_brace_group_done_separator,
-};
+    can_inline_body_with_upper_bound, inline_do_brace_group_done_separator };
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct CompoundBodyPlan<'a> {
@@ -14,22 +13,19 @@ pub(crate) struct CompoundBodyPlan<'a> {
     layout: CompoundBodyLayout,
     open_suffix_span: Option<Span>,
     preserve_open_blank: bool,
-    preserve_close_blank: bool,
-}
+    preserve_close_blank: bool }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum CompoundBodyLayout {
     DoDone(DoDoneBodyLayout),
     DirectInline,
-    BraceGroup { prefix: &'static str },
-}
+    BraceGroup { prefix: &'static str } }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum DoDoneBodyLayout {
     Inline,
     LegacyInline { close_separator: &'static str },
-    Multiline { open: &'static str },
-}
+    Multiline { open: &'static str } }
 
 impl<'a> CompoundBodyPlan<'a> {
     pub(crate) fn loop_body(
@@ -43,8 +39,7 @@ impl<'a> CompoundBodyPlan<'a> {
                 Self::from_layout(site, CompoundBodyLayout::DirectInline, context)
             }
             CompoundBodyOpen::Group('{') => Self::brace_group(site, brace_prefix, context),
-            _ => unreachable!("compound body uses do, direct, or brace syntax"),
-        }
+            _ => unreachable!("compound body uses do, direct, or brace syntax") }
     }
 
     pub(crate) fn do_done(site: CompoundBodySite<'a>, context: RenderContext<'_, '_>) -> Self {
@@ -68,12 +63,10 @@ impl<'a> CompoundBodyPlan<'a> {
                         context,
                         body,
                         site.enclosing_span(),
-                    ),
-                }
+                    ) }
             } else if body_starts_with_inline_do_if(context, body) {
                 DoDoneBodyLayout::LegacyInline {
-                    close_separator: "; ",
-                }
+                    close_separator: "; " }
             } else {
                 DoDoneBodyLayout::Multiline { open: "; do" }
             }
@@ -115,8 +108,7 @@ impl<'a> CompoundBodyPlan<'a> {
             layout,
             open_suffix_span: sequence.group_open_suffix_span(),
             preserve_open_blank: sequence.has_blank_line_after_open(),
-            preserve_close_blank: sequence.has_blank_line_before_close(),
-        }
+            preserve_close_blank: sequence.has_blank_line_before_close() }
     }
 
     /// Forces a `do`/`done` body onto its own lines, e.g. when a comment sits

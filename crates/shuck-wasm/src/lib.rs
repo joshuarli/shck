@@ -22,7 +22,7 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(typescript_custom_section)]
 const TYPESCRIPT_TYPES: &str = r#"
-export type Shell = "sh" | "bash" | "dash" | "ksh" | "mksh" | "zsh";
+export type Shell = "sh" | "bash" | "dash" | "ksh" | "mksh" ;
 export type DiagnosticSeverity = "hint" | "warning" | "error";
 export type FixApplicability = "safe" | "unsafe";
 
@@ -118,7 +118,6 @@ enum ShellName {
     Dash,
     Ksh,
     Mksh,
-    Zsh,
 }
 
 impl ShellName {
@@ -129,7 +128,6 @@ impl ShellName {
             Self::Dash => LintDialect::Dash,
             Self::Ksh => LintDialect::Ksh,
             Self::Mksh => LintDialect::Mksh,
-            Self::Zsh => LintDialect::Zsh,
         }
     }
 

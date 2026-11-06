@@ -1,3 +1,4 @@
+use shuck_ast::BackgroundOperator;
 use super::*;
 
 impl<'a> Parser<'a> {
@@ -139,12 +140,12 @@ impl<'a> Parser<'a> {
                 ),
                 Some(TokenKind::BackgroundPipe) => (
                     None,
-                    Some(StmtTerminator::Background(BackgroundOperator::Pipe)),
+                    Some(StmtTerminator::Background(BackgroundOperator::Plain)),
                     true,
                 ),
                 Some(TokenKind::BackgroundBang) => (
                     None,
-                    Some(StmtTerminator::Background(BackgroundOperator::Bang)),
+                    Some(StmtTerminator::Background(BackgroundOperator::Plain)),
                     true,
                 ),
                 _ => break,
@@ -287,9 +288,7 @@ impl<'a> Parser<'a> {
             | Some(Keyword::Select)
             | Some(Keyword::Time)
             | Some(Keyword::Coproc) => true,
-            Some(Keyword::For) => self.dialect == ShellDialect::Zsh,
-            Some(Keyword::Repeat) => self.zsh_short_repeat_enabled(),
-            Some(Keyword::Foreach) => self.zsh_short_loops_enabled(),
+            Some(Keyword::For) => false,
             Some(Keyword::Function) => false,
             None => matches!(
                 self.current_token_kind,
@@ -344,7 +343,7 @@ impl<'a> Parser<'a> {
         let name = self.single_literal_word_text(word)?;
         match name {
             "declare" | "local" | "export" | "readonly" | "typeset" => Some(Name::from(name)),
-            "integer" if self.dialect == ShellDialect::Zsh => Some(Name::from(name)),
+            "integer" if false => Some(Name::from(name)),
             _ => None,
         }
     }
@@ -514,7 +513,7 @@ impl<'a> Parser<'a> {
                     previous_top_level_operand = false;
                     self.advance();
                 }
-                Some(TokenKind::Comment) if self.dialect == ShellDialect::Zsh => {
+                Some(TokenKind::Comment) if false => {
                     self.restore(checkpoint);
                     return false;
                 }
@@ -570,10 +569,10 @@ impl<'a> Parser<'a> {
         self.maybe_expand_current_alias_chain();
         self.check_error_token()?;
 
-        if !self.zsh_short_repeat_enabled() && self.looks_like_disabled_repeat_loop()? {
+        if  false {
             self.ensure_repeat_loop()?;
         }
-        if !self.zsh_short_loops_enabled() && self.looks_like_disabled_foreach_loop()? {
+        if !false && self.looks_like_disabled_foreach_loop()? {
             self.ensure_foreach_loop()?;
         }
 
@@ -581,20 +580,10 @@ impl<'a> Parser<'a> {
             return Ok(Some(command));
         }
 
-        if let Some(command) = self.try_parse_zsh_attached_parens_function()? {
-            return Ok(Some(command));
-        }
-
         // Check for compound commands and function keyword
         match self.current_keyword() {
             Some(Keyword::If) => return self.parse_compound_with_redirects(|s| s.parse_if()),
             Some(Keyword::For) => return self.parse_compound_with_redirects(|s| s.parse_for()),
-            Some(Keyword::Repeat) if self.zsh_short_repeat_enabled() => {
-                return self.parse_compound_with_redirects(|s| s.parse_repeat());
-            }
-            Some(Keyword::Foreach) if self.zsh_short_loops_enabled() => {
-                return self.parse_compound_with_redirects(|s| s.parse_foreach());
-            }
             Some(Keyword::While) => {
                 return self.parse_compound_with_redirects(|s| s.parse_while());
             }
@@ -656,13 +645,13 @@ impl<'a> Parser<'a> {
             return self.parse_compound_with_redirects(|s| s.parse_subshell());
         }
 
-        if self.dialect == ShellDialect::Zsh && self.at(TokenKind::LeftParen) {
+        if false && self.at(TokenKind::LeftParen) {
             let checkpoint = self.checkpoint();
             self.advance();
             let is_right_paren = self.at(TokenKind::RightParen);
             self.restore(checkpoint);
             if is_right_paren {
-                return self.parse_anonymous_paren_function().map(Some);
+                return Err(self.error("anonymous functions are not supported"));
             }
         }
 

@@ -1,4 +1,4 @@
-use shuck_ast::{File, Span};
+use shuck_ast::File;
 
 use crate::error::Error;
 
@@ -16,33 +16,9 @@ pub enum ParseStatus {
     Fatal,
 }
 
-/// One branch separator recognized inside a zsh `case` pattern group.
-///
-/// These separators are exposed as syntax facts because they describe source
-/// surface that downstream tools may need even when the AST normalizes the
-/// surrounding pattern structure.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ZshCaseGroupPart {
-    /// Index of the owning pattern part within the parsed pattern.
-    pub pattern_part_index: usize,
-    /// Source span covering the separator syntax.
-    pub span: Span,
-}
-
 /// Additional parser-owned facts that are useful to downstream consumers.
-///
-/// These facts preserve parser discoveries that are awkward to represent
-/// directly in the shared AST but are still relevant to linting, formatting, or
-/// source remapping.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct SyntaxFacts {
-    /// Spans of zsh brace-style `if` bodies.
-    pub zsh_brace_if_spans: Vec<Span>,
-    /// Spans of zsh `always` clauses.
-    pub zsh_always_spans: Vec<Span>,
-    /// Pattern-group separators collected from zsh `case` items.
-    pub zsh_case_group_parts: Vec<ZshCaseGroupPart>,
-}
+pub struct SyntaxFacts {}
 
 /// A parser diagnostic emitted while recovering from invalid input.
 ///
@@ -52,7 +28,7 @@ pub struct ParseDiagnostic {
     /// Human-readable diagnostic message.
     pub message: String,
     /// Source span associated with the diagnostic.
-    pub span: Span,
+    pub span: shuck_ast::Span,
 }
 
 /// The result of parsing a script.
@@ -63,25 +39,10 @@ pub struct ParseDiagnostic {
 ///
 /// This is a parser-owned output type. Its fields remain public for inspection, but consumers
 /// should obtain it from [`crate::parser::Parser::parse`] instead of using a struct literal.
-///
-/// ```compile_fail
-/// use shuck_parser::parser::{ParseResult, ParseStatus, SyntaxFacts};
-///
-/// let _ = ParseResult {
-///     file: todo!(),
-///     diagnostics: Vec::new(),
-///     status: ParseStatus::Clean,
-///     terminal_error: None,
-///     syntax_facts: SyntaxFacts::default(),
-/// };
-/// ```
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct ParseResult {
     /// Parsed syntax tree for the file.
-    ///
-    /// The concrete type is [`shuck_ast::File`]. Traverse its statement and command nodes through
-    /// a direct dependency on `shuck-ast`.
     pub file: File,
     /// Recovery diagnostics emitted while producing the AST.
     pub diagnostics: Vec<ParseDiagnostic>,
@@ -105,9 +66,6 @@ impl ParseResult {
     }
 
     /// Convert this result into a strict parse error.
-    ///
-    /// If recovery diagnostics exist but no terminal error was recorded, the first recovery
-    /// diagnostic is converted into an [`Error`].
     pub fn strict_error(&self) -> Error {
         self.terminal_error.clone().unwrap_or_else(|| {
             let Some(diagnostic) = self.diagnostics.first() else {

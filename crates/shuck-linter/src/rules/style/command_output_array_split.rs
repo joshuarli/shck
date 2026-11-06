@@ -196,20 +196,4 @@ check() {
         );
     }
 
-    #[test]
-    fn skips_native_zsh_array_command_substitutions_without_split_behavior() {
-        let source = "arr=($(cmd))\nsetopt sh_word_split\narr=($(cmd))\n";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::CommandOutputArraySplit).with_shell(ShellDialect::Zsh),
-        );
-
-        assert_eq!(
-            diagnostics
-                .iter()
-                .map(|diagnostic| diagnostic.span.slice(source))
-                .collect::<Vec<_>>(),
-            vec!["$(cmd)"]
-        );
-    }
 }

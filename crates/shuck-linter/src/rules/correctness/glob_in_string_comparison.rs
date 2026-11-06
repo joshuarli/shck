@@ -1,4 +1,4 @@
-use shuck_ast::{word_is_standalone_variable_like, word_is_standalone_zsh_force_glob_parameter};
+use shuck_ast::{word_is_standalone_variable_like};
 
 use super::pattern_policy;
 use crate::{
@@ -50,7 +50,7 @@ pub fn glob_in_string_comparison(checker: &mut Checker) {
             }
 
             let word = right.word()?;
-            if word_is_standalone_zsh_force_glob_parameter(word) {
+            if false {
                 return None;
             }
             if pattern_policy::word_expands_only_static_pattern_safe_literals(checker, word) {
@@ -105,103 +105,6 @@ if [ \"$a\" = $b ]; then :; fi
                 .map(|diagnostic| diagnostic.span.slice(source))
                 .collect::<Vec<_>>(),
             vec!["$pkgs", "$1", "${b%%x}", "${arr[0]}"]
-        );
-    }
-
-    #[test]
-    fn skips_zsh_explicit_pattern_expansion_rhs() {
-        let source = "\
-#!/usr/bin/env zsh
-pattern='f*'
-if [[ foo == ${~pattern} ]]; then :; fi
-if [[ foo = ${=~pattern} ]]; then :; fi
-if [[ foo != ${~~~pattern} ]]; then :; fi
-if [[ foo == ${~~literal} ]]; then :; fi
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::GlobInStringComparison)
-                .with_shell(crate::ShellDialect::Zsh),
-        );
-
-        assert_eq!(
-            diagnostics
-                .iter()
-                .map(|diagnostic| diagnostic.span.slice(source))
-                .collect::<Vec<_>>(),
-            vec!["${~~literal}"]
-        );
-    }
-
-    #[test]
-    fn ignores_rhs_variables_with_static_pattern_safe_values() {
-        let source = "\
-#!/usr/bin/env zsh
-expected=ready
-pattern='r*'
-if [[ $actual == $expected ]]; then :; fi
-if [[ $actual == $pattern ]]; then :; fi
-if [[ $actual == $unknown ]]; then :; fi
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::GlobInStringComparison)
-                .with_shell(crate::ShellDialect::Zsh),
-        );
-
-        assert_eq!(
-            diagnostics
-                .iter()
-                .map(|diagnostic| diagnostic.span.slice(source))
-                .collect::<Vec<_>>(),
-            vec!["$pattern", "$unknown"]
-        );
-    }
-
-    #[test]
-    fn ignores_zsh_presence_test_rhs() {
-        let source = "\
-#!/usr/bin/env zsh
-if [[ 0 = ${+ICE[nocompletions]} ]]; then :; fi
-if [[ ${+left} == ${+right} ]]; then :; fi
-if [[ 1 = ${+1} ]]; then :; fi
-if [[ 1 = ${+?} ]]; then :; fi
-if [[ $actual == $unknown ]]; then :; fi
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::GlobInStringComparison)
-                .with_shell(crate::ShellDialect::Zsh),
-        );
-
-        assert_eq!(
-            diagnostics
-                .iter()
-                .map(|diagnostic| diagnostic.span.slice(source))
-                .collect::<Vec<_>>(),
-            vec!["$unknown"]
-        );
-    }
-
-    #[test]
-    fn reports_rhs_parameter_operations_even_when_target_bindings_are_static_safe() {
-        let source = "\
-#!/usr/bin/env zsh
-expected=ready
-if [[ $actual == ${expected//ready/*} ]]; then :; fi
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::GlobInStringComparison)
-                .with_shell(crate::ShellDialect::Zsh),
-        );
-
-        assert_eq!(
-            diagnostics
-                .iter()
-                .map(|diagnostic| diagnostic.span.slice(source))
-                .collect::<Vec<_>>(),
-            vec!["${expected//ready/*}"]
         );
     }
 

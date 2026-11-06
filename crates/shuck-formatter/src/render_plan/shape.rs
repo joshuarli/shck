@@ -1,6 +1,5 @@
 use shuck_ast::{
-    Command, CompoundCommand, IfCommand, IfSyntax, Span, Stmt, StmtSeq, StmtTerminator,
-};
+    Command, CompoundCommand, IfCommand, IfSyntax, Span, Stmt, StmtSeq, StmtTerminator };
 
 use crate::command::{stmt_format_span, stmt_span};
 use crate::context::RenderContext;
@@ -380,8 +379,7 @@ fn single_unadorned_compound_stmt(body: &StmtSeq) -> Option<&CompoundCommand> {
     }
     match &stmt.command {
         Command::Compound(command) => Some(command),
-        _ => None,
-    }
+        _ => None }
 }
 
 fn source_line_before_offset_ends_with_do(source: &str, offset: usize) -> bool {
@@ -404,8 +402,7 @@ fn command_allows_done_without_semicolon(command: &Command) -> bool {
     match command {
         Command::Compound(command) => compound_allows_done_without_semicolon(command),
         Command::Binary(binary) => command_allows_done_without_semicolon(&binary.right.command),
-        _ => false,
-    }
+        _ => false }
 }
 
 fn compound_allows_done_without_semicolon(command: &CompoundCommand) -> bool {
@@ -415,9 +412,6 @@ fn compound_allows_done_without_semicolon(command: &CompoundCommand) -> bool {
             brace_group_last_stmt_allows_done_without_semicolon(commands)
         }
         CompoundCommand::For(command) => {
-            brace_group_last_stmt_allows_done_without_semicolon(&command.body)
-        }
-        CompoundCommand::Repeat(command) => {
             brace_group_last_stmt_allows_done_without_semicolon(&command.body)
         }
         CompoundCommand::While(command) => {
@@ -432,8 +426,7 @@ fn compound_allows_done_without_semicolon(command: &CompoundCommand) -> bool {
         CompoundCommand::ArithmeticFor(command) => {
             brace_group_last_stmt_allows_done_without_semicolon(&command.body)
         }
-        _ => false,
-    }
+        _ => false }
 }
 
 fn group_close_offset(

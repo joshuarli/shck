@@ -43,8 +43,7 @@ use crate::facts::FormatterFacts;
 /// Formatter option types exposed by the shell formatter.
 pub use crate::options::{
     FormatSettingsPatch, IndentStyle, LineEnding, ResolvedShellFormatOptions, ShellDialect,
-    ShellFormatOptions,
-};
+    ShellFormatOptions };
 pub use crate::range::{FormattedRange, format_range};
 pub use shuck_ast::{TextRange, TextSize};
 
@@ -53,8 +52,7 @@ pub use shuck_ast::{TextRange, TextSize};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FormattedSource {
     Unchanged,
-    Formatted(String),
-}
+    Formatted(String) }
 
 /// Errors that can occur while parsing or formatting shell source.
 #[allow(missing_docs)]
@@ -63,10 +61,8 @@ pub enum FormatError {
     Parse {
         message: String,
         line: usize,
-        column: usize,
-    },
-    Internal(String),
-}
+        column: usize },
+    Internal(String) }
 
 impl std::fmt::Display for FormatError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -74,16 +70,14 @@ impl std::fmt::Display for FormatError {
             Self::Parse {
                 message,
                 line,
-                column,
-            } => {
+                column } => {
                 if *line > 0 {
                     write!(f, "parse error at line {line}, column {column}: {message}")
                 } else {
                     write!(f, "parse error: {message}")
                 }
             }
-            Self::Internal(message) => f.write_str(message),
-        }
+            Self::Internal(message) => f.write_str(message) }
     }
 }
 
@@ -125,8 +119,7 @@ pub fn format_file_ast(
 
 struct ParsedFormatInput {
     file: File,
-    resolved: ResolvedShellFormatOptions,
-}
+    resolved: ResolvedShellFormatOptions }
 
 fn parse_and_resolve(
     source: &str,
@@ -141,8 +134,7 @@ fn parse_and_resolve(
 
     Ok(ParsedFormatInput {
         file: parsed.file,
-        resolved,
-    })
+        resolved })
 }
 
 /// Formats source with options that were already resolved for another buffer.
@@ -283,8 +275,7 @@ fn trailing_line_ending_start(text: &str) -> Option<usize> {
 fn line_ending_str(line_ending: LineEnding) -> &'static str {
     match line_ending {
         LineEnding::Lf => "\n",
-        LineEnding::CrLf => "\r\n",
-    }
+        LineEnding::CrLf => "\r\n" }
 }
 
 fn preserve_initial_shebang(source: &str, output: &mut String, line_ending: LineEnding) {
@@ -324,11 +315,8 @@ fn map_parse_error(error: ParseError) -> FormatError {
         ParseError::Parse {
             message,
             line,
-            column,
-        } => FormatError::Parse {
+            column } => FormatError::Parse {
             message,
             line,
-            column,
-        },
-    }
+            column } }
 }

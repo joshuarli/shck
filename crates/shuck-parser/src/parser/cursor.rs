@@ -17,9 +17,6 @@ impl<'a> Parser<'a> {
             expand_next_word: self.expand_next_word,
             brace_group_depth: self.brace_group_depth,
             brace_body_stack_len: self.brace_body_stack.len(),
-            syntax_facts_zsh_brace_if_spans_len: self.syntax_facts.zsh_brace_if_spans.len(),
-            syntax_facts_zsh_always_spans_len: self.syntax_facts.zsh_always_spans.len(),
-            syntax_facts_zsh_case_group_parts_len: self.syntax_facts.zsh_case_group_parts.len(),
             #[cfg(feature = "benchmarking")]
             benchmark_counters: self.benchmark_counters,
         }
@@ -43,15 +40,6 @@ impl<'a> Parser<'a> {
         self.brace_group_depth = checkpoint.brace_group_depth;
         self.brace_body_stack
             .truncate(checkpoint.brace_body_stack_len);
-        self.syntax_facts
-            .zsh_brace_if_spans
-            .truncate(checkpoint.syntax_facts_zsh_brace_if_spans_len);
-        self.syntax_facts
-            .zsh_always_spans
-            .truncate(checkpoint.syntax_facts_zsh_always_spans_len);
-        self.syntax_facts
-            .zsh_case_group_parts
-            .truncate(checkpoint.syntax_facts_zsh_case_group_parts_len);
         #[cfg(feature = "benchmarking")]
         {
             self.benchmark_counters = checkpoint.benchmark_counters;
@@ -252,5 +240,58 @@ impl<'a> Parser<'a> {
                 AssignmentValue::Compound(array) => Self::rebase_array_expr(array, base),
             }
         }
+    }
+
+    #[allow(dead_code)]
+    pub(super) fn zsh_options_at_offset(&self, _offset: usize) -> Option<()> {
+        None
+    }
+
+    pub(super) fn zsh_glob_word_parsing_enabled_at(&self, _offset: usize) -> bool {
+        false
+    }
+
+    pub(super) fn zsh_glob_parse_features_at(&self, _offset: usize) -> ZshGlobParseFeatures {
+        ZshGlobParseFeatures {
+            ksh_groups: true,
+            bare_groups: true,
+            ..ZshGlobParseFeatures::default()
+        }
+    }
+
+    #[allow(dead_code)]
+    pub(super) fn zsh_word_parsing_enabled_at(&self, _offset: usize) -> bool {
+        false
+    }
+
+    pub(super) fn brace_syntax_enabled_at(&self, _offset: usize) -> bool {
+        true
+    }
+
+    pub(super) fn brace_ccl_enabled_at(&self, _offset: usize) -> bool {
+        false
+    }
+
+    pub(super) fn zsh_short_loops_enabled(&self) -> bool {
+        false
+    }
+
+    #[allow(dead_code)]
+    pub(super) fn current_zsh_options(&self) -> Option<()> {
+        None
+    }
+
+    #[allow(dead_code)]
+    pub(super) fn record_zsh_case_group_part(&mut self, _pattern_part_index: usize, _span: Span) {}
+
+    #[allow(dead_code)]
+    pub(super) fn record_zsh_always_span(&mut self, _span: Span) {}
+
+    #[allow(dead_code)]
+    pub(super) fn record_zsh_brace_if_span(&mut self, _span: Span) {}
+
+    #[allow(dead_code)]
+    pub(super) fn ignore_braces_enabled_at(&self, _offset: usize) -> bool {
+        false
     }
 }

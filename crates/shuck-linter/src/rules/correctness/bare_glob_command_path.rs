@@ -22,9 +22,7 @@ impl Violation for BareGlobCommandPath {
 }
 
 pub fn bare_glob_command_path(checker: &mut Checker) {
-    if checker.shell() == ShellDialect::Zsh {
-        return;
-    }
+    // Rule applies to all supported shell dialects.
 
     let source = checker.source();
     let diagnostics = checker
@@ -124,17 +122,6 @@ noglob ./disabled*.sh
 ";
         let diagnostics =
             test_snippet(source, &LinterSettings::for_rule(Rule::BareGlobCommandPath));
-
-        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
-    }
-
-    #[test]
-    fn skips_zsh() {
-        let source = "#!/bin/zsh\n./foo?.sh\n";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::BareGlobCommandPath).with_shell(ShellDialect::Zsh),
-        );
 
         assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
     }

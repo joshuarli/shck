@@ -9,15 +9,13 @@ use super::FactSpan;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(super) struct SequenceSiteKey {
     pub(super) span: FactSpan,
-    upper_bound: Option<usize>,
-}
+    upper_bound: Option<usize> }
 
 impl SequenceSiteKey {
     pub(super) fn new(sequence: &StmtSeq, upper_bound: Option<usize>) -> Self {
         Self {
             span: FactSpan::from(sequence.span),
-            upper_bound,
-        }
+            upper_bound }
     }
 }
 
@@ -27,8 +25,7 @@ pub(super) struct SequenceSite<'a> {
     pub(super) upper_bound: Option<usize>,
     pub(super) group_open_char: Option<char>,
     pub(super) open_suffix_span: Option<Span>,
-    pub(super) open_end_offset: Option<usize>,
-}
+    pub(super) open_end_offset: Option<usize> }
 
 impl<'a> SequenceSite<'a> {
     pub(super) fn new(
@@ -43,8 +40,7 @@ impl<'a> SequenceSite<'a> {
             upper_bound,
             group_open_char,
             open_suffix_span,
-            open_end_offset,
-        }
+            open_end_offset }
     }
 
     pub(super) fn key(self) -> SequenceSiteKey {
@@ -55,8 +51,7 @@ impl<'a> SequenceSite<'a> {
 #[derive(Debug, Clone, Default)]
 pub(super) struct SequenceFactsStore<'source> {
     pub(super) by_site: HashMap<SequenceSiteKey, SequenceFacts<'source>>,
-    pub(super) by_span: HashMap<FactSpan, SequenceSiteKey>,
-}
+    pub(super) by_span: HashMap<FactSpan, SequenceSiteKey> }
 
 impl<'source> SequenceFactsStore<'source> {
     #[cfg(feature = "benchmarking")]
@@ -79,8 +74,7 @@ pub(crate) struct SequenceFacts<'source> {
     pub(super) contains_comments: bool,
     pub(super) contains_heredoc: bool,
     pub(super) contains_multiline_literal_source: bool,
-    pub(super) contains_multistatement_pipeline_brace_group: bool,
-}
+    pub(super) contains_multistatement_pipeline_brace_group: bool }
 
 impl<'source> SequenceFacts<'source> {
     pub(super) fn new(child_count: usize) -> Self {
@@ -97,8 +91,7 @@ impl<'source> SequenceFacts<'source> {
             contains_comments: false,
             contains_heredoc: false,
             contains_multiline_literal_source: false,
-            contains_multistatement_pipeline_brace_group: false,
-        }
+            contains_multistatement_pipeline_brace_group: false }
     }
 
     pub(crate) fn leading_for(&self, index: usize) -> &[SourceComment<'source>] {

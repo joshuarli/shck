@@ -4,7 +4,6 @@ use shuck_ast::{
     ArrayElem, Assignment, AssignmentValue, BuiltinCommand, Command, Comment, CompoundCommand,
     ConditionalExpr, DeclOperand, File, HeredocBody, HeredocBodyPart, HeredocBodyPartNode, Pattern,
     PatternPart, Redirect, Stmt, StmtSeq, TextRange, TextSize, Word, WordPart, WordPartNode,
-    ZshGlobSegment,
 };
 
 use crate::LineIndex;
@@ -222,13 +221,7 @@ fn collect_command_comments(command: &Command, comments: &mut Vec<Comment>) {
             }
             collect_stmt_comments(&function.body, comments);
         }
-        Command::AnonymousFunction(function) => {
-            collect_stmt_comments(&function.body, comments);
-            for argument in &function.args {
-                collect_word_comments(argument, comments);
-            }
-        }
-    }
+}
 }
 
 fn collect_compound_comments(command: &CompoundCommand, comments: &mut Vec<Comment>) {
@@ -252,17 +245,7 @@ fn collect_compound_comments(command: &CompoundCommand, comments: &mut Vec<Comme
             }
             collect_stmt_seq_comments(&command.body, comments);
         }
-        CompoundCommand::Repeat(command) => {
-            collect_word_comments(&command.count, comments);
-            collect_stmt_seq_comments(&command.body, comments);
-        }
-        CompoundCommand::Foreach(command) => {
-            for word in &command.words {
-                collect_word_comments(word, comments);
-            }
-            collect_stmt_seq_comments(&command.body, comments);
-        }
-        CompoundCommand::ArithmeticFor(command) => {
+CompoundCommand::ArithmeticFor(command) => {
             collect_stmt_seq_comments(&command.body, comments)
         }
         CompoundCommand::While(command) => {
@@ -291,11 +274,7 @@ fn collect_compound_comments(command: &CompoundCommand, comments: &mut Vec<Comme
         CompoundCommand::Subshell(body) | CompoundCommand::BraceGroup(body) => {
             collect_stmt_seq_comments(body, comments);
         }
-        CompoundCommand::Always(command) => {
-            collect_stmt_seq_comments(&command.body, comments);
-            collect_stmt_seq_comments(&command.always_body, comments);
-        }
-        CompoundCommand::Time(command) => {
+CompoundCommand::Time(command) => {
             if let Some(inner) = &command.command {
                 collect_stmt_comments(inner, comments);
             }
@@ -464,14 +443,7 @@ fn collect_heredoc_body_comments(body: &HeredocBody, comments: &mut Vec<Comment>
 fn collect_word_part_comments(parts: &[WordPartNode], comments: &mut Vec<Comment>) {
     for part in parts {
         match &part.kind {
-            WordPart::ZshQualifiedGlob(glob) => {
-                for segment in &glob.segments {
-                    if let ZshGlobSegment::Pattern(pattern) = segment {
-                        collect_pattern_comments(pattern, comments);
-                    }
-                }
-            }
-            WordPart::DoubleQuoted { parts, .. } => collect_word_part_comments(parts, comments),
+WordPart::DoubleQuoted { parts, .. } => collect_word_part_comments(parts, comments),
             WordPart::CommandSubstitution { body, .. }
             | WordPart::ProcessSubstitution { body, .. } => {
                 collect_stmt_seq_comments(body, comments);

@@ -1025,7 +1025,6 @@ impl<'a> SurfaceFragmentSink<'a> {
                         .push(DollarDoubleQuotedFragmentFact { span: part.span });
                 }
             }
-            WordPart::ZshQualifiedGlob(glob) => self.collect_zsh_qualified_glob(glob, context),
             WordPart::ArithmeticExpansion {
                 expression,
                 syntax: ArithmeticExpansionSyntax::LegacyBracket,
@@ -1434,14 +1433,9 @@ impl<'a> SurfaceFragmentSink<'a> {
 
     fn collect_zsh_qualified_glob(
         &mut self,
-        glob: &ZshQualifiedGlob,
-        context: SurfaceScanContext<'_>,
+        _glob: &(),
+        _context: SurfaceScanContext<'_>,
     ) {
-        for segment in &glob.segments {
-            if let ZshGlobSegment::Pattern(pattern) = segment {
-                self.collect_pattern(pattern, context);
-            }
-        }
     }
 
     fn collect_parameter_expansion(
@@ -1562,7 +1556,6 @@ impl<'a> SurfaceFragmentSink<'a> {
                 | BourneParameterExpansion::Transformation { reference, .. } => Some(reference),
                 BourneParameterExpansion::PrefixMatch { .. } => None,
             },
-            ParameterExpansionSyntax::Zsh(_) => None,
         };
 
         if let Some(reference) = reference
@@ -1707,60 +1700,19 @@ impl<'word> WordSubtreeVisitor<'word> for SurfaceWordVisitor<'_, '_, '_> {
 }
 
 fn zsh_delayed_eval_word_is_exempt(
-    word: &Word,
-    source: &str,
-    context: SurfaceScanContext<'_>,
+    _word: &Word,
+    _source: &str,
+    _context: SurfaceScanContext<'_>,
 ) -> bool {
-    if context.shell_dialect != shuck_parser::ShellDialect::Zsh {
-        return false;
-    }
-
-    let assignment_context = context.assignment_target.is_some()
-        || matches!(
-            context.command_name,
-            Some("local" | "typeset" | "declare" | "readonly")
-        );
-    if !assignment_context {
-        return false;
-    }
-
-    let text = word.span.slice(source);
-    text.contains('=')
-        && (text.contains("_p9k__segment_cond_")
-            || text.contains("__p9k_instant_prompt_")
-            || text.contains("PATCH='for "))
+    false
 }
 
 fn single_quoted_fragment_is_zsh_delayed_eval_exempt(
-    span: Span,
-    context: SurfaceScanContext<'_>,
-    source: &str,
+    _span: Span,
+    _context: SurfaceScanContext<'_>,
+    _source: &str,
 ) -> bool {
-    if context.shell_dialect != shuck_parser::ShellDialect::Zsh {
-        return false;
-    }
-
-    let Some(body) = single_quoted_body(span.slice(source)) else {
-        return false;
-    };
-
-    if context
-        .assignment_target
-        .is_some_and(|target| zsh_delayed_eval_assignment_target(target, body))
-    {
-        return true;
-    }
-
-    if context
-        .assignment_target
-        .is_some_and(|target| zsh_vcs_info_patch_loop_literal(target, body))
-    {
-        return true;
-    }
-
-    context
-        .assignment_target
-        .is_some_and(|target| zsh_literal_map_key_target(target, body))
+    false
 }
 
 fn single_quoted_body(text: &str) -> Option<&str> {
@@ -2300,30 +2252,6 @@ fn classify_parameter_expansion_walk<'a>(
                 BourneParameterExpansion::PrefixMatch { .. } => None,
             }
         }
-        ParameterExpansionSyntax::Zsh(syntax) => {
-            let zsh_plain = syntax.length_prefix.is_none()
-                && syntax.operation.is_none()
-                && syntax.modifiers.is_empty();
-            let inner_plain_chain = plain_chain && zsh_plain;
-            match &syntax.target {
-                ZshExpansionTarget::Reference(reference) => {
-                    if reference.subscript.is_some() {
-                        classification.has_array_reference = true;
-                        if inner_plain_chain {
-                            classification.is_plain_array_reference = true;
-                        }
-                    }
-                    Some(reference)
-                }
-                ZshExpansionTarget::Nested(inner) => classify_parameter_expansion_walk(
-                    inner,
-                    classification,
-                    false,
-                    inner_plain_chain,
-                ),
-                ZshExpansionTarget::Word(_) | ZshExpansionTarget::Empty => None,
-            }
-        }
     }
 }
 
@@ -2341,22 +2269,6 @@ fn parameter_is_plain_unindexed_reference(parameter: &shuck_ast::ParameterExpans
     match &parameter.syntax {
         ParameterExpansionSyntax::Bourne(BourneParameterExpansion::Access { reference }) => {
             reference.subscript.is_none() && name_is_plain_reference_candidate(&reference.name)
-        }
-        ParameterExpansionSyntax::Zsh(syntax)
-            if syntax.length_prefix.is_none()
-                && syntax.operation.is_none()
-                && syntax.modifiers.is_empty() =>
-        {
-            match &syntax.target {
-                ZshExpansionTarget::Reference(reference) => {
-                    reference.subscript.is_none()
-                        && name_is_plain_reference_candidate(&reference.name)
-                }
-                ZshExpansionTarget::Nested(parameter) => {
-                    parameter_is_plain_unindexed_reference(parameter)
-                }
-                ZshExpansionTarget::Word(_) | ZshExpansionTarget::Empty => false,
-            }
         }
         _ => false,
     }
@@ -2601,7 +2513,6 @@ fn part_is_unquoted_positional_parameter(part: &WordPart) -> bool {
             reference.subscript.is_none() && name_is_positional_parameter(&reference.name)
         }
         WordPart::Literal(_)
-        | WordPart::ZshQualifiedGlob(_)
         | WordPart::SingleQuoted { .. }
         | WordPart::DoubleQuoted { .. }
         | WordPart::CommandSubstitution { .. }
@@ -2729,7 +2640,6 @@ fn build_subscript_reference_spans_with_filter(
     if subscript_spans.is_empty() {
         return FxHashSet::default();
     }
-
     subscript_spans
         .iter()
         .flat_map(|span| semantic.references_in_span(*span))
@@ -3020,8 +2930,7 @@ fn single_quote_reopens_after_literal_run(parts: &[WordPartNode], source: &str) 
             | WordPart::ArraySlice { .. }
             | WordPart::IndirectExpansion { .. }
             | WordPart::PrefixMatch { .. }
-            | WordPart::Transformation { .. }
-            | WordPart::ZshQualifiedGlob(_) => return false,
+            | WordPart::Transformation { .. } => return false,
         }
     }
 

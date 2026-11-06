@@ -98,7 +98,6 @@ pub(crate) enum CommandLookupKind {
     Binary,
     Compound(CompoundLookupKind),
     Function,
-    AnonymousFunction,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

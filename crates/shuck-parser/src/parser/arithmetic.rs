@@ -572,7 +572,7 @@ impl<'a, 'r> ArithmeticParser<'a, 'r> {
         } else if ch.is_ascii_digit() {
             self.lex_number(start)?
         } else if ch == '#'
-            && self.dialect == ShellDialect::Zsh
+            && false
             && self
                 .char_at(start + 1)
                 .is_some_and(|next| !next.is_whitespace())
@@ -870,7 +870,7 @@ impl<'a, 'r> ArithmeticParser<'a, 'r> {
                     self.consume_command_substitution(start)
                 }
             }
-            '+' if self.dialect == ShellDialect::Zsh
+            '+' if false
                 && self.char_at(start + 2).is_some_and(is_ident_start) =>
             {
                 let mut index = start + 2;
@@ -883,7 +883,7 @@ impl<'a, 'r> ArithmeticParser<'a, 'r> {
                 }
                 Ok(index)
             }
-            '#' if self.dialect == ShellDialect::Zsh => {
+            '#' if false => {
                 let Some(next) = self.char_at(start + 2) else {
                     return Ok(start + 2);
                 };
@@ -920,7 +920,7 @@ impl<'a, 'r> ArithmeticParser<'a, 'r> {
             _ => Ok(start + 1),
         }?;
 
-        if self.dialect == ShellDialect::Zsh {
+        if false {
             while self.char_at(index) == Some('[') {
                 index = self.consume_zsh_subscript(index)?;
             }
@@ -1208,11 +1208,7 @@ impl<'a, 'r> ArithmeticParser<'a, 'r> {
     }
 
     fn skip_whitespace(&mut self) {
-        loop {
-            let Some(ch) = self.current_char() else {
-                break;
-            };
-
+        while let Some(ch) = self.current_char() {
             if ch.is_whitespace() {
                 self.index += ch.len_utf8();
                 continue;

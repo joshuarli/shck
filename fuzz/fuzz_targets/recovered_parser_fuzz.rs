@@ -41,17 +41,7 @@ fn validate_recovered_parse(source: &str, parse_result: &ParseResult) {
         );
     }
 
-    for span in &parse_result.syntax_facts.zsh_brace_if_spans {
-        recovered_common::assert_span_valid(*span, source);
-    }
-
-    for span in &parse_result.syntax_facts.zsh_always_spans {
-        recovered_common::assert_span_valid(*span, source);
-    }
-
-    for part in &parse_result.syntax_facts.zsh_case_group_parts {
-        recovered_common::assert_span_valid(part.span, source);
-    }
+    let _ = &parse_result.syntax_facts;
 
     match parse_result.status {
         ParseStatus::Clean => {

@@ -136,22 +136,13 @@ impl<'a> BodyTopology<'a> {
                         Self::collect_nested_bodies_in_stmt(inner, bodies);
                     }
                 }
-                CompoundCommand::Always(command) => {
-                    bodies.push(&command.body);
-                    bodies.push(&command.always_body);
-                }
                 CompoundCommand::Case(_)
                 | CompoundCommand::Conditional(_)
-                | CompoundCommand::Repeat(_)
-                | CompoundCommand::Foreach(_)
                 | CompoundCommand::ArithmeticFor(_)
                 | CompoundCommand::Arithmetic(_)
                 | CompoundCommand::Coproc(_) => {}
             },
             Command::Function(function) => {
-                Self::collect_nested_bodies_in_stmt(&function.body, bodies);
-            }
-            Command::AnonymousFunction(function) => {
                 Self::collect_nested_bodies_in_stmt(&function.body, bodies);
             }
             Command::Simple(_) | Command::Builtin(_) | Command::Decl(_) => {}
@@ -294,8 +285,7 @@ pub(crate) fn command_assignments(command: &Command) -> &[Assignment] {
         Command::Decl(command) => &command.assignments,
         Command::Binary(_)
         | Command::Compound(_)
-        | Command::Function(_)
-        | Command::AnonymousFunction(_) => &[],
+        | Command::Function(_) => &[],
     }
 }
 
@@ -306,8 +296,7 @@ pub(crate) fn declaration_operands(command: &Command) -> &[DeclOperand] {
         | Command::Builtin(_)
         | Command::Binary(_)
         | Command::Compound(_)
-        | Command::Function(_)
-        | Command::AnonymousFunction(_) => &[],
+        | Command::Function(_) => &[],
     }
 }
 

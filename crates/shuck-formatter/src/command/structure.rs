@@ -4,8 +4,7 @@ pub(crate) fn command_group_commands(command: &Command) -> Option<(&StmtSeq, cha
     match command {
         Command::Compound(CompoundCommand::BraceGroup(commands)) => Some((commands, '{')),
         Command::Compound(CompoundCommand::Subshell(commands)) => Some((commands, '(')),
-        _ => None,
-    }
+        _ => None }
 }
 
 pub(crate) fn branch_open_keyword_start(

@@ -7,8 +7,7 @@ use super::FactSpan;
 #[derive(Debug, Clone, Default)]
 pub(super) struct LayoutFacts {
     pub(super) statements: HashMap<FactSpan, StmtFacts>,
-    pub(super) words: HashMap<FactSpan, WordFacts>,
-}
+    pub(super) words: HashMap<FactSpan, WordFacts> }
 
 impl LayoutFacts {
     #[cfg(feature = "benchmarking")]
@@ -25,8 +24,7 @@ pub(crate) struct StmtFacts {
     pub(super) rendered_end_line: usize,
     pub(super) has_trailing_comment: bool,
     pub(super) preserve_verbatim: bool,
-    pub(super) contains_heredoc: bool,
-}
+    pub(super) contains_heredoc: bool }
 
 impl StmtFacts {
     pub(crate) fn attachment_span(&self) -> Span {
@@ -60,8 +58,7 @@ impl StmtFacts {
 
 #[derive(Debug, Clone)]
 pub(crate) struct WordFacts {
-    pub(super) has_multiline_literal_source: bool,
-}
+    pub(super) has_multiline_literal_source: bool }
 
 impl WordFacts {
     pub(crate) fn has_multiline_literal_source(&self) -> bool {

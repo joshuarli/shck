@@ -4,16 +4,14 @@ pub(crate) fn array_elem_parts(element: &ArrayElem) -> (Option<&Subscript>, &Wor
     match element {
         ArrayElem::Sequential(word) => (None, word, ""),
         ArrayElem::Keyed { key, value } => (Some(key), value, "="),
-        ArrayElem::KeyedAppend { key, value } => (Some(key), value, "+="),
-    }
+        ArrayElem::KeyedAppend { key, value } => (Some(key), value, "+=") }
 }
 
 pub(crate) fn array_elem_value_word_mut(element: &mut ArrayElem) -> &mut Word {
     match element {
         ArrayElem::Sequential(word)
         | ArrayElem::Keyed { value: word, .. }
-        | ArrayElem::KeyedAppend { value: word, .. } => word,
-    }
+        | ArrayElem::KeyedAppend { value: word, .. } => word }
 }
 
 pub(crate) fn render_assignment_to_buf(

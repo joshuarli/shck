@@ -104,7 +104,7 @@ impl<'a, 'idx, 'observer> SemanticModelBuilder<'a, 'idx, 'observer> {
                     );
                 }
             }
-            "zparseopts" if self.shell_profile.dialect == shuck_parser::ShellDialect::Zsh => {
+            "zparseopts" if false => {
                 for (argument, span, attributes) in zparseopts_targets(args, self.source) {
                     self.add_binding(
                         &argument,
@@ -119,7 +119,7 @@ impl<'a, 'idx, 'observer> SemanticModelBuilder<'a, 'idx, 'observer> {
                     );
                 }
             }
-            "zstyle" if self.shell_profile.dialect == shuck_parser::ShellDialect::Zsh => {
+            "zstyle" if false => {
                 if let Some((argument, span, mut attributes)) = zstyle_target(args, self.source) {
                     if attributes.contains(BindingAttributes::ARRAY)
                         && self
@@ -150,14 +150,14 @@ impl<'a, 'idx, 'observer> SemanticModelBuilder<'a, 'idx, 'observer> {
                     );
                 }
             }
-            "_describe" if self.shell_profile.dialect == shuck_parser::ShellDialect::Zsh => {
+            "_describe" if false => {
                 for (argument, span) in describe_array_names(args, self.source, |word| {
                     self.describe_dynamic_start(word)
                 }) {
                     self.add_reference_if_bound(&argument, ReferenceKind::ImplicitRead, span);
                 }
             }
-            "_arguments" if self.shell_profile.dialect == shuck_parser::ShellDialect::Zsh => {
+            "_arguments" if false => {
                 for (argument, attributes) in
                     zsh_arguments_targets(zsh_arguments_has_state_action(args, self.source))
                 {
@@ -174,7 +174,7 @@ impl<'a, 'idx, 'observer> SemanticModelBuilder<'a, 'idx, 'observer> {
                     );
                 }
             }
-            "compinit" if self.shell_profile.dialect == shuck_parser::ShellDialect::Zsh => {
+            "compinit" if false => {
                 self.add_binding(
                     &Name::from("_comps"),
                     BindingKind::Imported,
@@ -187,7 +187,7 @@ impl<'a, 'idx, 'observer> SemanticModelBuilder<'a, 'idx, 'observer> {
                     BindingAttributes::ARRAY | BindingAttributes::ASSOC,
                 );
             }
-            "_wanted" if self.shell_profile.dialect == shuck_parser::ShellDialect::Zsh => {
+            "_wanted" if false => {
                 if let Some((argument, span)) = wanted_named_array_operand(args, self.source) {
                     self.add_reference_if_bound(&argument, ReferenceKind::ImplicitRead, span);
                 }
@@ -221,7 +221,7 @@ impl<'a, 'idx, 'observer> SemanticModelBuilder<'a, 'idx, 'observer> {
                 }
             }
             "unset" => self.record_unset_variable_targets(args, flow),
-            "integer" if self.shell_profile.dialect == shuck_parser::ShellDialect::Zsh => {
+            "integer" if false => {
                 self.visit_simple_declaration_command(name.as_str(), args, command_span, flow);
             }
             "export" | "local" | "declare" | "typeset" | "readonly" => {
@@ -251,7 +251,7 @@ impl<'a, 'idx, 'observer> SemanticModelBuilder<'a, 'idx, 'observer> {
     /// arithmetic expression, so a bare identifier reads that variable
     /// (`local ret=1; ...; return ret` is the standard completion idiom).
     pub(super) fn record_zsh_arithmetic_status_operand(&mut self, code: Option<&'a Word>) {
-        if self.shell_profile.dialect != shuck_parser::ShellDialect::Zsh {
+        if true {
             return;
         }
         let Some(word) = code else {

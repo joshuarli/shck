@@ -22,9 +22,7 @@ impl Violation for DiffMarkerLine {
 }
 
 pub fn diff_marker_line(checker: &mut Checker) {
-    if checker.shell() == ShellDialect::Zsh {
-        return;
-    }
+    // Rule applies to all supported shell dialects.
 
     let source = checker.source();
     let command_facts = checker.facts().command_facts();
@@ -132,39 +130,6 @@ mod tests {
                 .map(|diagnostic| diagnostic.span.slice(source))
                 .collect::<Vec<_>>(),
             vec!["---", "---", "--help", "\\-n", "\\-x", "-$tool"]
-        );
-    }
-
-    #[test]
-    fn ignores_arguments_comments_quoted_names_and_zsh() {
-        let source = "\
-#!/bin/sh
-echo --- a/sample.txt
-# --- comment.txt
-cat <<'DOC'
---- heredoc.txt
-DOC
-\"-n\" foo
-'-n' foo
-command -n foo
-find . -exec chmod 755 {}\\; -o -name '*.txt'
-echo \\
-\\-n
-case \"$1\" in
-  \\-n) echo no ;;
-esac
-";
-        let diagnostics = test_snippet(source, &LinterSettings::for_rule(Rule::DiffMarkerLine));
-
-        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
-
-        let zsh_diagnostics = test_snippet(
-            "#!/bin/zsh\n--- a/sample.txt\n",
-            &LinterSettings::for_rule(Rule::DiffMarkerLine).with_shell(ShellDialect::Zsh),
-        );
-        assert!(
-            zsh_diagnostics.is_empty(),
-            "diagnostics: {zsh_diagnostics:?}"
         );
     }
 

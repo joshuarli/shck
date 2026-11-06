@@ -4,8 +4,7 @@ use super::*;
 pub(crate) struct MultilineCompoundAssignmentLayout {
     pub(crate) lines: Vec<String>,
     pub(crate) open_inline: bool,
-    pub(crate) close_inline: bool,
-}
+    pub(crate) close_inline: bool }
 
 pub(crate) fn multiline_compound_assignment_layout(
     assignment: &Assignment,
@@ -73,8 +72,7 @@ pub(crate) fn multiline_compound_assignment_layout(
     (!lines.is_empty()).then_some(MultilineCompoundAssignmentLayout {
         lines,
         open_inline: !open_line.trim().is_empty(),
-        close_inline: !close_line.trim().is_empty(),
-    })
+        close_inline: !close_line.trim().is_empty() })
 }
 
 fn restore_multiline_compound_assignment_heredoc_tails(

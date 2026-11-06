@@ -151,8 +151,7 @@ fn find_command_span(segment: &PipelineSegmentFact<'_>, fact: CommandFactRef<'_,
         | Command::Decl(_)
         | Command::Binary(_)
         | Command::Compound(_)
-        | Command::Function(_)
-        | Command::AnonymousFunction(_) => fact.body_span(),
+        | Command::Function(_) => fact.body_span(),
     }
 }
 

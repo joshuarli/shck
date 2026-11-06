@@ -10,7 +10,7 @@ Shuck parses, analyzes, formats, and powers editor feedback for shell scripts. I
 - Linting with rules across correctness, security, performance, portability, and style categories
 - Safe and unsafe fix support for selected diagnostics
 - Shell formatting with write, check, diff, stdin, and configuration-file modes
-- Multi-dialect support: bash, sh/POSIX, mksh, zsh
+- Multi-dialect support: bash, sh/POSIX, dash, ksh, and mksh
 - Automatic file discovery via extensions and shebang detection
 - Embedded shell extraction for GitHub Actions workflows and composite actions
 - First-party Language Server Protocol server for editor diagnostics, code actions, navigation, symbols, hover, completion, and formatting
@@ -382,7 +382,7 @@ embedded = true
 # Override shell dialect inference for matching files in check, format, and LSP.
 "scripts/bash/**" = "bash"
 "vendor/**/*.sh" = "sh"
-"dot_z*" = "zsh"
+"dot_env*" = "bash"
 
 [format]
 # Configure `shuck format` and editor formatting.
@@ -404,14 +404,14 @@ editor has format-on-save enabled.
 
 `per-file-shell` patterns are resolved relative to the project root and apply to
 `shuck check`, direct and stdin formatting, and editor analysis/formatting.
-Supported values are `sh`, `bash`, `dash`, `ksh`, `mksh`, and `zsh`; generic
+Supported values are `sh`, `bash`, `dash`, `ksh`, and `mksh`; generic
 `ksh` mappings remain available to the linter but cannot be used by the
 formatter. Overlapping patterns may select the same dialect, but selecting
 different dialects for one file is an error. Existing
 `[lint].per-file-shell` and `[lint].extend-per-file-shell` settings remain
 supported as compatibility aliases.
 
-An explicit `shuck format --dialect bash|posix|mksh|zsh` override takes
+An explicit `shuck format --dialect bash|posix|mksh` override takes
 precedence over `per-file-shell`. Unmatched files continue to infer their
 dialect from the file name, shebang, and source.
 
@@ -419,7 +419,7 @@ dialect from the file name, shebang, and source.
 
 When given a directory, shuck recursively discovers standalone shell scripts by:
 
-1. **Extension**: `.sh`, `.bash`, `.zsh`, `.ksh`, `.dash`, `.mksh`, `.bats`
+1. **Extension**: `.sh`, `.bash`, `.ksh`, `.dash`, `.mksh`, `.bats`
 2. **Shebang**: files starting with `#!/bin/bash`, `#!/usr/bin/env sh`, etc.
 
 Shuck also discovers embedded shell in supported non-shell files:

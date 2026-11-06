@@ -498,8 +498,7 @@ fn collect_presence_test_reference_ids_from_word_parts(
             | WordPart::SingleQuoted { .. }
             | WordPart::CommandSubstitution { .. }
             | WordPart::ProcessSubstitution { .. }
-            | WordPart::ArithmeticExpansion { .. }
-            | WordPart::ZshQualifiedGlob(_) => {}
+            | WordPart::ArithmeticExpansion { .. } => {}
         }
     }
 }
@@ -531,23 +530,6 @@ fn collect_presence_test_reference_ids_from_parameter(
                     reference_ids,
                 );
             }
-        },
-        ParameterExpansionSyntax::Zsh(syntax) => match &syntax.target {
-            shuck_ast::ZshExpansionTarget::Reference(reference) => {
-                collect_presence_test_reference_ids_in_span(
-                    reference.span,
-                    semantic,
-                    reference_ids,
-                );
-            }
-            shuck_ast::ZshExpansionTarget::Nested(parameter) => {
-                collect_presence_test_reference_ids_from_parameter(
-                    parameter,
-                    semantic,
-                    reference_ids,
-                );
-            }
-            shuck_ast::ZshExpansionTarget::Word(_) | shuck_ast::ZshExpansionTarget::Empty => {}
         },
     }
 }
@@ -601,8 +583,7 @@ fn collect_presence_tested_names_from_word_parts(
             | WordPart::SingleQuoted { .. }
             | WordPart::CommandSubstitution { .. }
             | WordPart::ProcessSubstitution { .. }
-            | WordPart::ArithmeticExpansion { .. }
-            | WordPart::ZshQualifiedGlob(_) => {}
+            | WordPart::ArithmeticExpansion { .. } => {}
         }
     }
 }
@@ -625,16 +606,6 @@ fn collect_presence_tested_names_from_parameter_expansion(
             BourneParameterExpansion::PrefixMatch { prefix: name, .. } => {
                 names.insert(name.clone());
             }
-        },
-        ParameterExpansionSyntax::Zsh(syntax) => match &syntax.target {
-            shuck_ast::ZshExpansionTarget::Reference(reference) => {
-                names.insert(reference.name.clone());
-            }
-            shuck_ast::ZshExpansionTarget::Word(_) => {}
-            shuck_ast::ZshExpansionTarget::Nested(parameter) => {
-                collect_presence_tested_names_from_parameter_expansion(parameter, names);
-            }
-            shuck_ast::ZshExpansionTarget::Empty => {}
         },
     }
 }

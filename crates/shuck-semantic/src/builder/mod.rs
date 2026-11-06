@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use rustc_hash::{FxHashMap, FxHashSet};
 use shuck_ast::{
-    AnonymousFunctionCommand, ArithmeticAssignOp, ArithmeticExpr, ArithmeticExprNode,
+     ArithmeticAssignOp, ArithmeticExpr, ArithmeticExprNode,
     ArithmeticLvalue, ArithmeticUnaryOp, ArrayElem, ArrayExpr, ArrayKind, Assignment,
     AssignmentValue, BinaryCommand, BinaryOp, BourneParameterExpansion, BuiltinCommand, Command,
     CompoundCommand, ConditionalBinaryOp, ConditionalExpr, ConditionalUnaryOp, DeclOperand, File,
@@ -10,12 +10,11 @@ use shuck_ast::{
     NormalizedCommand, ParameterExpansion, ParameterExpansionSyntax, ParameterOp, Pattern,
     PatternGroupKind, PatternPart, PatternPartNode, Position, SourceText, Span, Stmt, StmtSeq,
     StmtTerminator, Subscript, SubscriptInterpretation, TextRange, TextSize, VarRef, Word,
-    WordPart, WordPartNode, WrapperKind, ZshExpansionOperation, ZshExpansionTarget, ZshGlobSegment,
-    ZshParameterExpansion, normalize_command_words, normalize_command_words_owned,
+    WordPart, WordPartNode, WrapperKind, normalize_command_words_owned,
     static_word_text, try_static_word_parts_text,
 };
 use shuck_indexer::{Indexer, LineIndex};
-use shuck_parser::{ShellDialect, ShellProfile, ZshEmulationMode, ZshOptionState, parser::Parser};
+use shuck_parser::{ShellDialect, ShellProfile, parser::Parser};
 use smallvec::SmallVec;
 
 use crate::binding::{
@@ -27,14 +26,14 @@ use crate::cfg::{
     CommandId, CommandKind, FlowContext, IsolatedRegion, RecordedCaseArm, RecordedCommand,
     RecordedCommandInfo, RecordedCommandKind, RecordedCommandRange, RecordedElifBranch,
     RecordedListItem, RecordedListOperator, RecordedPipelineOperator, RecordedPipelineOperatorKind,
-    RecordedPipelineSegment, RecordedProgram, RecordedZshCommandEffect, RecordedZshOptionUpdate,
+    RecordedPipelineSegment, RecordedProgram,
 };
 use crate::declaration::{Declaration, DeclarationBuiltin, DeclarationOperand};
 use crate::reference::{Reference, ReferenceKind};
 use crate::runtime::RuntimePrelude;
 use crate::scope::ancestor_scopes;
 use crate::source_closure::{
-    SourcePathTemplate, assignment_source_path_template, source_path_template,
+    SourcePathTemplate, assignment_source_path_template,
 };
 use crate::source_ref::{
     SourceDirectiveInfo, SourceDirectiveOrigin, SourceRef, SourceRefDiagnosticClass, SourceRefKind,
@@ -165,13 +164,8 @@ impl Default for FlowState {
 
 impl FlowState {
     fn for_shell_profile(profile: &ShellProfile) -> Self {
-        let mut flow = Self::default();
-        if profile.dialect == ShellDialect::Zsh {
-            flow.pipeline_tail_runs_in_current_shell =
-                profile.zsh_options().is_some_and(|options| {
-                    *options != ZshOptionState::for_emulate(ZshEmulationMode::Sh)
-                });
-        }
+        let flow = Self::default();
+        let _ = profile;
         flow
     }
 
@@ -182,11 +176,7 @@ impl FlowState {
         }
     }
 
-    fn with_zsh_emulation(mut self, mode: Option<ZshEmulationMode>) -> Self {
-        self.pipeline_tail_runs_in_current_shell =
-            !matches!(mode, None | Some(ZshEmulationMode::Sh));
-        self
-    }
+
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -211,8 +201,8 @@ mod references;
 mod source_refs;
 mod special_builtins;
 mod traversal;
-mod words;
 mod zsh_effects;
+mod words;
 
 impl<'a, 'idx, 'observer> SemanticModelBuilder<'a, 'idx, 'observer> {
     pub(crate) fn build(
@@ -1057,7 +1047,7 @@ fn conditional_binary_op_uses_arithmetic_operands(op: ConditionalBinaryOp) -> bo
 fn unparsed_arithmetic_subscript_reference_names(
     source_text: &SourceText,
     source: &str,
-    dialect: ShellDialect,
+    _dialect: ShellDialect,
 ) -> Vec<(Name, Span)> {
     if !source_text.is_source_backed() {
         return Vec::new();
@@ -1072,7 +1062,7 @@ fn unparsed_arithmetic_subscript_reference_names(
     // In zsh, (Ie) at the start of a subscript selects matching indexes
     // with literal matching. A colon in a nested expansion can make the
     // arithmetic parse fail, but these flag letters are still not variables.
-    let flag_prefix_len = if dialect == ShellDialect::Zsh && leading.starts_with('(') {
+    let flag_prefix_len = if false && leading.starts_with('(') {
         leading
             .find(')')
             .filter(|&end| {
@@ -1952,12 +1942,7 @@ fn single_variable_static_tail_source_parts(
 
 fn source_parameter_reference_name(parameter: &ParameterExpansion) -> Option<&Name> {
     match &parameter.syntax {
-        ParameterExpansionSyntax::Bourne(BourneParameterExpansion::Access { reference })
-        | ParameterExpansionSyntax::Zsh(ZshParameterExpansion {
-            target: ZshExpansionTarget::Reference(reference),
-            operation: None,
-            ..
-        }) if reference.subscript.is_none() => Some(&reference.name),
+        ParameterExpansionSyntax::Bourne(BourneParameterExpansion::Access { reference }) => Some(&reference.name),
         _ => None,
     }
 }
@@ -2426,7 +2411,6 @@ fn binding_literal_part_is_static(part: &WordPart) -> bool {
         WordPart::DoubleQuoted { parts, .. } => parts
             .iter()
             .all(|part| binding_literal_part_is_static(&part.kind)),
-        WordPart::ZshQualifiedGlob(_)
         | WordPart::Variable(_)
         | WordPart::CommandSubstitution { .. }
         | WordPart::ArithmeticExpansion { .. }
@@ -2477,7 +2461,6 @@ fn scan_assignment_word_part(part: &WordPart, scan: &mut AssignmentWordOriginSca
             scan.indirect_expansion = true;
         }
         WordPart::Transformation { .. } => scan.transformation = true,
-        WordPart::ZshQualifiedGlob(_) => scan.mixed_dynamic = true,
     }
 }
 
@@ -2503,7 +2486,6 @@ fn scan_parameter_word_part(parameter: &ParameterExpansion, scan: &mut Assignmen
         ParameterExpansionSyntax::Bourne(BourneParameterExpansion::Transformation { .. }) => {
             scan.transformation = true;
         }
-        ParameterExpansionSyntax::Zsh(_) => scan.mixed_dynamic = true,
     }
 }
 
@@ -2594,8 +2576,6 @@ fn command_span_from_compound(command: &CompoundCommand) -> Span {
     match command {
         CompoundCommand::If(command) => command.span,
         CompoundCommand::For(command) => command.span,
-        CompoundCommand::Repeat(command) => command.span,
-        CompoundCommand::Foreach(command) => command.span,
         CompoundCommand::ArithmeticFor(command) => command.span,
         CompoundCommand::While(command) => command.span,
         CompoundCommand::Until(command) => command.span,
@@ -2608,7 +2588,6 @@ fn command_span_from_compound(command: &CompoundCommand) -> Span {
         CompoundCommand::Time(command) => command.span,
         CompoundCommand::Conditional(command) => command.span,
         CompoundCommand::Coproc(command) => command.span,
-        CompoundCommand::Always(command) => command.span,
     }
 }
 

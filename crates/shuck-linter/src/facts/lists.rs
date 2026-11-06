@@ -745,8 +745,7 @@ fn word_has_unquoted_conditional_extglob_operator(
             | WordPart::ArraySlice { .. }
             | WordPart::IndirectExpansion { .. }
             | WordPart::PrefixMatch { .. }
-            | WordPart::Transformation { .. }
-            | WordPart::ZshQualifiedGlob(_) => {
+            | WordPart::Transformation { .. } => {
                 if flush_literal_run(&mut literal_run_start, &mut literal_run_end) {
                     return true;
                 }

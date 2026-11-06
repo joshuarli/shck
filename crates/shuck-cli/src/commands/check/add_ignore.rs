@@ -60,7 +60,6 @@ pub(super) fn run_add_ignore_with_cwd(
                 project_root,
                 config_arguments,
                 &args.rule_selection,
-                &args.zsh_plugin_resolution,
             )
         },
     )?;
@@ -77,7 +76,6 @@ pub(super) fn run_add_ignore_with_cwd(
 
     for run in runs {
         let per_file_shell = Arc::clone(&run.settings.per_file_shell);
-        let zsh_plugins = Arc::clone(&run.settings.zsh_plugins);
         let analyzed_paths = run
             .files
             .iter()
@@ -101,7 +99,7 @@ pub(super) fn run_add_ignore_with_cwd(
                 &file_linter_settings,
                 reason,
                 None,
-                Some(zsh_plugins.as_ref()),
+                None,
             ) {
                 Ok(result) => result,
                 Err(err) => {

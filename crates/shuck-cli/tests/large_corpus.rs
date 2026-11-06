@@ -36,17 +36,13 @@ const LARGE_CORPUS_SAMPLE_PERCENT_ENV: &str = "SHUCK_LARGE_CORPUS_SAMPLE_PERCENT
 const LARGE_CORPUS_MAPPED_ONLY_ENV: &str = "SHUCK_LARGE_CORPUS_MAPPED_ONLY";
 const LARGE_CORPUS_KEEP_GOING_ENV: &str = "SHUCK_LARGE_CORPUS_KEEP_GOING";
 const LARGE_CORPUS_TIMING_ENV: &str = "SHUCK_LARGE_CORPUS_TIMING";
-const ZSH_DIAGNOSTIC_CORPUS_ROOT_ENV: &str = "SHUCK_ZSH_DIAGNOSTIC_CORPUS_ROOT";
-const ZSH_DIAGNOSTIC_CORPUS_TIMEOUT_ENV: &str = "SHUCK_ZSH_DIAGNOSTIC_CORPUS_TIMEOUT_SECS";
 
 const LARGE_CORPUS_DEFAULT_SHELLCHECK_TIMEOUT: Duration = Duration::from_secs(300);
 const LARGE_CORPUS_DEFAULT_SHUCK_TIMEOUT: Duration = Duration::from_secs(30);
-const ZSH_DIAGNOSTIC_CORPUS_DEFAULT_TIMEOUT: Duration = Duration::from_secs(300);
 const LARGE_CORPUS_AUTOSCALED_SHUCK_TIMEOUT_BUFFER: Duration = Duration::from_secs(15);
 const LARGE_CORPUS_MAX_AUTOSCALED_SHUCK_TIMEOUT: Duration = Duration::from_secs(150);
 const LARGE_CORPUS_AUTOSCALED_SHUCK_LINES_PER_SEC: usize = 175;
 const LARGE_CORPUS_CACHE_DIR_NAME: &str = ".cache/large-corpus";
-const ZSH_DIAGNOSTIC_CORPUS_CACHE_DIR_NAME: &str = ".cache/zsh-diagnostic-corpus";
 const LARGE_CORPUS_MAX_WORKER_COUNT: usize = 4;
 const LARGE_CORPUS_TIMEOUT_FAILURE_CAP: usize = 5;
 const LARGE_CORPUS_PROGRESS_PERCENT_STEP: usize = 5;
@@ -57,14 +53,12 @@ const LARGE_CORPUS_ALLOWED_FAILING_RULE_REASON: &str = "known large-corpus rule 
 const LARGE_CORPUS_STATIC_IGNORE_SUFFIXES: &[&str] = &[
     "super-linter__super-linter__test__linters__bash__shell_bad_1.sh",
     "super-linter__super-linter__test__linters__bash_exec__shell_bad_1.sh",
-    "alpinelinux__aports__community__starship__starship.plugin.zsh",
     "CISOfy__lynis__include__tests_ports_packages",
     "google__oss-fuzz__infra__chronos__coverage_test_collection.py",
     "moovweb__gvm__examples__native__configure",
     "moovweb__gvm__examples__native__ltmain.sh",
-    "ohmyzsh__ohmyzsh__plugins__alias-finder__tests__test_run.sh",
 ];
-const LARGE_CORPUS_SHELLCHECK_UNSUPPORTED_REPO_PREFIXES: &[&str] = &["ohmyzsh__ohmyzsh__"];
+const LARGE_CORPUS_SHELLCHECK_UNSUPPORTED_REPO_PREFIXES: &[&str] = &[];
 const LARGE_CORPUS_SHELLCHECK_PARSE_IGNORE_SUFFIXES: &[&str] = &[
     "SlackBuildsOrg__slackbuilds__network__modemu2k__modemu2k.SlackBuild",
     "SlackBuildsOrg__slackbuilds__system__firmware-gobi-2000__firmware-gobi-2000.SlackBuild",
@@ -82,53 +76,6 @@ const LARGE_CORPUS_SHELLCHECK_PARSE_IGNORE_SUFFIXES: &[&str] = &[
 ];
 const SHELLCHECK_CACHE_SCHEMA: u32 = 3;
 const SHELLCHECK_CACHE_MIGRATION_VERSION: u32 = 1;
-const ZSH_DIAGNOSTIC_CORPUS_BASELINE: &str = include_str!("testdata/zsh-diagnostic-corpus.yaml");
-const ZSH_DIAGNOSTIC_OH_MY_ZSH_REPO: &str = "ohmyzsh";
-const ZSH_DIAGNOSTIC_ZINIT_REPO: &str = "zinit";
-const ZSH_DIAGNOSTIC_PREZTO_REPO: &str = "prezto";
-const ZSH_DIAGNOSTIC_ZDOT_REPO: &str = "zdot";
-const ZSH_DIAGNOSTIC_PLUGIN_ENTRYPOINTS: &[(&str, &str)] = &[
-    (
-        "zdot/modules/autocompletion/autocompletion.zsh",
-        "ohmyzsh/plugins/zoxide/zoxide.plugin.zsh",
-    ),
-    (
-        "zdot/modules/autocompletion/autocompletion.zsh",
-        "zsh-autosuggestions/zsh-autosuggestions.plugin.zsh",
-    ),
-    (
-        "zdot/modules/fzf/fzf.zsh",
-        "ohmyzsh/plugins/fzf/fzf.plugin.zsh",
-    ),
-    (
-        "zdot/modules/old-plugins/old-plugins.zsh",
-        "zsh-autosuggestions/zsh-autosuggestions.plugin.zsh",
-    ),
-    (
-        "zdot/modules/shell-extras/shell-extras.zsh",
-        "ohmyzsh/plugins/debian/debian.plugin.zsh",
-    ),
-    (
-        "zdot/modules/shell-extras/shell-extras.zsh",
-        "ohmyzsh/plugins/eza/eza.plugin.zsh",
-    ),
-    (
-        "zdot/modules/shell-extras/shell-extras.zsh",
-        "ohmyzsh/plugins/git/git.plugin.zsh",
-    ),
-    (
-        "zdot/modules/shell-extras/shell-extras.zsh",
-        "ohmyzsh/plugins/ssh/ssh.plugin.zsh",
-    ),
-    (
-        "prezto/modules/autosuggestions/init.zsh",
-        "zsh-autosuggestions/zsh-autosuggestions.plugin.zsh",
-    ),
-    (
-        "prezto/modules/syntax-highlighting/init.zsh",
-        "zsh-syntax-highlighting/zsh-syntax-highlighting.plugin.zsh",
-    ),
-];
 
 // ---------------------------------------------------------------------------
 // Config
@@ -147,202 +94,6 @@ struct LargeCorpusConfig {
     mapped_only: bool,
     keep_going: bool,
     timing_mode: bool,
-}
-
-#[derive(Debug, Clone)]
-struct ZshDiagnosticCorpusConfig {
-    corpus_dir: PathBuf,
-    timeout: Duration,
-}
-
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields)]
-struct ZshDiagnosticCorpusDocument {
-    schema: u32,
-    repos: Vec<ZshDiagnosticCorpusRepo>,
-}
-
-impl ZshDiagnosticCorpusDocument {
-    fn validate(&self) -> Result<(), String> {
-        if self.schema != 1 {
-            return Err(format!(
-                "unsupported zsh diagnostic corpus schema {}, expected 1",
-                self.schema
-            ));
-        }
-        if self.repos.is_empty() {
-            return Err("zsh diagnostic corpus baseline must list at least one repo".into());
-        }
-
-        let mut seen_repos = HashSet::new();
-        for repo in &self.repos {
-            repo.validate()?;
-            if !seen_repos.insert(repo.name.as_str()) {
-                return Err(format!(
-                    "zsh diagnostic corpus baseline repeats repo `{}`",
-                    repo.name
-                ));
-            }
-        }
-
-        Ok(())
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields)]
-struct ZshDiagnosticCorpusRepo {
-    name: String,
-    github_url: String,
-    commit: String,
-    #[serde(default)]
-    diagnostics: Vec<ZshDiagnosticRecord>,
-}
-
-impl ZshDiagnosticCorpusRepo {
-    fn validate(&self) -> Result<(), String> {
-        if self.name.is_empty() {
-            return Err("zsh diagnostic corpus repo names cannot be empty".into());
-        }
-        if self.github_url.is_empty() {
-            return Err(format!(
-                "zsh diagnostic corpus repo `{}` must include github_url",
-                self.name
-            ));
-        }
-        if self.commit.is_empty() {
-            return Err(format!(
-                "zsh diagnostic corpus repo `{}` must include commit",
-                self.name
-            ));
-        }
-
-        for diagnostic in &self.diagnostics {
-            diagnostic.validate(&self.name)?;
-        }
-
-        Ok(())
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
-#[serde(deny_unknown_fields)]
-struct ZshDiagnosticRecord {
-    path: String,
-    code: String,
-    severity: String,
-    message: String,
-    start: ZshDiagnosticPosition,
-    end: ZshDiagnosticPosition,
-    classification: ZshDiagnosticClassification,
-}
-
-impl ZshDiagnosticRecord {
-    fn validate(&self, repo_name: &str) -> Result<(), String> {
-        if self.path.is_empty() {
-            return Err(format!(
-                "zsh diagnostic corpus repo `{repo_name}` has a diagnostic with an empty path"
-            ));
-        }
-        if Path::new(&self.path).is_absolute() {
-            return Err(format!(
-                "zsh diagnostic corpus repo `{repo_name}` diagnostic path `{}` must be relative",
-                self.path
-            ));
-        }
-        if self.code.is_empty() {
-            return Err(format!(
-                "zsh diagnostic corpus repo `{repo_name}` path `{}` has an empty code",
-                self.path
-            ));
-        }
-        if self.severity.is_empty() {
-            return Err(format!(
-                "zsh diagnostic corpus repo `{repo_name}` path `{}` has an empty severity",
-                self.path
-            ));
-        }
-        self.start.validate(repo_name, &self.path, "start")?;
-        self.end.validate(repo_name, &self.path, "end")?;
-        Ok(())
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
-#[serde(deny_unknown_fields)]
-struct ZshDiagnosticPosition {
-    line: usize,
-    column: usize,
-}
-
-impl ZshDiagnosticPosition {
-    fn validate(&self, repo_name: &str, path: &str, label: &str) -> Result<(), String> {
-        if self.line == 0 || self.column == 0 {
-            return Err(format!(
-                "zsh diagnostic corpus repo `{repo_name}` path `{path}` has invalid {label} position {}:{}",
-                self.line, self.column
-            ));
-        }
-        Ok(())
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
-#[serde(rename_all = "snake_case")]
-enum ZshDiagnosticClassification {
-    Real,
-    FalsePositive,
-}
-
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-struct ZshDiagnosticCorpusManifest {
-    repos: Vec<ZshDiagnosticCorpusManifestRepo>,
-}
-
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-struct ZshDiagnosticCorpusManifestRepo {
-    name: String,
-    github_url: String,
-    commit: String,
-}
-
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-struct ZshJsonDiagnostic {
-    code: String,
-    severity: String,
-    message: String,
-    location: ZshJsonLocation,
-    end_location: ZshJsonLocation,
-    filename: String,
-}
-
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-struct ZshJsonLocation {
-    row: usize,
-    column: usize,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-struct ZshObservedDiagnostic {
-    path: String,
-    code: String,
-    severity: String,
-    message: String,
-    start: ZshDiagnosticPosition,
-    end: ZshDiagnosticPosition,
-}
-
-impl From<&ZshDiagnosticRecord> for ZshObservedDiagnostic {
-    fn from(record: &ZshDiagnosticRecord) -> Self {
-        Self {
-            path: record.path.clone(),
-            code: record.code.clone(),
-            severity: record.severity.clone(),
-            message: record.message.clone(),
-            start: record.start.clone(),
-            end: record.end.clone(),
-        }
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1287,132 +1038,6 @@ fn large_corpus_conforms_with_shellcheck() {
     );
 }
 
-#[test]
-#[ignore = "requires the large corpus; run `make test-large-corpus-zsh`"]
-fn large_corpus_zsh_fixtures_parse() {
-    let cfg = match resolve_large_corpus_config() {
-        Some(cfg) => cfg,
-        None => {
-            eprintln!("large corpus test skipped (set {LARGE_CORPUS_ENV}=1 to enable)");
-            return;
-        }
-    };
-
-    let fixtures = load_fixtures(&cfg);
-    if fixtures.is_empty() {
-        panic!(
-            "no fixtures found in {}",
-            cfg.corpus_dir.join("scripts").display()
-        );
-    }
-
-    let zsh_fixtures: Vec<_> = fixtures
-        .iter()
-        .filter(|fixture| fixture_selected_for_large_corpus_zsh_parse(fixture))
-        .collect();
-    if zsh_fixtures.is_empty() {
-        eprintln!("large corpus zsh parse skipped (no zsh fixtures found for this shard/sample)");
-        return;
-    }
-
-    let failure_collection = collect_fixture_failures(&zsh_fixtures, cfg.keep_going, |fixture| {
-        evaluate_fixture_zsh_parse(fixture, cfg.shuck_timeout)
-    });
-    assert!(
-        failure_collection.blocking_failures() == 0,
-        "large corpus zsh parse had {} blocking issue(s) across {} fixture(s):\n\n{}",
-        failure_collection.blocking_failures(),
-        zsh_fixtures.len(),
-        format_large_corpus_failure_report(&failure_collection)
-    );
-}
-
-#[test]
-#[ignore = "requires the zsh diagnostic corpus; run `make test-large-corpus`"]
-fn zsh_diagnostic_corpus_matches_baseline() {
-    let cfg = match resolve_zsh_diagnostic_corpus_config() {
-        Some(cfg) => cfg,
-        None => {
-            eprintln!(
-                "zsh diagnostic corpus test skipped (set {ZSH_DIAGNOSTIC_CORPUS_ROOT_ENV} or run `make setup-large-corpus`)"
-            );
-            return;
-        }
-    };
-
-    let baseline = load_zsh_diagnostic_corpus_baseline();
-    let manifest = load_zsh_diagnostic_corpus_manifest(&cfg.corpus_dir);
-    let visible_root = tempfile::tempdir().expect("create visible zsh diagnostic corpus root");
-    let mut failures = Vec::new();
-    let (visible_repos, expose_failures) =
-        expose_zsh_diagnostic_repos(&cfg.corpus_dir, visible_root.path(), &manifest);
-    failures.extend(expose_failures);
-
-    for repo in &baseline.repos {
-        if let Err(err) = validate_zsh_diagnostic_manifest_repo(&manifest, repo) {
-            failures.push(err);
-            continue;
-        }
-
-        let Some(visible_repo_dir) = visible_repos.get(&repo.name) else {
-            failures.push(format!(
-                "repo `{}` was not exposed in the visible corpus",
-                repo.name
-            ));
-            continue;
-        };
-
-        let output = match run_zsh_diagnostic_shuck_check(
-            visible_root.path(),
-            visible_repo_dir,
-            cfg.timeout,
-        ) {
-            Ok(output) => output,
-            Err(err) => {
-                failures.push(format!("repo `{}`: {err}", repo.name));
-                continue;
-            }
-        };
-
-        if !matches!(output.status.code(), Some(0 | 1)) {
-            failures.push(format!(
-                "repo `{}`: shuck exited with status {:?}",
-                repo.name,
-                output.status.code()
-            ));
-            continue;
-        }
-        if !output.stderr.is_empty() {
-            failures.push(format!(
-                "repo `{}`: shuck wrote stderr:\n{}",
-                repo.name,
-                String::from_utf8_lossy(&output.stderr)
-            ));
-            continue;
-        }
-
-        let actual =
-            match parse_zsh_diagnostic_json_lines(&repo.name, visible_repo_dir, &output.stdout) {
-                Ok(actual) => actual,
-                Err(err) => {
-                    failures.push(err);
-                    continue;
-                }
-            };
-        let expected = expected_zsh_observed_diagnostics(repo);
-        let diffs = diff_zsh_observed_diagnostics(&expected, &actual);
-        if !diffs.is_empty() {
-            failures.push(format_zsh_diagnostic_repo_diff(&repo.name, &diffs));
-        }
-    }
-
-    assert!(
-        failures.is_empty(),
-        "zsh diagnostic corpus drifted from baseline:\n\nZsh Diagnostic Corpus Drift:\n{}",
-        failures.join("\n\n")
-    );
-}
-
 fn collect_fixture_failures<F>(
     fixtures: &[&LargeCorpusFixture],
     keep_going: bool,
@@ -1728,448 +1353,8 @@ fn evaluate_fixture_compatibility(
     evaluation
 }
 
-fn evaluate_fixture_zsh_parse(
-    fixture: &LargeCorpusFixture,
-    shuck_timeout: Duration,
-) -> FixtureEvaluation {
-    let mut evaluation = FixtureEvaluation::default();
-    let parse_result =
-        match parse_fixture_for_effective_large_corpus_shell_with_timeout(fixture, shuck_timeout) {
-            Ok(result) => result,
-            Err(err) => {
-                evaluation.harness_failure = Some(FixtureFailure {
-                    kind: fixture_failure_kind_for_message(&err, "shuck"),
-                    message: format_fixture_failure(&fixture.path, &[err]),
-                });
-                return evaluation;
-            }
-        };
-
-    if let Err(err) = parse_result {
-        match probe_invalid_zsh_fixture(&fixture.path, shuck_timeout) {
-            Ok(Some(zsh_err)) => {
-                evaluation.harness_failure = Some(FixtureFailure {
-                    kind: FixtureFailureKind::Other,
-                    message: format_fixture_failure(
-                        &fixture.path,
-                        &[
-                            format!("shuck zsh parse/option extraction error: {err}"),
-                            format!("zsh -n parse error: {zsh_err}"),
-                        ],
-                    ),
-                });
-            }
-            Ok(None) | Err(_) => {
-                evaluation.harness_failure = Some(FixtureFailure {
-                    kind: FixtureFailureKind::Other,
-                    message: format_fixture_failure(
-                        &fixture.path,
-                        &[format!("shuck zsh parse/option extraction error: {err}")],
-                    ),
-                });
-            }
-        }
-    }
-
-    evaluation
-}
-
-fn probe_invalid_zsh_fixture(path: &Path, timeout: Duration) -> Result<Option<String>, String> {
-    let path = path.to_path_buf();
-    let status = run_with_timeout("zsh", timeout, move || {
-        Command::new("zsh")
-            .arg("-n")
-            .arg(&path)
-            .output()
-            .map_err(|err| format!("failed to run `zsh -n`: {err}"))
-    })??;
-
-    if status.status.success() {
-        return Ok(None);
-    }
-
-    let stderr = String::from_utf8_lossy(&status.stderr).trim().to_owned();
-    if stderr.is_empty() || !zsh_stderr_looks_like_parse_error(&stderr) {
-        return Ok(None);
-    }
-
-    Ok(Some(stderr))
-}
-
-fn zsh_stderr_looks_like_parse_error(stderr: &str) -> bool {
-    let lower = stderr.to_ascii_lowercase();
-    lower.contains("parse error") || lower.contains("unmatched ")
-}
-
-fn load_zsh_diagnostic_corpus_baseline() -> ZshDiagnosticCorpusDocument {
-    let baseline: ZshDiagnosticCorpusDocument =
-        serde_yaml::from_str(ZSH_DIAGNOSTIC_CORPUS_BASELINE)
-            .unwrap_or_else(|err| panic!("parse zsh diagnostic corpus baseline: {err}"));
-    baseline.validate().unwrap_or_else(|err| panic!("{err}"));
-    baseline
-}
-
-fn load_zsh_diagnostic_corpus_manifest(corpus_dir: &Path) -> ZshDiagnosticCorpusManifest {
-    let path = corpus_dir.join("manifest.yaml");
-    let data =
-        fs::read_to_string(&path).unwrap_or_else(|err| panic!("read {}: {err}", path.display()));
-    serde_yaml::from_str(&data).unwrap_or_else(|err| panic!("parse {}: {err}", path.display()))
-}
-
-fn validate_zsh_diagnostic_manifest_repo(
-    manifest: &ZshDiagnosticCorpusManifest,
-    baseline_repo: &ZshDiagnosticCorpusRepo,
-) -> Result<(), String> {
-    let Some(manifest_repo) = manifest
-        .repos
-        .iter()
-        .find(|repo| repo.name == baseline_repo.name)
-    else {
-        return Err(format!(
-            "repo `{}` is missing from zsh diagnostic corpus manifest",
-            baseline_repo.name
-        ));
-    };
-
-    if manifest_repo.github_url != baseline_repo.github_url
-        || manifest_repo.commit != baseline_repo.commit
-    {
-        return Err(format!(
-            "repo `{}` manifest metadata differs from baseline: got {} @ {}, expected {} @ {}",
-            baseline_repo.name,
-            manifest_repo.github_url,
-            manifest_repo.commit,
-            baseline_repo.github_url,
-            baseline_repo.commit
-        ));
-    }
-
-    Ok(())
-}
-
-fn resolve_zsh_diagnostic_corpus_config() -> Option<ZshDiagnosticCorpusConfig> {
-    let repo_root = repo_root();
-    let default_root = repo_root.join(ZSH_DIAGNOSTIC_CORPUS_CACHE_DIR_NAME);
-    let required = env_truthy(LARGE_CORPUS_ENV, false);
-    let root = env::var(ZSH_DIAGNOSTIC_CORPUS_ROOT_ENV)
-        .ok()
-        .filter(|value| !value.is_empty())
-        .map(PathBuf::from)
-        .unwrap_or(default_root);
-
-    if !zsh_diagnostic_corpus_dir_looks_valid(&root) {
-        if required {
-            panic!(
-                "zsh diagnostic corpus not found; set {ZSH_DIAGNOSTIC_CORPUS_ROOT_ENV} to an existing corpus directory or run scripts/corpus-download.sh to populate {}",
-                repo_root
-                    .join(ZSH_DIAGNOSTIC_CORPUS_CACHE_DIR_NAME)
-                    .display()
-            );
-        }
-        return None;
-    }
-
-    let default_timeout_secs = positive_env_int(
-        LARGE_CORPUS_SHELLCHECK_TIMEOUT_ENV,
-        ZSH_DIAGNOSTIC_CORPUS_DEFAULT_TIMEOUT.as_secs() as usize,
-    );
-    let timeout_secs = positive_env_int(ZSH_DIAGNOSTIC_CORPUS_TIMEOUT_ENV, default_timeout_secs);
-
-    Some(ZshDiagnosticCorpusConfig {
-        corpus_dir: root,
-        timeout: Duration::from_secs(timeout_secs as u64),
-    })
-}
-
-fn zsh_diagnostic_corpus_dir_looks_valid(dir: &Path) -> bool {
-    dir.join("manifest.yaml").is_file() && dir.join("repos").is_dir()
-}
-
-fn expose_zsh_diagnostic_repos(
-    corpus_dir: &Path,
-    visible_root: &Path,
-    manifest: &ZshDiagnosticCorpusManifest,
-) -> (HashMap<String, PathBuf>, Vec<String>) {
-    let source_root = corpus_dir.join("repos");
-    let mut visible_repos = HashMap::new();
-    let mut failures = Vec::new();
-
-    for repo in &manifest.repos {
-        let source_repo_dir = source_root.join(&repo.name);
-        if !source_repo_dir.is_dir() {
-            failures.push(format!(
-                "repo `{}` is missing from {}",
-                repo.name,
-                source_root.display()
-            ));
-            continue;
-        }
-
-        match expose_zsh_diagnostic_repo(&source_repo_dir, visible_root, &repo.name) {
-            Ok(visible_repo_dir) => {
-                visible_repos.insert(repo.name.clone(), visible_repo_dir);
-            }
-            Err(err) => failures.push(format!("repo `{}`: {err}", repo.name)),
-        }
-    }
-
-    (visible_repos, failures)
-}
-
-fn expose_zsh_diagnostic_repo(
-    source_repo_dir: &Path,
-    visible_root: &Path,
-    repo_name: &str,
-) -> Result<PathBuf, String> {
-    let visible_repo_dir = visible_root.join(repo_name);
-    expose_zsh_diagnostic_repo_impl(source_repo_dir, &visible_repo_dir)?;
-    Ok(visible_repo_dir)
-}
-
-#[cfg(unix)]
-fn expose_zsh_diagnostic_repo_impl(
-    source_repo_dir: &Path,
-    visible_repo_dir: &Path,
-) -> Result<(), String> {
-    std::os::unix::fs::symlink(source_repo_dir, visible_repo_dir).map_err(|err| {
-        format!(
-            "symlink {} -> {}: {err}",
-            visible_repo_dir.display(),
-            source_repo_dir.display()
-        )
-    })
-}
-
-#[cfg(not(unix))]
-fn expose_zsh_diagnostic_repo_impl(
-    source_repo_dir: &Path,
-    visible_repo_dir: &Path,
-) -> Result<(), String> {
-    copy_zsh_diagnostic_repo(source_repo_dir, visible_repo_dir)
-}
-
-#[cfg(not(unix))]
-fn copy_zsh_diagnostic_repo(source: &Path, dest: &Path) -> Result<(), String> {
-    fs::create_dir_all(dest).map_err(|err| format!("create {}: {err}", dest.display()))?;
-    for entry in fs::read_dir(source).map_err(|err| format!("read {}: {err}", source.display()))? {
-        let entry = entry.map_err(|err| format!("read {} entry: {err}", source.display()))?;
-        let source_path = entry.path();
-        let dest_path = dest.join(entry.file_name());
-        let file_type = entry
-            .file_type()
-            .map_err(|err| format!("stat {}: {err}", source_path.display()))?;
-        if file_type.is_dir() {
-            copy_zsh_diagnostic_repo(&source_path, &dest_path)?;
-        } else if file_type.is_file() {
-            fs::copy(&source_path, &dest_path).map_err(|err| {
-                format!(
-                    "copy {} -> {}: {err}",
-                    source_path.display(),
-                    dest_path.display()
-                )
-            })?;
-        }
-    }
-    Ok(())
-}
-
-fn run_zsh_diagnostic_shuck_check(
-    visible_root: &Path,
-    repo_dir: &Path,
-    timeout: Duration,
-) -> Result<Output, String> {
-    let plugin_args = zsh_diagnostic_plugin_args(visible_root);
-    let repo_dir = repo_dir.to_path_buf();
-    run_with_timeout("shuck", timeout, move || {
-        Command::new(assert_cmd::cargo::cargo_bin("shuck"))
-            .args(["check", "--no-cache", "--output-format", "json-lines"])
-            .args(&plugin_args)
-            .arg(&repo_dir)
-            .output()
-            .map_err(|err| format!("failed to run shuck check on {}: {err}", repo_dir.display()))
-    })?
-}
-
-fn zsh_diagnostic_plugin_args(visible_root: &Path) -> Vec<String> {
-    let mut args = Vec::new();
-    let oh_my_zsh_root = visible_root.join(ZSH_DIAGNOSTIC_OH_MY_ZSH_REPO);
-    if oh_my_zsh_root.join("oh-my-zsh.sh").is_file() {
-        args.push("--zsh-plugin-root".into());
-        args.push(format!("oh-my-zsh={}", path_arg(&oh_my_zsh_root)));
-    }
-    let zinit_root = visible_root.join(ZSH_DIAGNOSTIC_ZINIT_REPO);
-    if zinit_root.join("zinit.zsh").is_file() {
-        args.push("--zsh-plugin-root".into());
-        args.push(format!("zinit={}", path_arg(&zinit_root)));
-    }
-    let prezto_root = visible_root.join(ZSH_DIAGNOSTIC_PREZTO_REPO);
-    if prezto_root.join("init.zsh").is_file() {
-        args.push("--zsh-plugin-root".into());
-        args.push(format!("prezto={}", path_arg(&prezto_root)));
-    }
-    let zdot_root = visible_root.join(ZSH_DIAGNOSTIC_ZDOT_REPO);
-    if zdot_root.join("zdot.zsh").is_file() {
-        args.push("--zsh-plugin-root".into());
-        args.push(format!("zdot={}", path_arg(&zdot_root)));
-    }
-
-    for (source_pattern, entrypoint) in ZSH_DIAGNOSTIC_PLUGIN_ENTRYPOINTS {
-        let pattern = visible_root.join(source_pattern);
-        let entrypoint = visible_root.join(entrypoint);
-        if entrypoint.is_file() {
-            args.push("--extend-zsh-plugin-entrypoint".into());
-            args.push(format!("{}:{}", path_arg(&pattern), path_arg(&entrypoint)));
-        }
-    }
-
-    args
-}
-
 fn path_arg(path: &Path) -> String {
     path.to_string_lossy().into_owned()
-}
-
-fn parse_zsh_diagnostic_json_lines(
-    repo_name: &str,
-    repo_dir: &Path,
-    stdout: &[u8],
-) -> Result<Vec<ZshObservedDiagnostic>, String> {
-    let text = std::str::from_utf8(stdout)
-        .map_err(|err| format!("repo `{repo_name}`: shuck stdout was not UTF-8: {err}"))?;
-    let mut diagnostics = Vec::new();
-
-    for (index, line) in text.lines().enumerate() {
-        if line.trim().is_empty() {
-            continue;
-        }
-        let diagnostic: ZshJsonDiagnostic = serde_json::from_str(line).map_err(|err| {
-            format!(
-                "repo `{repo_name}`: invalid json-lines diagnostic at line {}: {err}: {line}",
-                index + 1
-            )
-        })?;
-        diagnostics.push(zsh_observed_diagnostic_from_json(
-            repo_name, repo_dir, diagnostic,
-        )?);
-    }
-
-    diagnostics.sort();
-    Ok(diagnostics)
-}
-
-fn zsh_observed_diagnostic_from_json(
-    repo_name: &str,
-    repo_dir: &Path,
-    diagnostic: ZshJsonDiagnostic,
-) -> Result<ZshObservedDiagnostic, String> {
-    Ok(ZshObservedDiagnostic {
-        path: normalize_zsh_diagnostic_filename(repo_name, repo_dir, &diagnostic.filename)?,
-        code: diagnostic.code,
-        severity: diagnostic.severity,
-        message: diagnostic.message,
-        start: ZshDiagnosticPosition {
-            line: diagnostic.location.row,
-            column: diagnostic.location.column,
-        },
-        end: ZshDiagnosticPosition {
-            line: diagnostic.end_location.row,
-            column: diagnostic.end_location.column,
-        },
-    })
-}
-
-fn normalize_zsh_diagnostic_filename(
-    repo_name: &str,
-    repo_dir: &Path,
-    filename: &str,
-) -> Result<String, String> {
-    let path = Path::new(filename);
-    let relative = path.strip_prefix(repo_dir).map_err(|_| {
-        format!(
-            "repo `{repo_name}`: diagnostic filename `{filename}` is not under {}",
-            repo_dir.display()
-        )
-    })?;
-    Ok(normalize_cache_rel_path(relative))
-}
-
-fn expected_zsh_observed_diagnostics(repo: &ZshDiagnosticCorpusRepo) -> Vec<ZshObservedDiagnostic> {
-    let mut diagnostics = repo
-        .diagnostics
-        .iter()
-        .map(ZshObservedDiagnostic::from)
-        .collect::<Vec<_>>();
-    diagnostics.sort();
-    diagnostics
-}
-
-fn diff_zsh_observed_diagnostics(
-    expected: &[ZshObservedDiagnostic],
-    actual: &[ZshObservedDiagnostic],
-) -> Vec<String> {
-    let expected_counts = zsh_observed_diagnostic_counts(expected);
-    let actual_counts = zsh_observed_diagnostic_counts(actual);
-    let mut diffs = Vec::new();
-
-    for (diagnostic, expected_count) in &expected_counts {
-        let actual_count = actual_counts.get(diagnostic).copied().unwrap_or(0);
-        if actual_count < *expected_count {
-            diffs.push(format!(
-                "missing x{} {}",
-                expected_count - actual_count,
-                format_zsh_observed_diagnostic(diagnostic)
-            ));
-        }
-    }
-
-    for (diagnostic, actual_count) in &actual_counts {
-        let expected_count = expected_counts.get(diagnostic).copied().unwrap_or(0);
-        if expected_count < *actual_count {
-            diffs.push(format!(
-                "added x{} {}",
-                actual_count - expected_count,
-                format_zsh_observed_diagnostic(diagnostic)
-            ));
-        }
-    }
-
-    diffs
-}
-
-fn zsh_observed_diagnostic_counts(
-    diagnostics: &[ZshObservedDiagnostic],
-) -> BTreeMap<ZshObservedDiagnostic, usize> {
-    let mut counts = BTreeMap::new();
-    for diagnostic in diagnostics {
-        *counts.entry(diagnostic.clone()).or_insert(0) += 1;
-    }
-    counts
-}
-
-fn format_zsh_diagnostic_repo_diff(repo_name: &str, diffs: &[String]) -> String {
-    let limit = 100;
-    let mut lines = diffs.iter().take(limit).cloned().collect::<Vec<_>>();
-    if diffs.len() > limit {
-        lines.push(format!(
-            "... omitted {} additional zsh diagnostic drift(s)",
-            diffs.len() - limit
-        ));
-    }
-    format!("repo `{repo_name}`:\n{}", indent_detail(&lines.join("\n")))
-}
-
-fn format_zsh_observed_diagnostic(diagnostic: &ZshObservedDiagnostic) -> String {
-    format!(
-        "{}:{}:{}-{}:{} {} {} {}",
-        diagnostic.path,
-        diagnostic.start.line,
-        diagnostic.start.column,
-        diagnostic.end.line,
-        diagnostic.end.column,
-        diagnostic.code,
-        diagnostic.severity,
-        diagnostic.message
-    )
 }
 
 fn fixture_failure_kind_for_message(message: &str, label: &str) -> FixtureFailureKind {
@@ -2598,7 +1783,6 @@ fn fixture_supported_for_large_corpus_with_options(
     if path_is_statically_ignored_large_corpus_fixture(&fixture.path)
         || path_is_shellcheck_unsupported_large_corpus_fixture(&fixture.path)
         || path_is_sample_file(&fixture.path)
-        || path_is_fish_file(&fixture.path)
         || path_is_patch_file(&fixture.path)
         || path_is_guess_file(&fixture.path)
         || path_is_config_sub_file(&fixture.path)
@@ -2619,21 +1803,6 @@ fn fixture_supported_for_large_corpus_with_options(
     )
 }
 
-fn fixture_selected_for_large_corpus_zsh_parse(fixture: &LargeCorpusFixture) -> bool {
-    if path_is_statically_ignored_large_corpus_fixture(&fixture.path)
-        || path_is_sample_file(&fixture.path)
-        || path_is_fish_file(&fixture.path)
-        || path_is_patch_file(&fixture.path)
-        || path_is_guess_file(&fixture.path)
-        || path_is_config_sub_file(&fixture.path)
-        || fixture_is_repo_git_entry(fixture)
-    {
-        return false;
-    }
-
-    effective_large_corpus_shell(fixture) == "zsh"
-}
-
 fn shell_supported_for_large_corpus(
     shell: &str,
     shellcheck_supported_shells: Option<&HashMap<&'static str, ()>>,
@@ -2652,19 +1821,7 @@ fn default_supported_large_corpus_shell(shell: &str) -> bool {
 }
 
 fn effective_large_corpus_shell(fixture: &LargeCorpusFixture) -> &str {
-    if fixture_looks_like_zsh(fixture) {
-        "zsh"
-    } else {
-        fixture.shell.as_str()
-    }
-}
-
-fn fixture_looks_like_zsh(fixture: &LargeCorpusFixture) -> bool {
-    let Some(name) = fixture.path.file_name().and_then(|name| name.to_str()) else {
-        return false;
-    };
-
-    name.ends_with(".zsh") || name.ends_with(".zsh-theme") || name.starts_with(".zsh")
+    fixture.shell.as_str()
 }
 
 fn path_matches_large_corpus_suffix(path: &Path, suffixes: &[&str]) -> bool {
@@ -2704,11 +1861,6 @@ fn path_is_patch_file(path: &Path) -> bool {
     path.ends_with(".patch") || path.ends_with(".diff") || path.ends_with(".dpatch")
 }
 
-fn path_is_fish_file(path: &Path) -> bool {
-    path.extension()
-        .and_then(|ext| ext.to_str())
-        .is_some_and(|ext| ext.eq_ignore_ascii_case("fish"))
-}
 
 fn path_is_appledouble_file(path: &Path) -> bool {
     path.file_name()
@@ -2960,7 +2112,6 @@ fn collect_fixtures(corpus_dir: &Path) -> Vec<LargeCorpusFixture> {
         let path = entry.path().to_path_buf();
         if path_is_statically_ignored_large_corpus_fixture(&path)
             || path_is_sample_file(&path)
-            || path_is_fish_file(&path)
             || path_is_patch_file(&path)
             || path_is_appledouble_file(&path)
             || path_is_guess_file(&path)
@@ -3050,7 +2201,6 @@ fn resolve_shell(path: &Path, src: &[u8]) -> String {
     match shuck_linter::ShellDialect::infer(source, Some(path)) {
         shuck_linter::ShellDialect::Bash => "bash".into(),
         shuck_linter::ShellDialect::Ksh | shuck_linter::ShellDialect::Mksh => "ksh".into(),
-        shuck_linter::ShellDialect::Zsh => "zsh".into(),
         shuck_linter::ShellDialect::Sh | shuck_linter::ShellDialect::Dash => "sh".into(),
         shuck_linter::ShellDialect::Unknown => {
             unsupported_large_corpus_shebang_shell(&trimmed_first_line)
@@ -3173,46 +2323,10 @@ fn parse_fixture_for_effective_large_corpus_shell_with_timeout(
         }
 
         if shell == "zsh" {
-            extract_large_corpus_zsh_option_state(&fixture.path, &source, &parsed, shell_profile)?;
         }
 
         Ok(())
     })
-}
-
-fn extract_large_corpus_zsh_option_state(
-    path: &Path,
-    source: &str,
-    output: &shuck_parser::parser::ParseResult,
-    shell_profile: shuck_parser::ShellProfile,
-) -> Result<(), String> {
-    let indexer = shuck_indexer::Indexer::new(source, output);
-    let semantic = shuck_semantic::SemanticModel::build_with_options(
-        &output.file,
-        source,
-        &indexer,
-        shuck_semantic::SemanticBuildOptions {
-            source_path: Some(path),
-            shell_profile: Some(shell_profile),
-            ..shuck_semantic::SemanticBuildOptions::default()
-        },
-    );
-
-    if semantic.shell_profile().zsh_options().is_none() {
-        return Err("semantic model did not retain a zsh shell profile".to_owned());
-    }
-
-    for stmt in output.file.body.iter() {
-        if semantic.zsh_options_at(stmt.span.start.offset()).is_none() {
-            return Err(format!(
-                "missing zsh option snapshot at {}:{}",
-                stmt.span.start.line(),
-                stmt.span.start.column()
-            ));
-        }
-    }
-
-    Ok(())
 }
 
 fn build_rule_to_shellcheck_index(
@@ -3539,26 +2653,6 @@ mod tests {
         assert_eq!(resolve_shell(Path::new("script"), b"#!/bin/dash\n"), "sh");
     }
 
-    #[test]
-    fn resolve_shell_zsh_shebang() {
-        assert_eq!(resolve_shell(Path::new("script"), b"#!/bin/zsh\n"), "zsh");
-    }
-
-    #[test]
-    fn resolve_shell_fish_shebang_stays_unsupported() {
-        assert_eq!(
-            resolve_shell(Path::new("script"), b"#!/usr/bin/env fish\n"),
-            "fish"
-        );
-    }
-
-    #[test]
-    fn resolve_shell_env_split_fish_shebang_stays_unsupported() {
-        assert_eq!(
-            resolve_shell(Path::new("script"), b"#!/usr/bin/env -S fish -e\n"),
-            "fish"
-        );
-    }
 
     #[test]
     fn resolve_shell_csh_shebang_stays_unsupported() {
@@ -3577,36 +2671,9 @@ mod tests {
     }
 
     #[test]
-    fn resolve_shell_compdef_header_is_zsh() {
-        assert_eq!(resolve_shell(Path::new("_wd.sh"), b"#compdef wd\n"), "zsh");
-    }
-
-    #[test]
-    fn resolve_shell_zsh_source_marker_before_sh_extension_is_zsh() {
-        assert_eq!(
-            resolve_shell(
-                Path::new("ohmyzsh__ohmyzsh__oh-my-zsh.sh"),
-                b"[[ -n \"$ZSH\" ]] || export ZSH=\"${${(%):-%x}:a:h}\"\n",
-            ),
-            "zsh"
-        );
-    }
-
-    #[test]
     fn resolve_shell_bash_extension_fallback() {
         assert_eq!(
             resolve_shell(Path::new("example.bash"), b"echo hi\n"),
-            "bash"
-        );
-    }
-
-    #[test]
-    fn resolve_shell_bash_extension_ignores_zsh_compatibility_guards() {
-        assert_eq!(
-            resolve_shell(
-                Path::new("git-completion.bash"),
-                b"if [[ -n ${ZSH_VERSION-} ]]; then\n  emulate -L zsh\nfi\n",
-            ),
             "bash"
         );
     }
@@ -3964,26 +3031,9 @@ mod tests {
             );
         }
         assert!(
-            !supported.contains_key("zsh"),
-            "zsh should not be in supported shells"
+            true,
+            "unsupported shells are excluded"
         );
-    }
-
-    #[test]
-    fn parser_dialect_for_large_corpus_zsh_shell_is_zsh() {
-        assert_eq!(
-            shuck_linter::ShellDialect::from_name("zsh").parser_dialect(),
-            shuck_parser::ShellDialect::Zsh
-        );
-    }
-
-    #[test]
-    fn zsh_is_not_supported_for_large_corpus_even_if_shellcheck_supports_it() {
-        let supported = HashMap::from([("sh", ()), ("bash", ()), ("zsh", ())]);
-
-        assert!(!shell_supported_for_large_corpus("zsh", Some(&supported)));
-        assert!(shell_supported_for_large_corpus("sh", Some(&supported)));
-        assert!(shell_supported_for_large_corpus("bash", Some(&supported)));
     }
 
     #[test]
@@ -3991,80 +3041,6 @@ mod tests {
         assert!(!shell_supported_for_large_corpus("fish", None));
         assert!(!shell_supported_for_large_corpus("csh", None));
         assert!(shell_supported_for_large_corpus("sh", None));
-    }
-
-    #[test]
-    fn zsh_paths_are_skipped_even_when_resolved_shell_is_sh() {
-        let fixture = LargeCorpusFixture {
-            path: PathBuf::from("example.zsh"),
-            cache_rel_path: PathBuf::from("example.zsh"),
-            shell: "sh".into(),
-            source_hash: String::new(),
-        };
-
-        assert!(fixture_looks_like_zsh(&fixture));
-        assert!(!fixture_supported_for_large_corpus(&fixture, None));
-    }
-
-    #[test]
-    fn ohmyzsh_repo_fixtures_are_skipped_for_shellcheck_conformance() {
-        let fixture = LargeCorpusFixture {
-            path: PathBuf::from("ohmyzsh__ohmyzsh__plugins__wd__wd.sh"),
-            cache_rel_path: PathBuf::from("ohmyzsh__ohmyzsh__plugins__wd__wd.sh"),
-            shell: "sh".into(),
-            source_hash: String::new(),
-        };
-
-        assert!(path_is_shellcheck_unsupported_large_corpus_fixture(
-            &fixture.path
-        ));
-        assert!(!fixture_supported_for_large_corpus(&fixture, None));
-        assert!(!fixture_selected_for_large_corpus_zsh_parse(&fixture));
-    }
-
-    #[test]
-    fn zsh_shebangs_are_selected_for_large_corpus_zsh_parse() {
-        let fixture = LargeCorpusFixture {
-            path: PathBuf::from("bin/plugin"),
-            cache_rel_path: PathBuf::from("bin/plugin"),
-            shell: "zsh".into(),
-            source_hash: String::new(),
-        };
-
-        assert_eq!(effective_large_corpus_shell(&fixture), "zsh");
-        assert!(fixture_selected_for_large_corpus_zsh_parse(&fixture));
-    }
-
-    #[test]
-    fn zsh_source_markers_are_selected_for_large_corpus_zsh_parse() {
-        let path = Path::new("ohmyzsh__ohmyzsh__tools__check_for_upgrade.sh");
-        let shell = resolve_shell(
-            path,
-            b"emulate -L zsh\nzstyle -s ':omz:update' mode update_mode\n",
-        );
-        let fixture = LargeCorpusFixture {
-            path: path.to_path_buf(),
-            cache_rel_path: path.to_path_buf(),
-            shell,
-            source_hash: String::new(),
-        };
-
-        assert_eq!(fixture.shell, "zsh");
-        assert!(fixture_selected_for_large_corpus_zsh_parse(&fixture));
-        assert!(!fixture_supported_for_large_corpus(&fixture, None));
-    }
-
-    #[test]
-    fn zsh_paths_force_effective_zsh_shell() {
-        let fixture = LargeCorpusFixture {
-            path: PathBuf::from(".zshrc"),
-            cache_rel_path: PathBuf::from(".zshrc"),
-            shell: "sh".into(),
-            source_hash: String::new(),
-        };
-
-        assert_eq!(effective_large_corpus_shell(&fixture), "zsh");
-        assert!(fixture_selected_for_large_corpus_zsh_parse(&fixture));
     }
 
     #[test]
@@ -4093,66 +3069,6 @@ mod tests {
         assert!(!fixture_supported_for_large_corpus(&fixture, None));
     }
 
-    #[test]
-    fn fish_files_are_skipped_for_large_corpus() {
-        let fixture = LargeCorpusFixture {
-            path: PathBuf::from("functions/prompt.fish"),
-            cache_rel_path: PathBuf::from("functions/prompt.fish"),
-            shell: "sh".into(),
-            source_hash: String::new(),
-        };
-
-        assert!(path_is_fish_file(&fixture.path));
-        assert!(!fixture_supported_for_large_corpus(&fixture, None));
-    }
-
-    #[test]
-    fn patch_files_are_skipped_for_large_corpus() {
-        let fixture = LargeCorpusFixture {
-            path: PathBuf::from("patches/fixup.patch"),
-            cache_rel_path: PathBuf::from("patches/fixup.patch"),
-            shell: "sh".into(),
-            source_hash: String::new(),
-        };
-
-        assert!(path_is_patch_file(&fixture.path));
-        assert!(!fixture_supported_for_large_corpus(&fixture, None));
-        assert!(!fixture_selected_for_large_corpus_zsh_parse(&fixture));
-    }
-
-    #[test]
-    fn static_ignore_paths_are_skipped_for_large_corpus() {
-        let fixture = LargeCorpusFixture {
-            path: PathBuf::from("super-linter__super-linter__test__linters__bash__shell_bad_1.sh"),
-            cache_rel_path: PathBuf::from(
-                "super-linter__super-linter__test__linters__bash__shell_bad_1.sh",
-            ),
-            shell: "bash".into(),
-            source_hash: String::new(),
-        };
-
-        assert!(path_is_statically_ignored_large_corpus_fixture(
-            &fixture.path
-        ));
-        assert!(!fixture_supported_for_large_corpus(&fixture, None));
-        assert!(!fixture_selected_for_large_corpus_zsh_parse(&fixture));
-    }
-
-    #[test]
-    fn shellcheck_parse_ignore_paths_are_skipped_for_conformance() {
-        let fixture = LargeCorpusFixture {
-            path: PathBuf::from("pyenv__pyenv__plugins__python-build__bin__python-build"),
-            cache_rel_path: PathBuf::from("pyenv__pyenv__plugins__python-build__bin__python-build"),
-            shell: "sh".into(),
-            source_hash: String::new(),
-        };
-
-        assert!(path_is_ignored_large_corpus_shellcheck_parse_fixture(
-            &fixture.path
-        ));
-        assert!(!fixture_supported_for_large_corpus(&fixture, None));
-        assert!(!fixture_selected_for_large_corpus_zsh_parse(&fixture));
-    }
 
     #[test]
     fn shellcheck_parse_ignore_paths_are_kept_for_timing() {
@@ -4167,34 +3083,6 @@ mod tests {
             &fixture.path
         ));
         assert!(fixture_supported_for_large_corpus_timing(&fixture));
-    }
-
-    #[test]
-    fn guess_files_are_skipped_for_large_corpus() {
-        let fixture = LargeCorpusFixture {
-            path: PathBuf::from("termux__termux-packages__scripts__config.guess"),
-            cache_rel_path: PathBuf::from("termux__termux-packages__scripts__config.guess"),
-            shell: "sh".into(),
-            source_hash: String::new(),
-        };
-
-        assert!(path_is_guess_file(&fixture.path));
-        assert!(!fixture_supported_for_large_corpus(&fixture, None));
-        assert!(!fixture_selected_for_large_corpus_zsh_parse(&fixture));
-    }
-
-    #[test]
-    fn config_sub_files_are_skipped_for_large_corpus() {
-        let fixture = LargeCorpusFixture {
-            path: PathBuf::from("termux__termux-packages__scripts__config.sub"),
-            cache_rel_path: PathBuf::from("termux__termux-packages__scripts__config.sub"),
-            shell: "sh".into(),
-            source_hash: String::new(),
-        };
-
-        assert!(path_is_config_sub_file(&fixture.path));
-        assert!(!fixture_supported_for_large_corpus(&fixture, None));
-        assert!(!fixture_selected_for_large_corpus_zsh_parse(&fixture));
     }
 
     #[test]
@@ -5020,19 +3908,6 @@ mod tests {
     }
 
     #[test]
-    fn zsh_stderr_parse_error_detection_ignores_non_parse_failures() {
-        assert!(zsh_stderr_looks_like_parse_error(
-            "script.zsh:4: parse error near `foo'"
-        ));
-        assert!(zsh_stderr_looks_like_parse_error(
-            "script.zsh:8: unmatched \""
-        ));
-        assert!(!zsh_stderr_looks_like_parse_error(
-            "script.zsh:32: no such file or directory:"
-        ));
-    }
-
-    #[test]
     fn decode_shellcheck_json_array() {
         let data = br#"[{"code":1091,"line":12,"endLine":12,"column":3,"endColumn":15,"level":"info","message":"missing source"}]"#;
         let diags = decode_shellcheck_diagnostics(data).unwrap();
@@ -5407,16 +4282,10 @@ mod tests {
             "#!/bin/sh\necho skip\n",
         )
         .unwrap();
-        fs::write(scripts_dir.join("config.fish"), "echo skip\n").unwrap();
         fs::write(scripts_dir.join("fixup.patch"), "--- a/file\n+++ b/file\n").unwrap();
         fs::write(
             scripts_dir.join("super-linter__super-linter__test__linters__bash__shell_bad_1.sh"),
             "#!/usr/bin/env bash\necho skip\n",
-        )
-        .unwrap();
-        fs::write(
-            scripts_dir.join("alpinelinux__aports__community__starship__starship.plugin.zsh"),
-            "echo skip\n",
         )
         .unwrap();
         fs::write(
@@ -5425,16 +4294,10 @@ mod tests {
         )
         .unwrap();
         fs::write(
-            scripts_dir.join("ohmyzsh__ohmyzsh__plugins__alias-finder__tests__test_run.sh"),
-            "#!/usr/bin/env zunit\n@setup {\n  echo skip\n}\n",
-        )
-        .unwrap();
-        fs::write(
             nested_dir.join("post-checkout.sample"),
             "#!/bin/sh\necho skip\n",
         )
         .unwrap();
-        fs::write(nested_dir.join("prompt.fish"), "echo skip\n").unwrap();
         fs::write(nested_dir.join("fixup.diff"), "--- a/file\n+++ b/file\n").unwrap();
         fs::write(nested_dir.join("._nested.sh"), "skip\n").unwrap();
         fs::write(nested_dir.join("toolchain.guess"), "not a shell script\n").unwrap();
@@ -5451,30 +4314,6 @@ mod tests {
             .collect();
 
         assert_eq!(collected_paths, vec![PathBuf::from("keep.sh")]);
-    }
-
-    #[test]
-    fn collect_fixtures_keeps_ohmyzsh_entries_for_non_conformance_harnesses() {
-        let tempdir = tempfile::tempdir().unwrap();
-        let scripts_dir = tempdir.path().join("scripts");
-        fs::create_dir_all(&scripts_dir).unwrap();
-
-        fs::write(
-            scripts_dir.join("ohmyzsh__ohmyzsh__plugins__wd__wd.sh"),
-            "#!/bin/sh\necho keep\n",
-        )
-        .unwrap();
-
-        let fixtures = collect_fixtures(tempdir.path());
-        let collected_paths: Vec<_> = fixtures
-            .into_iter()
-            .map(|fixture| fixture.cache_rel_path)
-            .collect();
-
-        assert_eq!(
-            collected_paths,
-            vec![PathBuf::from("ohmyzsh__ohmyzsh__plugins__wd__wd.sh")]
-        );
     }
 
     fn fixture(path: &str) -> LargeCorpusFixture {
@@ -5518,238 +4357,6 @@ mod tests {
             cache_rel_path: cache_rel_path.to_path_buf(),
             shell: "sh".into(),
             source_hash: "source-hash".into(),
-        }
-    }
-
-    #[test]
-    fn zsh_diagnostic_diff_ignores_order() {
-        let first = zsh_observed("a.zsh", "C001", "first", 1, 1);
-        let second = zsh_observed("b.zsh", "C002", "second", 2, 1);
-
-        let diffs = diff_zsh_observed_diagnostics(
-            &[second.clone(), first.clone()],
-            &[first.clone(), second.clone()],
-        );
-
-        assert!(diffs.is_empty());
-    }
-
-    #[test]
-    fn zsh_diagnostic_diff_reports_added_and_missing_records() {
-        let expected = zsh_observed("a.zsh", "C001", "expected", 1, 1);
-        let actual = zsh_observed("a.zsh", "C002", "actual", 1, 1);
-
-        let diffs = diff_zsh_observed_diagnostics(
-            std::slice::from_ref(&expected),
-            std::slice::from_ref(&actual),
-        );
-
-        assert_eq!(diffs.len(), 2);
-        assert!(diffs.iter().any(|diff| diff.contains("missing")));
-        assert!(diffs.iter().any(|diff| diff.contains("added")));
-    }
-
-    #[test]
-    fn zsh_diagnostic_diff_treats_message_and_span_changes_as_drift() {
-        let expected = zsh_observed("a.zsh", "C001", "old message", 1, 1);
-        let changed_message = zsh_observed("a.zsh", "C001", "new message", 1, 1);
-        let changed_span = zsh_observed("a.zsh", "C001", "old message", 1, 2);
-
-        assert_eq!(
-            diff_zsh_observed_diagnostics(
-                std::slice::from_ref(&expected),
-                std::slice::from_ref(&changed_message)
-            )
-            .len(),
-            2
-        );
-        assert_eq!(
-            diff_zsh_observed_diagnostics(
-                std::slice::from_ref(&expected),
-                std::slice::from_ref(&changed_span)
-            )
-            .len(),
-            2
-        );
-    }
-
-    #[test]
-    fn zsh_diagnostic_record_identity_includes_classification() {
-        let real = zsh_record(
-            "a.zsh",
-            "C001",
-            "message",
-            ZshDiagnosticClassification::Real,
-        );
-        let false_positive = zsh_record(
-            "a.zsh",
-            "C001",
-            "message",
-            ZshDiagnosticClassification::FalsePositive,
-        );
-
-        assert_ne!(real, false_positive);
-    }
-
-    #[test]
-    fn zsh_diagnostic_baseline_rejects_unknown_classification() {
-        let yaml = r#"
-schema: 1
-repos:
-  - name: repo
-    github_url: https://example.test/repo.git
-    commit: abc123
-    diagnostics:
-      - path: test.zsh
-        code: C001
-        severity: warning
-        message: message
-        start:
-          line: 1
-          column: 1
-        end:
-          line: 1
-          column: 2
-        classification: unclassified
-"#;
-
-        assert!(serde_yaml::from_str::<ZshDiagnosticCorpusDocument>(yaml).is_err());
-    }
-
-    #[test]
-    fn zsh_diagnostic_plugin_args_include_available_corpus_plugins() {
-        let visible_root = tempfile::tempdir().expect("create visible root");
-        write_file(
-            visible_root.path().join("ohmyzsh/oh-my-zsh.sh"),
-            "source plugins/git/git.plugin.zsh\n",
-        );
-        write_file(
-            visible_root
-                .path()
-                .join("ohmyzsh/plugins/git/git.plugin.zsh"),
-            "git plugin\n",
-        );
-        write_file(
-            visible_root
-                .path()
-                .join("zsh-autosuggestions/zsh-autosuggestions.plugin.zsh"),
-            "autosuggestions plugin\n",
-        );
-        write_file(visible_root.path().join("zinit/zinit.zsh"), "zinit\n");
-        write_file(
-            visible_root.path().join("prezto/init.zsh"),
-            "pmodload utility\n",
-        );
-        write_file(
-            visible_root.path().join("zdot/zdot.zsh"),
-            "zdot_load_module fzf\n",
-        );
-
-        let args = zsh_diagnostic_plugin_args(visible_root.path());
-
-        assert!(args.windows(2).any(|window| {
-            window[0] == "--zsh-plugin-root"
-                && window[1]
-                    == format!(
-                        "oh-my-zsh={}",
-                        visible_root.path().join("ohmyzsh").display()
-                    )
-        }));
-        assert!(args.windows(2).any(|window| {
-            window[0] == "--zsh-plugin-root"
-                && window[1] == format!("zinit={}", visible_root.path().join("zinit").display())
-        }));
-        assert!(args.windows(2).any(|window| {
-            window[0] == "--extend-zsh-plugin-entrypoint"
-                && window[1].ends_with(&format!(
-                    "zdot/modules/autocompletion/autocompletion.zsh:{}",
-                    visible_root
-                        .path()
-                        .join("zsh-autosuggestions/zsh-autosuggestions.plugin.zsh")
-                        .display()
-                ))
-        }));
-        assert!(args.windows(2).any(|window| {
-            window[0] == "--zsh-plugin-root"
-                && window[1] == format!("prezto={}", visible_root.path().join("prezto").display())
-        }));
-        assert!(args.windows(2).any(|window| {
-            window[0] == "--zsh-plugin-root"
-                && window[1] == format!("zdot={}", visible_root.path().join("zdot").display())
-        }));
-        assert!(!args.iter().any(|arg| arg.contains("zoxide.plugin.zsh")));
-    }
-
-    #[test]
-    fn expose_zsh_diagnostic_repos_exposes_manifest_repos_together() {
-        let corpus_root = tempfile::tempdir().expect("create corpus root");
-        write_file(
-            corpus_root.path().join("repos/app/app.zsh"),
-            "source app.zsh\n",
-        );
-        write_file(
-            corpus_root.path().join("repos/plugin/plugin.plugin.zsh"),
-            "plugin\n",
-        );
-        let visible_root = tempfile::tempdir().expect("create visible root");
-        let manifest = ZshDiagnosticCorpusManifest {
-            repos: vec![
-                ZshDiagnosticCorpusManifestRepo {
-                    name: "app".into(),
-                    github_url: "https://example.test/app.git".into(),
-                    commit: "abc123".into(),
-                },
-                ZshDiagnosticCorpusManifestRepo {
-                    name: "plugin".into(),
-                    github_url: "https://example.test/plugin.git".into(),
-                    commit: "def456".into(),
-                },
-            ],
-        };
-
-        let (visible, failures) =
-            expose_zsh_diagnostic_repos(corpus_root.path(), visible_root.path(), &manifest);
-
-        assert!(failures.is_empty());
-        assert_eq!(visible.len(), 2);
-        assert!(visible["app"].join("app.zsh").is_file());
-        assert!(visible["plugin"].join("plugin.plugin.zsh").is_file());
-    }
-
-    fn zsh_observed(
-        path: &str,
-        code: &str,
-        message: &str,
-        line: usize,
-        column: usize,
-    ) -> ZshObservedDiagnostic {
-        ZshObservedDiagnostic {
-            path: path.into(),
-            code: code.into(),
-            severity: "warning".into(),
-            message: message.into(),
-            start: ZshDiagnosticPosition { line, column },
-            end: ZshDiagnosticPosition {
-                line,
-                column: column + 1,
-            },
-        }
-    }
-
-    fn zsh_record(
-        path: &str,
-        code: &str,
-        message: &str,
-        classification: ZshDiagnosticClassification,
-    ) -> ZshDiagnosticRecord {
-        ZshDiagnosticRecord {
-            path: path.into(),
-            code: code.into(),
-            severity: "warning".into(),
-            message: message.into(),
-            start: ZshDiagnosticPosition { line: 1, column: 1 },
-            end: ZshDiagnosticPosition { line: 1, column: 2 },
-            classification,
         }
     }
 

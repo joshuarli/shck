@@ -354,33 +354,6 @@ printf '*.txt'
     }
 
     #[test]
-    fn respects_zsh_glob_activation_in_find_exec_arguments() {
-        let source = "\
-#!/usr/bin/env zsh
-setopt no_glob
-find . -exec echo *.txt {} +
-setopt glob ksh_glob
-find . -exec echo ?(*.txt) {} +
-setopt extended_glob
-find . -exec echo foo~bar {} +
-find . -exec echo foo~bar* {} +
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::UnquotedGlobsInFind)
-                .with_shell(crate::ShellDialect::Zsh),
-        );
-
-        assert_eq!(
-            diagnostics
-                .iter()
-                .map(|diagnostic| diagnostic.span.slice(source))
-                .collect::<Vec<_>>(),
-            vec!["?(*.txt)", "~", "*"]
-        );
-    }
-
-    #[test]
     fn snapshots_unsafe_fix_output_for_fixture() -> anyhow::Result<()> {
         let result = test_path_with_fix(
             Path::new("correctness").join("C078.sh").as_path(),

@@ -95,7 +95,7 @@ impl<'a> Parser<'a> {
                     let word_text =
                         self.current_source_like_word_text_or_error("simple command word")?;
                     let allow_zsh_numeric_assignments =
-                        self.dialect.features().zsh_parameter_modifiers;
+                        false;
                     let assignment_shape = (!is_literal && words.is_empty()).then(|| {
                         Self::is_assignment(word_text.as_ref(), allow_zsh_numeric_assignments)
                     });

@@ -394,8 +394,7 @@ pub(crate) fn double_quoted_parts_contain_dynamic_content(parts: &[WordPartNode]
         | WordPart::IndirectExpansion { .. }
         | WordPart::PrefixMatch { .. }
         | WordPart::ProcessSubstitution { .. }
-        | WordPart::Transformation { .. }
-        | WordPart::ZshQualifiedGlob(_) => true,
+        | WordPart::Transformation { .. } => true,
     })
 }
 
@@ -463,7 +462,6 @@ mod tests {
                 WordPart::Literal(_)
                 | WordPart::SingleQuoted { .. }
                 | WordPart::DoubleQuoted { .. } => {}
-                WordPart::ZshQualifiedGlob(_) => {}
                 WordPart::CommandSubstitution { .. } | WordPart::ProcessSubstitution { .. } => {}
                 WordPart::Parameter(parameter) => {
                     if parameter_is_scalar_like(parameter) && (!self.only_unquoted || !quoted) {

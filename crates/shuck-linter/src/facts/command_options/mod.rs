@@ -35,7 +35,7 @@ impl<'a> PathWordFact<'a> {
         word: &'a Word,
         context: ExpansionContext,
         source: &str,
-        behavior: &ShellBehaviorAt<'_>,
+        behavior: &ShellBehaviorAt,
     ) -> Self {
         Self {
             word,
@@ -921,7 +921,7 @@ impl<'a> CommandOptionFacts<'a> {
         normalized: &NormalizedCommand<'a>,
         semantic: &LinterSemanticArtifacts<'a>,
         source: &str,
-        behavior: &ShellBehaviorAt<'_>,
+        behavior: &ShellBehaviorAt,
     ) -> Self {
         Self {
             rm: normalized
@@ -1275,7 +1275,7 @@ impl ChmodSymbolicWriteState {
             }
         }
 
-        Some(false).filter(|_| !saw_copy || !permissions.is_empty())
+        (!saw_copy || !permissions.is_empty()).then_some(false)
     }
 
     fn set_targets(&mut self, targets: ChmodSymbolicTargets, value: Option<bool>) {
@@ -1674,7 +1674,6 @@ fn append_rm_path_part(
         WordPart::ParameterExpansion {
             reference,
             operator,
-            colon_variant: _,
             ..
         } => {
             let is_guarded_home = rm_path_parameter_op_is_guarded_home_access(reference, operator);
@@ -1701,8 +1700,7 @@ fn append_rm_path_part(
         | WordPart::ProcessSubstitution { .. }
         | WordPart::Transformation { .. }
         | WordPart::CommandSubstitution { .. }
-        | WordPart::ArithmeticExpansion { .. }
-        | WordPart::ZshQualifiedGlob(_) => {
+        | WordPart::ArithmeticExpansion { .. } => {
             current_rm_path_segment(segments).has_other_dynamic = true;
         }
     }
@@ -1727,8 +1725,6 @@ fn rm_path_parameter_expansion_is_unsafe(parameter: &ParameterExpansion) -> bool
             BourneParameterExpansion::Access { .. } => true,
             BourneParameterExpansion::Indirect {
                 operator,
-                operand: _,
-                colon_variant: _,
                 ..
             } => operator
                 .as_deref()
@@ -1747,7 +1743,6 @@ fn rm_path_parameter_expansion_is_unsafe(parameter: &ParameterExpansion) -> bool
             | BourneParameterExpansion::Transformation { .. }
             | BourneParameterExpansion::PrefixMatch { .. } => false,
         },
-        ParameterExpansionSyntax::Zsh(_) => false,
     }
 }
 
@@ -1768,7 +1763,7 @@ fn rm_path_parameter_expansion_is_home_access(
                 || rm_var_ref_is_home(reference)
                     && rm_path_parameter_op_preserves_home_root(operator, source)
         }
-        ParameterExpansionSyntax::Bourne(_) | ParameterExpansionSyntax::Zsh(_) => false,
+        ParameterExpansionSyntax::Bourne(_) => false,
     }
 }
 
@@ -2830,7 +2825,6 @@ fn word_parts_have_literal_percent(parts: &[WordPartNode], source: &str) -> bool
 fn word_part_has_literal_percent(part: &WordPartNode, source: &str) -> bool {
     match &part.kind {
         WordPart::Literal(text) => text.as_str(source, part.span).contains('%'),
-        WordPart::ZshQualifiedGlob(_) => part.span.slice(source).contains('%'),
         WordPart::SingleQuoted { value, .. } => value.slice(source).contains('%'),
         WordPart::DoubleQuoted { parts, .. } => word_parts_have_literal_percent(parts, source),
         WordPart::Variable(_)

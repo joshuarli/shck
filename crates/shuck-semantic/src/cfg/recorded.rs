@@ -15,7 +15,6 @@
 
 use rustc_hash::FxHashMap;
 use shuck_ast::{BuiltinCommand, CaseTerminator, Command, CompoundCommand, Span};
-use shuck_parser::ZshEmulationMode;
 use std::marker::PhantomData;
 
 use crate::cfg::FlowContext;
@@ -94,8 +93,6 @@ pub enum CommandKind {
     Compound(CompoundCommandKind),
     /// A named function definition.
     Function,
-    /// An anonymous function-like definition.
-    AnonymousFunction,
 }
 
 impl CommandKind {
@@ -110,7 +107,6 @@ impl CommandKind {
                 Self::Compound(CompoundCommandKind::from_compound(command))
             }
             Command::Function(_) => Self::Function,
-            Command::AnonymousFunction(_) => Self::AnonymousFunction,
         }
     }
 }
@@ -146,9 +142,9 @@ pub enum CompoundCommandKind {
     If,
     /// `for`
     For,
-    /// `repeat`
+    #[allow(missing_docs)]
     Repeat,
-    /// `foreach`
+    #[allow(missing_docs)]
     Foreach,
     /// Arithmetic `for (( ...; ...; ... ))`
     ArithmeticFor,
@@ -172,8 +168,6 @@ pub enum CompoundCommandKind {
     Conditional,
     /// `coproc`
     Coproc,
-    /// `always`
-    Always,
 }
 
 impl CompoundCommandKind {
@@ -181,8 +175,6 @@ impl CompoundCommandKind {
         match command {
             CompoundCommand::If(_) => Self::If,
             CompoundCommand::For(_) => Self::For,
-            CompoundCommand::Repeat(_) => Self::Repeat,
-            CompoundCommand::Foreach(_) => Self::Foreach,
             CompoundCommand::ArithmeticFor(_) => Self::ArithmeticFor,
             CompoundCommand::While(_) => Self::While,
             CompoundCommand::Until(_) => Self::Until,
@@ -194,7 +186,6 @@ impl CompoundCommandKind {
             CompoundCommand::Time(_) => Self::Time,
             CompoundCommand::Conditional(_) => Self::Conditional,
             CompoundCommand::Coproc(_) => Self::Coproc,
-            CompoundCommand::Always(_) => Self::Always,
         }
     }
 }
@@ -321,6 +312,7 @@ pub(crate) enum RecordedCommandKind {
     BraceGroup {
         body: RecordedCommandRange,
     },
+    #[allow(dead_code)]
     Always {
         body: RecordedCommandRange,
         always_body: RecordedCommandRange,
@@ -395,23 +387,15 @@ impl RecordedCommandInfo {
 
 #[derive(Debug, Clone)]
 pub(crate) enum RecordedZshCommandEffect {
-    Emulate {
-        mode: ZshEmulationMode,
-        local: bool,
-    },
-    EmulateUnknown {
-        local: bool,
-    },
-    SetOptions {
-        updates: Vec<RecordedZshOptionUpdate>,
-    },
+    #[allow(dead_code)]
+    Stub,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(dead_code)]
 pub(crate) enum RecordedZshOptionUpdate {
-    Named { name: Box<str>, enable: bool },
-    UnknownName,
-    LocalOptions { enable: bool },
+    #[allow(dead_code)]
+    Stub,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

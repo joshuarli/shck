@@ -1242,8 +1242,7 @@ fn apparent_infinite_loop_body_span(
         | shuck_ast::Command::Decl(_)
         | shuck_ast::Command::Binary(_)
         | shuck_ast::Command::Compound(_)
-        | shuck_ast::Command::Function(_)
-        | shuck_ast::Command::AnonymousFunction(_) => None,
+        | shuck_ast::Command::Function(_) => None
     }
 }
 

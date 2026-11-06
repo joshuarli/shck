@@ -23,7 +23,6 @@ pub enum ShellDialect {
     Bash,
     Posix,
     Mksh,
-    Zsh,
 }
 
 impl ShellDialect {
@@ -34,7 +33,6 @@ impl ShellDialect {
             Self::Bash => ParseDialect::Bash,
             Self::Posix => ParseDialect::Posix,
             Self::Mksh => ParseDialect::Mksh,
-            Self::Zsh => ParseDialect::Zsh,
         }
     }
 
@@ -47,7 +45,6 @@ impl ShellDialect {
             "sh" | "dash" => Some(Self::Posix),
             "bash" => Some(Self::Bash),
             "mksh" => Some(Self::Mksh),
-            "zsh" => Some(Self::Zsh),
             _ => None,
         }
     }
@@ -337,33 +334,7 @@ fn infer_dialect(source: &str, path: Option<&Path>) -> ParseDialect {
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
+    
 
-    use super::*;
-
-    #[test]
-    fn zsh_extension_resolves_to_zsh_dialect() {
-        let resolved = ShellFormatOptions::default()
-            .resolve("print ${(m)name}\n", Some(Path::new("script.zsh")));
-
-        assert_eq!(resolved.dialect(), ParseDialect::Zsh);
-    }
-
-    #[test]
-    fn zsh_shebang_resolves_to_zsh_dialect() {
-        let resolved = ShellFormatOptions::default().resolve(
-            "#!/bin/zsh\nprint ${(m)name}\n",
-            Some(Path::new("script.sh")),
-        );
-
-        assert_eq!(resolved.dialect(), ParseDialect::Zsh);
-    }
-
-    #[test]
-    fn explicit_zsh_dialect_overrides_path_inference() {
-        let options = ShellFormatOptions::default().with_dialect(ShellDialect::Zsh);
-        let resolved = options.resolve("print ${(m)name}\n", Some(Path::new("script.sh")));
-
-        assert_eq!(resolved.dialect(), ParseDialect::Zsh);
-    }
+    
 }

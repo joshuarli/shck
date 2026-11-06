@@ -52,8 +52,6 @@ pub(crate) fn render_source_text_to_buf(text: &SourceText, source: &str, rendere
 pub(crate) fn render_background_operator(operator: BackgroundOperator) -> &'static str {
     match operator {
         BackgroundOperator::Plain => "&",
-        BackgroundOperator::Pipe => "&|",
-        BackgroundOperator::Bang => "&!",
     }
 }
 
@@ -62,7 +60,6 @@ pub(crate) fn case_terminator(terminator: CaseTerminator) -> &'static str {
         CaseTerminator::Break => ";;",
         CaseTerminator::FallThrough => ";&",
         CaseTerminator::Continue => ";;&",
-        CaseTerminator::ContinueMatching => ";|",
     }
 }
 

@@ -112,16 +112,10 @@ struct DeclarativeContractSourceMatch {
     mentions_all_names: Vec<String>,
     assigns_any_names: Vec<String>,
     assigns_all_names: Vec<String>,
-    assigns_any_prefixes: Vec<String>,
-    loads_zsh_modules_any: Vec<String>,
-    loads_zsh_modules_all: Vec<String>,
-    static_assignment_function_defs: Vec<String>,
+    assigns_any_prefixes: Vec<String>,    static_assignment_function_defs: Vec<String>,
     probable_function_definition: bool,
     source_command: bool,
-    completion_initializer_invoked: bool,
-    loads_zsh_colors: bool,
-    caller_scoped_array_length_names: bool,
-}
+    completion_initializer_invoked: bool,}
 
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
@@ -146,7 +140,6 @@ struct DeclarativeContractProvides {
     variables: Vec<String>,
     ambient_variables: Vec<String>,
     functions: Vec<String>,
-    caller_scoped_array_length_names: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -190,16 +183,10 @@ struct NormalizedDeclarativeSourceMatch {
     mentions_all_names: Vec<String>,
     assigns_any_names: Vec<String>,
     assigns_all_names: Vec<String>,
-    assigns_any_prefixes: Vec<String>,
-    loads_zsh_modules_any: Vec<String>,
-    loads_zsh_modules_all: Vec<String>,
-    static_assignment_function_defs: Vec<String>,
+    assigns_any_prefixes: Vec<String>,    static_assignment_function_defs: Vec<String>,
     probable_function_definition: bool,
     source_command: bool,
-    completion_initializer_invoked: bool,
-    loads_zsh_colors: bool,
-    caller_scoped_array_length_names: bool,
-}
+    completion_initializer_invoked: bool,}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct NormalizedDeclarativeEffects {
@@ -210,7 +197,6 @@ struct NormalizedDeclarativeEffects {
     provides_variables: Vec<String>,
     provides_ambient_variables: Vec<String>,
     provides_functions: Vec<String>,
-    provides_caller_scoped_array_length_names: bool,
     functions: Vec<NormalizedDeclarativeFunctionEffects>,
 }
 
@@ -453,9 +439,6 @@ fn normalize_declarative_effects(
             &effects.provides.functions,
             source_path,
         )?,
-        provides_caller_scoped_array_length_names: effects
-            .provides
-            .caller_scoped_array_length_names,
         functions: effects
             .functions
             .iter()
@@ -508,28 +491,14 @@ fn normalize_declarative_source_match(
             "match.source.assigns-any-prefixes",
             &source.assigns_any_prefixes,
             source_path,
-        )?,
-        loads_zsh_modules_any: normalize_nonempty_text_values(
-            "match.source.loads-zsh-modules-any",
-            &source.loads_zsh_modules_any,
-            source_path,
-        )?,
-        loads_zsh_modules_all: normalize_nonempty_text_values(
-            "match.source.loads-zsh-modules-all",
-            &source.loads_zsh_modules_all,
-            source_path,
-        )?,
-        static_assignment_function_defs: normalize_shell_names(
+        )?,        static_assignment_function_defs: normalize_shell_names(
             "match.source.static-assignment-function-defs",
             &source.static_assignment_function_defs,
             source_path,
         )?,
         probable_function_definition: source.probable_function_definition,
         source_command: source.source_command,
-        completion_initializer_invoked: source.completion_initializer_invoked,
-        loads_zsh_colors: source.loads_zsh_colors,
-        caller_scoped_array_length_names: source.caller_scoped_array_length_names,
-    })
+        completion_initializer_invoked: source.completion_initializer_invoked,    })
 }
 
 fn normalize_declarative_function_effects(
@@ -748,7 +717,6 @@ fn effects_is_empty(effects: &NormalizedDeclarativeEffects) -> bool {
         && effects.provides_variables.is_empty()
         && effects.provides_ambient_variables.is_empty()
         && effects.provides_functions.is_empty()
-        && !effects.provides_caller_scoped_array_length_names
         && effects.functions.is_empty()
 }
 
@@ -759,16 +727,10 @@ fn matcher_is_empty(matcher: &NormalizedDeclarativeMatch) -> bool {
         && matcher.source.mentions_all_names.is_empty()
         && matcher.source.assigns_any_names.is_empty()
         && matcher.source.assigns_all_names.is_empty()
-        && matcher.source.assigns_any_prefixes.is_empty()
-        && matcher.source.loads_zsh_modules_any.is_empty()
-        && matcher.source.loads_zsh_modules_all.is_empty()
-        && matcher.source.static_assignment_function_defs.is_empty()
+        && matcher.source.assigns_any_prefixes.is_empty()        && matcher.source.static_assignment_function_defs.is_empty()
         && !matcher.source.probable_function_definition
         && !matcher.source.source_command
-        && !matcher.source.completion_initializer_invoked
-        && !matcher.source.loads_zsh_colors
-        && !matcher.source.caller_scoped_array_length_names
-}
+        && !matcher.source.completion_initializer_invoked}
 
 fn collect_yaml_files(dir: &Path) -> Result<Vec<PathBuf>, String> {
     let metadata = fs::symlink_metadata(dir)
@@ -1032,16 +994,7 @@ fn generate_declarative_contract_data(contracts: &[NormalizedDeclarativeContract
         generated.push_str(&format!(
             "                assigns_any_prefixes: {},\n",
             format_string_slice(&contract.matcher.source.assigns_any_prefixes)
-        ));
-        generated.push_str(&format!(
-            "                loads_zsh_modules_any: {},\n",
-            format_string_slice(&contract.matcher.source.loads_zsh_modules_any)
-        ));
-        generated.push_str(&format!(
-            "                loads_zsh_modules_all: {},\n",
-            format_string_slice(&contract.matcher.source.loads_zsh_modules_all)
-        ));
-        generated.push_str(&format!(
+        ));        generated.push_str(&format!(
             "                static_assignment_function_defs: {},\n",
             format_string_slice(&contract.matcher.source.static_assignment_function_defs)
         ));
@@ -1056,14 +1009,6 @@ fn generate_declarative_contract_data(contracts: &[NormalizedDeclarativeContract
         generated.push_str(&format!(
             "                completion_initializer_invoked: {},\n",
             contract.matcher.source.completion_initializer_invoked
-        ));
-        generated.push_str(&format!(
-            "                loads_zsh_colors: {},\n",
-            contract.matcher.source.loads_zsh_colors
-        ));
-        generated.push_str(&format!(
-            "                caller_scoped_array_length_names: {},\n",
-            contract.matcher.source.caller_scoped_array_length_names
         ));
         generated.push_str("            },\n");
         generated.push_str("        },\n");
@@ -1099,10 +1044,6 @@ fn generate_declarative_contract_data(contracts: &[NormalizedDeclarativeContract
         generated.push_str(&format!(
             "            provides_functions: {},\n",
             format_string_slice(&contract.effects.provides_functions)
-        ));
-        generated.push_str(&format!(
-            "            provides_caller_scoped_array_length_names: {},\n",
-            contract.effects.provides_caller_scoped_array_length_names
         ));
         generated.push_str("            functions: &[\n");
         for function in &contract.effects.functions {

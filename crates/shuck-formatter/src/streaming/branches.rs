@@ -101,10 +101,9 @@ pub(super) fn unmodeled_branch_background_operator(
         ("&|", rest)
     } else if let Some(rest) = trimmed.strip_prefix("&!") {
         ("&!", rest)
-    } else if let Some(rest) = trimmed.strip_prefix('&') {
-        ("&", rest)
     } else {
-        return None;
+        let rest = trimmed.strip_prefix('&')?;
+        ("&", rest)
     };
 
     rest.chars()

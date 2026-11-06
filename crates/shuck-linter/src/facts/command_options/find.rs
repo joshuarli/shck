@@ -188,7 +188,7 @@ where
 pub(crate) fn parse_find_command<'a>(
     args: impl IntoIterator<Item = &'a Word>,
     source: &str,
-    behavior: &ShellBehaviorAt<'_>,
+    behavior: &ShellBehaviorAt,
 ) -> FindCommandFacts {
     let mut has_print0 = false;
     let mut has_formatted_output_action = false;

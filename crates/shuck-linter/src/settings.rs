@@ -1035,7 +1035,7 @@ mod tests {
             [
                 PerFileShell::new("*.sh", ShellDialect::Sh),
                 PerFileShell::new("scripts/*.sh", ShellDialect::Bash),
-                PerFileShell::new("/workspace/scripts/special.sh", ShellDialect::Zsh),
+                PerFileShell::new("/workspace/scripts/special.sh", ShellDialect::Bash),
             ],
         )
         .unwrap();
@@ -1050,7 +1050,7 @@ mod tests {
         );
         assert_eq!(
             per_file_shell.shell_for_path(&project_root.join("scripts/special.sh")),
-            Some(ShellDialect::Zsh)
+            Some(ShellDialect::Bash)
         );
         assert_eq!(
             per_file_shell.shell_for_path(&project_root.join("README.md")),

@@ -188,7 +188,6 @@ fn command_suppression_base_span(stmt: &Stmt) -> Span {
         Command::Binary(command) => command.span,
         Command::Compound(command) => compound_suppression_base_span(command, stmt.span),
         Command::Function(command) => command.span,
-        Command::AnonymousFunction(command) => command.span,
     }
 }
 
@@ -196,8 +195,6 @@ fn compound_suppression_base_span(command: &CompoundCommand, fallback: Span) -> 
     match command {
         CompoundCommand::If(command) => command.span,
         CompoundCommand::For(command) => command.span,
-        CompoundCommand::Repeat(command) => command.span,
-        CompoundCommand::Foreach(command) => command.span,
         CompoundCommand::ArithmeticFor(command) => command.span,
         CompoundCommand::While(command) => command.span,
         CompoundCommand::Until(command) => command.span,
@@ -208,7 +205,6 @@ fn compound_suppression_base_span(command: &CompoundCommand, fallback: Span) -> 
         CompoundCommand::Time(command) => command.span,
         CompoundCommand::Conditional(command) => command.span,
         CompoundCommand::Coproc(command) => command.span,
-        CompoundCommand::Always(command) => command.span,
     }
 }
 
@@ -644,50 +640,6 @@ echo $foo
 
         assert!(index.is_suppressed(Rule::UnquotedExpansion, 3));
         assert!(!index.is_suppressed(Rule::UnquotedExpansion, 5));
-    }
-
-    #[test]
-    fn scopes_shellcheck_disable_after_zsh_brace_if_headers() {
-        let source = "\
-foo='a b'
-if [[ -n $foo ]] { # shellcheck disable=SC2086
-  echo $foo
-} elif [[ -n $foo ]] { # shellcheck disable=SC2086
-  echo $foo
-} else { # shellcheck disable=SC2086
-  echo $foo
-}
-echo $foo
-";
-        let index = suppression_index_with_dialect(source, ShellDialect::Zsh);
-
-        assert!(index.is_suppressed(Rule::UnquotedExpansion, 3));
-        assert!(index.is_suppressed(Rule::UnquotedExpansion, 5));
-        assert!(index.is_suppressed(Rule::UnquotedExpansion, 7));
-        assert!(!index.is_suppressed(Rule::UnquotedExpansion, 9));
-    }
-
-    #[test]
-    fn scopes_shellcheck_disable_after_zsh_brace_loop_headers() {
-        let source = "\
-foo='a b'
-for item in 1; { # shellcheck disable=SC2086
-  echo $foo
-}
-repeat 2 { # shellcheck disable=SC2086
-  echo $foo
-}
-foreach item (1 2) { # shellcheck disable=SC2086
-  echo $foo
-}
-echo $foo
-";
-        let index = suppression_index_with_dialect(source, ShellDialect::Zsh);
-
-        assert!(index.is_suppressed(Rule::UnquotedExpansion, 3));
-        assert!(index.is_suppressed(Rule::UnquotedExpansion, 6));
-        assert!(index.is_suppressed(Rule::UnquotedExpansion, 9));
-        assert!(!index.is_suppressed(Rule::UnquotedExpansion, 11));
     }
 
     #[test]

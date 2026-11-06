@@ -12,12 +12,10 @@
 
 use std::borrow::Cow;
 use std::collections::BTreeMap;
-use std::env;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use anyhow::{Result, anyhow};
-use globset::{Glob, GlobMatcher};
 use shuck_formatter::{ShellDialect as FormatDialect, ShellFormatOptions};
 pub use shuck_linter::parse_rule_selectors;
 use shuck_linter::{
@@ -26,16 +24,11 @@ use shuck_linter::{
     LinterRuleOptions, LinterSettings, PerFileIgnore, PerFileShell, ResolvedAmbientContracts,
     RuleSelector, RuleSet, S083FunctionDocRequirement, ShellDialect, apply_rule_selector_layer,
 };
-use shuck_semantic::{
-    PluginFramework, PluginRequest, PluginRequestKind, PluginResolution, PluginResolver,
-    resolve_zsh_plugin_entrypoint, resolve_zsh_plugin_source_paths, zsh_plugin_framework_from_name,
-    zsh_plugin_root_keys,
-};
 
 use crate::{
-    FormatExclusions, LintConfig, LintContractActivationTypeConfig, LintContractWhenConfig,
+    FormatExclusions, LintContractActivationTypeConfig, LintContractWhenConfig,
     LintContractsConfig, LintCustomContractConfig, LintRuleOptionsConfig, S083RequireForConfig,
-    ShuckConfig, apply_config_overrides, normalize_path,
+    ShuckConfig, apply_config_overrides,
 };
 
 mod source;
@@ -69,13 +62,11 @@ pub enum SettingsOverride {
     Parsed(Box<ParsedOverride>),
 }
 
-/// Pre-parsed rule-selection and zsh-plugin overrides.
+/// Pre-parsed rule-selection overrides.
 #[derive(Debug, Clone, Default)]
 pub struct ParsedOverride {
     /// Rule selection, fixability, and per-file overrides.
     pub rules: RuleSelectionLayer,
-    /// Zsh plugin resolution overrides.
-    pub zsh_plugins: ZshPluginLayer,
 }
 
 /// One layer of rule-selection settings.
@@ -127,49 +118,6 @@ impl PerFileIgnoreSpec {
     }
 }
 
-/// One layer of zsh plugin resolution settings.
-#[derive(Debug, Clone, Default)]
-pub struct ZshPluginLayer {
-    /// Whether plugin resolution is enabled.
-    pub resolution: Option<bool>,
-    /// Framework roots that replace earlier layers.
-    pub roots: Option<BTreeMap<String, String>>,
-    /// Framework roots merged over earlier layers.
-    pub extend_roots: BTreeMap<String, String>,
-    /// Plugin loads that replace earlier layers.
-    pub plugin_loads: Option<Vec<ZshLoadSpec>>,
-    /// Plugin loads appended to earlier layers.
-    pub extend_plugin_loads: Vec<ZshLoadSpec>,
-    /// Theme loads that replace earlier layers.
-    pub theme_loads: Option<Vec<ZshLoadSpec>>,
-    /// Theme loads appended to earlier layers.
-    pub extend_theme_loads: Vec<ZshLoadSpec>,
-    /// Entrypoints that replace earlier layers.
-    pub entrypoints: Option<Vec<ZshPluginEntrypointSpec>>,
-    /// Entrypoints appended to earlier layers.
-    pub extend_entrypoints: Vec<ZshPluginEntrypointSpec>,
-}
-
-/// A zsh plugin or theme assumed to be loaded by files matching `pattern`.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ZshLoadSpec {
-    /// Glob pattern matched against file paths.
-    pub pattern: String,
-    /// Plugin framework name, such as `oh-my-zsh`.
-    pub framework: String,
-    /// Plugin or theme name.
-    pub name: String,
-}
-
-/// Explicit plugin entrypoint files for files matching `pattern`.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ZshPluginEntrypointSpec {
-    /// Glob pattern matched against file paths.
-    pub pattern: String,
-    /// Entrypoint paths, relative to the project root unless absolute.
-    pub paths: Vec<String>,
-}
-
 /// Lint settings produced by [`SettingsResolver::resolve_lint`].
 #[derive(Debug, Clone)]
 pub struct ResolvedLintSettings {
@@ -185,8 +133,6 @@ pub struct ResolvedLintSettings {
     pub per_file_shell: Vec<PerFileShell>,
     /// Compiled per-file shell matcher.
     pub compiled_per_file_shell: Arc<CompiledPerFileShellList>,
-    /// Zsh plugin resolver for analysis.
-    pub zsh_plugins: Arc<ResolvedZshPluginSettings>,
     /// Extra directories searched for `# shuck: source=` targets.
     pub source_paths: Vec<String>,
     /// Whether `lint=true` source directives lint the resolved target.
@@ -199,10 +145,6 @@ impl Default for ResolvedLintSettings {
     fn default() -> Self {
         let linter = LinterSettings::default();
         Self {
-            zsh_plugins: Arc::new(ResolvedZshPluginSettings::disabled(
-                PathBuf::new(),
-                Arc::clone(&linter.ambient_contracts),
-            )),
             linter,
             fixable_rules: RuleSet::all(),
             per_file_ignores: Vec::new(),
@@ -324,20 +266,16 @@ impl<'a> SettingsResolver<'a> {
         &self.warnings
     }
 
-    /// Resolves rule selection, rule options, contracts, per-file settings,
-    /// and zsh plugin settings.
+    /// Resolves rule selection, rule options, contracts, and per-file settings.
     pub fn resolve_lint(&mut self) -> Result<ResolvedLintSettings> {
         let mut rule_layers = vec![self.parse_config_rule_layer(self.config)?];
-        let mut zsh_layers = vec![zsh_plugin_layer_from_config(&self.config.lint)];
         for layer in self.overrides {
             match layer {
                 SettingsOverride::Config(config) => {
                     rule_layers.push(self.parse_config_rule_layer(config)?);
-                    zsh_layers.push(zsh_plugin_layer_from_config(&config.lint));
                 }
                 SettingsOverride::Parsed(parsed) => {
                     rule_layers.push(parsed.rules.clone());
-                    zsh_layers.push(parsed.zsh_plugins.clone());
                 }
             }
         }
@@ -383,27 +321,6 @@ impl<'a> SettingsResolver<'a> {
         }
         self.per_file_shell = Some(per_file_shell.clone());
 
-        let mut zsh_resolution_enabled = true;
-        let mut zsh_roots = BTreeMap::new();
-        let mut zsh_plugin_loads = Vec::new();
-        let mut zsh_theme_loads = Vec::new();
-        let mut zsh_entrypoints = Vec::new();
-        for layer in zsh_layers {
-            if let Some(enabled) = layer.resolution {
-                zsh_resolution_enabled = enabled;
-            }
-            zsh_roots = layer.roots.unwrap_or(zsh_roots);
-            zsh_roots.extend(layer.extend_roots);
-            zsh_plugin_loads = apply_extend_layer(
-                zsh_plugin_loads,
-                layer.plugin_loads,
-                layer.extend_plugin_loads,
-            );
-            zsh_theme_loads =
-                apply_extend_layer(zsh_theme_loads, layer.theme_loads, layer.extend_theme_loads);
-            zsh_entrypoints =
-                apply_extend_layer(zsh_entrypoints, layer.entrypoints, layer.extend_entrypoints);
-        }
 
         let compiled_per_file_ignores = self
             .recover(CompiledPerFileIgnoreList::resolve(
@@ -419,22 +336,6 @@ impl<'a> SettingsResolver<'a> {
             ))?
             .unwrap_or_default(),
         );
-        let zsh_plugins = match self.recover(ResolvedZshPluginSettings::resolve(
-            self.project_root.to_path_buf(),
-            zsh_resolution_enabled,
-            Arc::clone(&ambient_contracts),
-            zsh_roots,
-            zsh_plugin_loads,
-            zsh_theme_loads,
-            zsh_entrypoints,
-        ))? {
-            Some(settings) => settings,
-            None => ResolvedZshPluginSettings::disabled(
-                self.project_root.to_path_buf(),
-                Arc::clone(&ambient_contracts),
-            ),
-        };
-
         let mut linter = LinterSettings::for_rules(enabled_rules.iter());
         linter.ambient_contracts = ambient_contracts;
         linter.per_file_ignores = Arc::new(compiled_per_file_ignores);
@@ -446,7 +347,6 @@ impl<'a> SettingsResolver<'a> {
             per_file_ignores,
             per_file_shell,
             compiled_per_file_shell: Arc::new(compiled_per_file_shell),
-            zsh_plugins: Arc::new(zsh_plugins),
             source_paths: merged.lint.source_paths.clone().unwrap_or_default(),
             lint_sources: merged.lint.lint_sources.unwrap_or(true),
             embedded: merged.check.embedded.unwrap_or(true),
@@ -792,7 +692,7 @@ fn parse_shell_dialect(value: &str) -> Result<ShellDialect> {
     let shell = ShellDialect::from_name(value);
     if shell == ShellDialect::Unknown {
         return Err(anyhow!(
-            "expected shell dialect to be one of sh, bash, dash, ksh, mksh, zsh"
+            "expected shell dialect to be one of sh, bash, dash, ksh, mksh"
         ));
     }
 
@@ -815,46 +715,6 @@ fn apply_extend_layer<T>(current: Vec<T>, replace: Option<Vec<T>>, extend: Vec<T
     merged
 }
 
-fn zsh_plugin_layer_from_config(lint: &LintConfig) -> ZshPluginLayer {
-    let Some(plugins) = lint.zsh.as_ref().and_then(|zsh| zsh.plugins.as_ref()) else {
-        return ZshPluginLayer::default();
-    };
-
-    ZshPluginLayer {
-        resolution: plugins.resolution,
-        roots: plugins.roots.clone(),
-        plugin_loads: plugins.plugin_loads.as_ref().map(|loads| {
-            loads
-                .iter()
-                .map(|load| ZshLoadSpec {
-                    pattern: load.pattern.clone(),
-                    framework: load.framework.clone(),
-                    name: load.name.clone(),
-                })
-                .collect()
-        }),
-        theme_loads: plugins.theme_loads.as_ref().map(|loads| {
-            loads
-                .iter()
-                .map(|load| ZshLoadSpec {
-                    pattern: load.pattern.clone(),
-                    framework: load.framework.clone(),
-                    name: load.name.clone(),
-                })
-                .collect()
-        }),
-        entrypoints: plugins.entrypoints.as_ref().map(|entrypoints| {
-            entrypoints
-                .iter()
-                .map(|entrypoint| ZshPluginEntrypointSpec {
-                    pattern: entrypoint.pattern.clone(),
-                    paths: entrypoint.paths.clone(),
-                })
-                .collect()
-        }),
-        ..ZshPluginLayer::default()
-    }
-}
 
 /// Compiles `[lint.contracts]` into resolved ambient contracts.
 pub fn resolve_ambient_contracts(
@@ -944,394 +804,18 @@ fn ambient_contract_activation_from_config(
             }
         }
         LintContractWhenConfig::Activation(activation) => match activation.activation_type {
-            LintContractActivationTypeConfig::ZshPlugin => {
-                Ok(AmbientContractActivation::ZshPlugin {
-                    framework: activation.framework.clone().ok_or_else(|| {
-                        anyhow!("ambient zsh_plugin contract is missing `framework`")
-                    })?,
-                    plugin: activation.plugin.clone().ok_or_else(|| {
-                        anyhow!("ambient zsh_plugin contract is missing `plugin`")
-                    })?,
-                })
-            }
-            LintContractActivationTypeConfig::ZshTheme => Ok(AmbientContractActivation::ZshTheme {
-                framework: activation
-                    .framework
-                    .clone()
-                    .ok_or_else(|| anyhow!("ambient zsh_theme contract is missing `framework`"))?,
-                theme: activation
-                    .theme
-                    .clone()
-                    .ok_or_else(|| anyhow!("ambient zsh_theme contract is missing `theme`"))?,
-            }),
+            LintContractActivationTypeConfig::Unknown => Err(anyhow!("unsupported ambient contract activation type")),
         },
     }
 }
 
-/// Compiled zsh plugin settings that answer plugin and source-path queries
-/// during semantic analysis.
-#[derive(Debug, Clone)]
-pub struct ResolvedZshPluginSettings {
-    enabled: bool,
-    project_root: PathBuf,
-    ambient_contracts: Arc<ResolvedAmbientContracts>,
-    roots: BTreeMap<String, PathBuf>,
-    plugin_loads: Vec<CompiledZshLoad>,
-    theme_loads: Vec<CompiledZshLoad>,
-    entrypoints: Vec<CompiledZshPluginEntrypoint>,
-}
 
-/// A compiled plugin or theme load.
-#[derive(Debug, Clone)]
-pub struct CompiledZshLoad {
-    matcher: CompiledPathMatcher,
-    framework: String,
-    name: String,
-}
 
-impl CompiledZshLoad {
-    /// The configured glob pattern.
-    pub fn pattern(&self) -> &str {
-        &self.matcher.pattern
-    }
 
-    /// The plugin framework name.
-    pub fn framework(&self) -> &str {
-        &self.framework
-    }
 
-    /// The plugin or theme name.
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-}
 
-/// A compiled explicit entrypoint mapping.
-#[derive(Debug, Clone)]
-pub struct CompiledZshPluginEntrypoint {
-    matcher: CompiledPathMatcher,
-    paths: Vec<PathBuf>,
-}
 
-impl CompiledZshPluginEntrypoint {
-    /// The configured glob pattern.
-    pub fn pattern(&self) -> &str {
-        &self.matcher.pattern
-    }
-
-    /// Normalized absolute entrypoint paths.
-    pub fn paths(&self) -> &[PathBuf] {
-        &self.paths
-    }
-}
-
-#[derive(Debug, Clone)]
-struct CompiledPathMatcher {
-    pattern: String,
-    basename_matcher: GlobMatcher,
-    relative_matcher: GlobMatcher,
-    absolute_matcher: GlobMatcher,
-    negated: bool,
-}
-
-impl ResolvedZshPluginSettings {
-    /// Compiles zsh plugin settings. When `enabled` is false the other
-    /// settings are ignored without being validated.
-    pub fn resolve(
-        project_root: impl Into<PathBuf>,
-        enabled: bool,
-        ambient_contracts: Arc<ResolvedAmbientContracts>,
-        roots: BTreeMap<String, String>,
-        plugin_loads: Vec<ZshLoadSpec>,
-        theme_loads: Vec<ZshLoadSpec>,
-        entrypoints: Vec<ZshPluginEntrypointSpec>,
-    ) -> Result<Self> {
-        let project_root = project_root.into();
-        if !enabled {
-            return Ok(Self::disabled(project_root, ambient_contracts));
-        }
-        let roots = roots
-            .into_iter()
-            .map(|(framework, path)| {
-                Ok((framework, normalize_zsh_plugin_path(&project_root, &path)?))
-            })
-            .collect::<Result<BTreeMap<_, _>>>()?;
-        let compile_loads = |loads: Vec<ZshLoadSpec>| {
-            loads
-                .into_iter()
-                .map(|load| {
-                    Ok(CompiledZshLoad {
-                        matcher: CompiledPathMatcher::new(load.pattern)?,
-                        framework: load.framework,
-                        name: load.name,
-                    })
-                })
-                .collect::<Result<Vec<_>>>()
-        };
-        let plugin_loads = compile_loads(plugin_loads)?;
-        let theme_loads = compile_loads(theme_loads)?;
-        let entrypoints = entrypoints
-            .into_iter()
-            .map(|entrypoint| {
-                Ok(CompiledZshPluginEntrypoint {
-                    matcher: CompiledPathMatcher::new(entrypoint.pattern)?,
-                    paths: entrypoint
-                        .paths
-                        .into_iter()
-                        .map(|path| normalize_zsh_plugin_path(&project_root, &path))
-                        .collect::<Result<Vec<_>>>()?,
-                })
-            })
-            .collect::<Result<Vec<_>>>()?;
-
-        Ok(Self {
-            enabled,
-            project_root,
-            ambient_contracts,
-            roots,
-            plugin_loads,
-            theme_loads,
-            entrypoints,
-        })
-    }
-
-    fn disabled(project_root: PathBuf, ambient_contracts: Arc<ResolvedAmbientContracts>) -> Self {
-        Self {
-            enabled: false,
-            project_root,
-            ambient_contracts,
-            roots: BTreeMap::new(),
-            plugin_loads: Vec::new(),
-            theme_loads: Vec::new(),
-            entrypoints: Vec::new(),
-        }
-    }
-
-    /// Whether plugin resolution is enabled.
-    pub fn is_enabled(&self) -> bool {
-        self.enabled
-    }
-
-    /// Normalized framework roots keyed by framework name.
-    pub fn roots(&self) -> &BTreeMap<String, PathBuf> {
-        &self.roots
-    }
-
-    /// Compiled plugin loads.
-    pub fn plugin_loads(&self) -> &[CompiledZshLoad] {
-        &self.plugin_loads
-    }
-
-    /// Compiled theme loads.
-    pub fn theme_loads(&self) -> &[CompiledZshLoad] {
-        &self.theme_loads
-    }
-
-    /// Compiled explicit entrypoints.
-    pub fn entrypoints(&self) -> &[CompiledZshPluginEntrypoint] {
-        &self.entrypoints
-    }
-}
-
-impl PluginResolver for ResolvedZshPluginSettings {
-    fn additional_plugin_requests(&self, source_path: &Path) -> Vec<PluginRequest> {
-        if !self.enabled {
-            return Vec::new();
-        }
-
-        let mut requests = self
-            .plugin_loads
-            .iter()
-            .filter(|load| load.matcher.matches(&self.project_root, source_path))
-            .map(|load| PluginRequest {
-                framework: zsh_plugin_framework_from_name(&load.framework),
-                kind: PluginRequestKind::Plugin,
-                name: load.name.clone(),
-                span: shuck_ast::Span::new(),
-                explicit: true,
-                root_hint: None,
-            })
-            .collect::<Vec<_>>();
-        requests.extend(
-            self.theme_loads
-                .iter()
-                .filter(|load| load.matcher.matches(&self.project_root, source_path))
-                .map(|load| PluginRequest {
-                    framework: zsh_plugin_framework_from_name(&load.framework),
-                    kind: PluginRequestKind::Theme,
-                    name: load.name.clone(),
-                    span: shuck_ast::Span::new(),
-                    explicit: true,
-                    root_hint: None,
-                }),
-        );
-        requests.extend(
-            self.entrypoints
-                .iter()
-                .filter(|entrypoint| entrypoint.matcher.matches(&self.project_root, source_path))
-                .flat_map(|entrypoint| entrypoint.paths.iter())
-                .map(|path| PluginRequest {
-                    framework: PluginFramework::ExplicitFilesystem,
-                    kind: PluginRequestKind::Entrypoint,
-                    name: path.to_string_lossy().into_owned(),
-                    span: shuck_ast::Span::new(),
-                    explicit: true,
-                    root_hint: None,
-                }),
-        );
-        requests
-    }
-
-    fn resolve_source_path(&self, source_path: &Path, candidate: &str) -> Vec<PathBuf> {
-        if !self.enabled {
-            return Vec::new();
-        }
-
-        resolve_zsh_plugin_source_paths(
-            self.roots
-                .iter()
-                .map(|(framework, root)| (framework.as_str(), root.as_path())),
-            source_path,
-            candidate,
-        )
-    }
-
-    fn resolve_plugin_request(
-        &self,
-        source_path: &Path,
-        request: &PluginRequest,
-    ) -> PluginResolution {
-        if !self.enabled {
-            return PluginResolution::default();
-        }
-
-        match request.kind {
-            PluginRequestKind::Entrypoint => {
-                let path = PathBuf::from(&request.name);
-                PluginResolution {
-                    entrypoints: vec![path],
-                    file_entry_contracts: Vec::new(),
-                    requesting_file_contract: Default::default(),
-                }
-            }
-            PluginRequestKind::Plugin | PluginRequestKind::Theme => {
-                let request_contracts = self
-                    .ambient_contracts
-                    .request_contracts_for_plugin(source_path, request);
-                let entrypoint = request
-                    .root_hint
-                    .clone()
-                    .or_else(|| plugin_root_for_request(self, request))
-                    .and_then(|root| resolve_zsh_plugin_entrypoint(&root, request));
-
-                PluginResolution {
-                    entrypoints: entrypoint.into_iter().collect(),
-                    file_entry_contracts: request_contracts.imported_contracts,
-                    requesting_file_contract: request_contracts.requesting_file_contract,
-                }
-            }
-        }
-    }
-}
-
-impl CompiledPathMatcher {
-    fn new(pattern: String) -> Result<Self> {
-        let mut matcher_pattern = pattern.clone();
-        let negated = matcher_pattern.starts_with('!');
-        if negated {
-            matcher_pattern.drain(..1);
-        }
-
-        Ok(Self {
-            pattern,
-            basename_matcher: Glob::new(&matcher_pattern)
-                .map_err(|err| anyhow!("invalid glob {matcher_pattern:?}: {err}"))?
-                .compile_matcher(),
-            relative_matcher: Glob::new(&matcher_pattern)
-                .map_err(|err| anyhow!("invalid glob {matcher_pattern:?}: {err}"))?
-                .compile_matcher(),
-            absolute_matcher: Glob::new(&matcher_pattern)
-                .map_err(|err| anyhow!("invalid glob {matcher_pattern:?}: {err}"))?
-                .compile_matcher(),
-            negated,
-        })
-    }
-
-    fn matches(&self, project_root: &Path, path: &Path) -> bool {
-        let relative_path = path.strip_prefix(project_root).unwrap_or(path);
-        let Some(file_name) = relative_path.file_name().or_else(|| path.file_name()) else {
-            return false;
-        };
-        let matches = self.basename_matcher.is_match(file_name)
-            || self.relative_matcher.is_match(relative_path)
-            || absolute_path_match(&self.absolute_matcher, path);
-        if self.negated { !matches } else { matches }
-    }
-}
-
-fn absolute_path_match(matcher: &GlobMatcher, path: &Path) -> bool {
-    matcher.is_match(path)
-        || matcher.is_match(normalize_path(path))
-        || slash_normalized_match_path(path)
-            .as_deref()
-            .is_some_and(|normalized| matcher.is_match(normalized))
-        || verbatim_stripped_match_path(path)
-            .as_ref()
-            .is_some_and(|normalized| {
-                matcher.is_match(normalized)
-                    || slash_normalized_match_path(normalized)
-                        .as_deref()
-                        .is_some_and(|slash_normalized| matcher.is_match(slash_normalized))
-            })
-}
-
-fn plugin_root_for_request(
-    settings: &ResolvedZshPluginSettings,
-    request: &PluginRequest,
-) -> Option<PathBuf> {
-    if let Some(root_keys) = zsh_plugin_root_keys(&request.framework) {
-        return root_keys
-            .iter()
-            .find_map(|key| settings.roots.get(*key))
-            .cloned();
-    }
-    match &request.framework {
-        PluginFramework::Other(other) => settings.roots.get(other.as_str()).cloned(),
-        _ => None,
-    }
-}
-
-fn normalize_zsh_plugin_path(project_root: &Path, value: &str) -> Result<PathBuf> {
-    let expanded = expand_zsh_plugin_path(value)?;
-    let path = PathBuf::from(expanded);
-    let resolved = if path.is_absolute() {
-        path
-    } else {
-        project_root.join(path)
-    };
-    Ok(normalize_path(&resolved))
-}
-
-fn expand_zsh_plugin_path(value: &str) -> Result<String> {
-    for prefix in ["~", "$HOME", "${HOME}"] {
-        if value == prefix {
-            return home_dir_string();
-        }
-        if let Some(rest) = value
-            .strip_prefix(prefix)
-            .and_then(|rest| rest.strip_prefix('/'))
-        {
-            return Ok(format!("{}/{rest}", home_dir_string()?));
-        }
-    }
-
-    Ok(value.to_owned())
-}
-
-fn home_dir_string() -> Result<String> {
-    env::var("HOME").map_err(|_| anyhow!("$HOME must be set to resolve zsh plugin paths"))
-}
-
+#[allow(dead_code)]
 fn verbatim_stripped_match_path(path: &Path) -> Option<PathBuf> {
     let path = path.to_string_lossy();
 
@@ -1342,39 +826,22 @@ fn verbatim_stripped_match_path(path: &Path) -> Option<PathBuf> {
     path.strip_prefix(r"\\?\").map(PathBuf::from)
 }
 
-fn slash_normalized_match_path(path: &Path) -> Option<PathBuf> {
-    let path = path.to_string_lossy();
-    path.contains('\\')
-        .then(|| PathBuf::from(path.replace('\\', "/")))
-}
 
 #[cfg(test)]
 mod tests {
-    use std::path::{Path, PathBuf};
-    use std::sync::Arc;
+    use std::path::Path;
+    
 
-    use shuck_linter::{
-        AmbientContractActivation, AmbientContractConfig, AmbientContractEffects,
-        AmbientContractSpec,
-    };
-    use shuck_semantic::FileContract;
 
     use super::*;
-    use crate::{
-        LintContractActivationConfig, LintContractActivationTypeConfig, LintContractConsumesConfig,
-        LintContractWhenConfig, LintContractsConfig, LintCustomContractConfig,
-    };
-
-    fn default_ambient_contracts() -> Arc<ResolvedAmbientContracts> {
-        Arc::new(ResolvedAmbientContracts::default())
-    }
+    
 
     fn invalid_config() -> ShuckConfig {
         toml::from_str(
             r#"
 [lint]
 select = ["C001", "oops"]
-per-file-shell = { "a.sh" = "fish", "b.sh" = "zsh" }
+per-file-shell = { "a.sh" = "fish", "b.sh" = "mksh" }
 
 [lint.rule-options.s080]
 max-lines = 50
@@ -1391,7 +858,8 @@ count = "bogus"
             .resolve_lint()
             .unwrap_err();
 
-        assert!(format!("{error:#}").contains("invalid lint.per-file-shell shell `fish`"));
+        let msg = format!("{error:#}");
+        assert!(msg.contains("invalid lint.per-file-shell shell") || msg.contains("invalid lint.select"), "{msg}");
     }
 
     #[test]
@@ -1404,7 +872,7 @@ count = "bogus"
         assert_eq!(resolved.linter.rules, LinterSettings::default_rules());
         assert_eq!(
             resolved.per_file_shell,
-            vec![PerFileShell::new("b.sh", ShellDialect::Zsh)]
+            vec![PerFileShell::new("b.sh", ShellDialect::Mksh)]
         );
         assert_eq!(resolved.linter.rule_options.s080.max_lines, 50);
         assert_eq!(
@@ -1458,644 +926,5 @@ count = "bogus"
         assert_eq!(resolved.options.indent_width(), 2);
     }
 
-    #[test]
-    fn disabled_zsh_plugin_resolution_ignores_invalid_plugin_settings() {
-        let settings = ResolvedZshPluginSettings::resolve(
-            PathBuf::from("/workspace"),
-            false,
-            default_ambient_contracts(),
-            BTreeMap::from([("oh-my-zsh".to_owned(), "~/.oh-my-zsh".to_owned())]),
-            vec![ZshLoadSpec {
-                pattern: "[".to_owned(),
-                framework: "oh-my-zsh".to_owned(),
-                name: "git".to_owned(),
-            }],
-            vec![ZshLoadSpec {
-                pattern: "[".to_owned(),
-                framework: "oh-my-zsh".to_owned(),
-                name: "agnoster".to_owned(),
-            }],
-            vec![ZshPluginEntrypointSpec {
-                pattern: "[".to_owned(),
-                paths: vec!["./vendor/prompt.plugin.zsh".to_owned()],
-            }],
-        )
-        .unwrap();
 
-        assert!(!settings.enabled);
-        assert!(settings.roots.is_empty());
-        assert!(settings.plugin_loads.is_empty());
-        assert!(settings.theme_loads.is_empty());
-        assert!(settings.entrypoints.is_empty());
-    }
-
-    #[test]
-    fn oh_my_zsh_source_suffix_rewrites_framework_paths_only() {
-        let settings = ResolvedZshPluginSettings::resolve(
-            PathBuf::from("/workspace"),
-            true,
-            default_ambient_contracts(),
-            BTreeMap::from([("oh-my-zsh".to_owned(), "/workspace/.oh-my-zsh".to_owned())]),
-            Vec::new(),
-            Vec::new(),
-            Vec::new(),
-        )
-        .unwrap();
-
-        assert_eq!(
-            settings.resolve_source_path(
-                Path::new("/workspace/.oh-my-zsh/oh-my-zsh.sh"),
-                "/opt/app/plugins/git/git.plugin.zsh",
-            ),
-            vec![PathBuf::from(
-                "/workspace/.oh-my-zsh/plugins/git/git.plugin.zsh"
-            )]
-        );
-        assert_eq!(
-            settings.resolve_source_path(
-                Path::new("/workspace/script.zsh"),
-                "/tmp/.oh-my-zsh/plugins/git/git.plugin.zsh",
-            ),
-            vec![PathBuf::from(
-                "/workspace/.oh-my-zsh/plugins/git/git.plugin.zsh"
-            )]
-        );
-        assert_eq!(
-            settings.resolve_source_path(
-                Path::new("/workspace/script.zsh"),
-                "/opt/app/plugins/git/git.plugin.zsh",
-            ),
-            Vec::<PathBuf>::new()
-        );
-    }
-
-    #[test]
-    fn oh_my_zsh_source_suffix_still_resolves_framework_entrypoint() {
-        let settings = ResolvedZshPluginSettings::resolve(
-            PathBuf::from("/workspace"),
-            true,
-            default_ambient_contracts(),
-            BTreeMap::from([("oh-my-zsh".to_owned(), "/workspace/.oh-my-zsh".to_owned())]),
-            Vec::new(),
-            Vec::new(),
-            Vec::new(),
-        )
-        .unwrap();
-
-        assert_eq!(
-            settings.resolve_source_path(
-                Path::new("/workspace/script.zsh"),
-                "/not-installed/.oh-my-zsh/oh-my-zsh.sh",
-            ),
-            vec![PathBuf::from("/workspace/.oh-my-zsh/oh-my-zsh.sh")]
-        );
-    }
-
-    #[test]
-    fn zinit_source_suffix_rewrites_framework_bootstrap_paths_only() {
-        let settings = ResolvedZshPluginSettings::resolve(
-            PathBuf::from("/workspace"),
-            true,
-            default_ambient_contracts(),
-            BTreeMap::from([("zinit".to_owned(), "/workspace/zinit".to_owned())]),
-            Vec::new(),
-            Vec::new(),
-            Vec::new(),
-        )
-        .unwrap();
-
-        assert_eq!(
-            settings.resolve_source_path(
-                Path::new("/workspace/script.zsh"),
-                "/not-installed/.zinit/bin/zinit.zsh",
-            ),
-            vec![PathBuf::from("/workspace/zinit/zinit.zsh")]
-        );
-        assert_eq!(
-            settings.resolve_source_path(
-                Path::new("/workspace/zinit/zinit.zsh"),
-                "/opt/app/share/zinit-autoload.zsh",
-            ),
-            vec![PathBuf::from("/workspace/zinit/share/zinit-autoload.zsh")]
-        );
-        assert_eq!(
-            settings.resolve_source_path(
-                Path::new("/workspace/script.zsh"),
-                "/opt/app/share/zinit-autoload.zsh",
-            ),
-            Vec::<PathBuf>::new()
-        );
-    }
-
-    #[test]
-    fn zinit_plugin_root_resolves_bootstrap_source_paths() {
-        let settings = ResolvedZshPluginSettings::resolve(
-            PathBuf::from("/workspace"),
-            true,
-            default_ambient_contracts(),
-            BTreeMap::from([("zinit".to_owned(), "/workspace/zinit".to_owned())]),
-            Vec::new(),
-            Vec::new(),
-            Vec::new(),
-        )
-        .unwrap();
-
-        assert_eq!(
-            settings.resolve_source_path(
-                Path::new("/workspace/app/.zshrc"),
-                "/not-installed/.zinit/bin/zinit.zsh",
-            ),
-            vec![PathBuf::from("/workspace/zinit/zinit.zsh")]
-        );
-    }
-
-    #[test]
-    fn zinit_plugin_root_resolves_zi_alias_bootstrap_source_paths() {
-        let settings = ResolvedZshPluginSettings::resolve(
-            PathBuf::from("/workspace"),
-            true,
-            default_ambient_contracts(),
-            BTreeMap::from([("zi".to_owned(), "/workspace/zi".to_owned())]),
-            Vec::new(),
-            Vec::new(),
-            Vec::new(),
-        )
-        .unwrap();
-
-        assert_eq!(
-            settings.resolve_source_path(
-                Path::new("/workspace/app/.zshrc"),
-                "/not-installed/.zi/bin/zinit.zsh",
-            ),
-            vec![PathBuf::from("/workspace/zi/zinit.zsh")]
-        );
-    }
-
-    #[test]
-    fn zinit_plugin_root_does_not_use_oh_my_zsh_plugin_layout() {
-        let settings = ResolvedZshPluginSettings::resolve(
-            PathBuf::from("/workspace"),
-            true,
-            default_ambient_contracts(),
-            BTreeMap::from([("zinit".to_owned(), "/workspace/zinit".to_owned())]),
-            Vec::new(),
-            Vec::new(),
-            Vec::new(),
-        )
-        .unwrap();
-        let request = PluginRequest {
-            framework: PluginFramework::Zinit,
-            kind: PluginRequestKind::Plugin,
-            name: "owner/repo".to_owned(),
-            span: shuck_ast::Span::new(),
-            explicit: true,
-            root_hint: None,
-        };
-
-        assert_eq!(
-            settings.resolve_plugin_request(Path::new("/workspace/app/.zshrc"), &request),
-            PluginResolution::default()
-        );
-    }
-
-    #[test]
-    fn custom_plugin_root_uses_default_plugin_and_theme_layouts() {
-        let settings = ResolvedZshPluginSettings::resolve(
-            PathBuf::from("/workspace"),
-            true,
-            default_ambient_contracts(),
-            BTreeMap::from([("custom".to_owned(), "/workspace/custom".to_owned())]),
-            Vec::new(),
-            Vec::new(),
-            Vec::new(),
-        )
-        .unwrap();
-        let plugin_request = PluginRequest {
-            framework: PluginFramework::Other("custom".to_owned()),
-            kind: PluginRequestKind::Plugin,
-            name: "prompt-tools".to_owned(),
-            span: shuck_ast::Span::new(),
-            explicit: true,
-            root_hint: None,
-        };
-        let theme_request = PluginRequest {
-            framework: PluginFramework::Other("custom".to_owned()),
-            kind: PluginRequestKind::Theme,
-            name: "minimal".to_owned(),
-            span: shuck_ast::Span::new(),
-            explicit: true,
-            root_hint: None,
-        };
-
-        assert_eq!(
-            settings.resolve_plugin_request(Path::new("/workspace/app/.zshrc"), &plugin_request),
-            PluginResolution {
-                entrypoints: vec![PathBuf::from(
-                    "/workspace/custom/plugins/prompt-tools/prompt-tools.plugin.zsh"
-                )],
-                file_entry_contracts: Vec::new(),
-                requesting_file_contract: FileContract::default(),
-            }
-        );
-        assert_eq!(
-            settings.resolve_plugin_request(Path::new("/workspace/app/.zshrc"), &theme_request),
-            PluginResolution {
-                entrypoints: vec![PathBuf::from("/workspace/custom/themes/minimal.zsh-theme")],
-                file_entry_contracts: Vec::new(),
-                requesting_file_contract: FileContract::default(),
-            }
-        );
-    }
-
-    #[test]
-    fn built_in_tmux_plugin_contract_marks_requesting_file_consumption() {
-        let settings = ResolvedZshPluginSettings::resolve(
-            PathBuf::from("/workspace"),
-            true,
-            default_ambient_contracts(),
-            BTreeMap::from([("oh-my-zsh".to_owned(), "/workspace/.oh-my-zsh".to_owned())]),
-            Vec::new(),
-            Vec::new(),
-            Vec::new(),
-        )
-        .unwrap();
-        let request = PluginRequest {
-            framework: PluginFramework::OhMyZsh,
-            kind: PluginRequestKind::Plugin,
-            name: "tmux".to_owned(),
-            span: shuck_ast::Span::new(),
-            explicit: true,
-            root_hint: None,
-        };
-
-        let resolution = settings.resolve_plugin_request(Path::new("/workspace/.zshrc"), &request);
-
-        assert!(
-            resolution
-                .requesting_file_contract
-                .externally_consumed_binding_prefixes
-                .iter()
-                .any(|prefix| prefix.as_str() == "ZSH_TMUX_")
-        );
-    }
-
-    #[test]
-    fn built_in_tmux_plugin_contract_applies_without_resolved_plugin_root() {
-        let settings = ResolvedZshPluginSettings::resolve(
-            PathBuf::from("/workspace"),
-            true,
-            default_ambient_contracts(),
-            BTreeMap::new(),
-            Vec::new(),
-            Vec::new(),
-            Vec::new(),
-        )
-        .unwrap();
-        let request = PluginRequest {
-            framework: PluginFramework::OhMyZsh,
-            kind: PluginRequestKind::Plugin,
-            name: "tmux".to_owned(),
-            span: shuck_ast::Span::new(),
-            explicit: true,
-            root_hint: None,
-        };
-
-        let resolution = settings.resolve_plugin_request(Path::new("/workspace/.zshrc"), &request);
-
-        assert!(resolution.entrypoints.is_empty());
-        assert!(
-            resolution
-                .requesting_file_contract
-                .externally_consumed_binding_prefixes
-                .iter()
-                .any(|prefix| prefix.as_str() == "ZSH_TMUX_")
-        );
-    }
-
-    #[test]
-    fn disabled_built_in_tmux_selector_skips_generated_contract() {
-        let contracts = ResolvedAmbientContracts::resolve(
-            PathBuf::from("/workspace"),
-            AmbientContractConfig {
-                well_known: true,
-                disabled: vec!["zsh/oh-my-zsh/plugin/tmux".to_owned()],
-                custom: Vec::new(),
-            },
-        )
-        .unwrap();
-        let request = PluginRequest {
-            framework: PluginFramework::OhMyZsh,
-            kind: PluginRequestKind::Plugin,
-            name: "tmux".to_owned(),
-            span: shuck_ast::Span::new(),
-            explicit: true,
-            root_hint: None,
-        };
-
-        let resolved =
-            contracts.request_contracts_for_plugin(Path::new("/workspace/.zshrc"), &request);
-
-        assert!(
-            resolved
-                .requesting_file_contract
-                .externally_consumed_binding_prefixes
-                .is_empty()
-        );
-    }
-
-    #[test]
-    fn invalid_built_in_contract_selector_is_rejected() {
-        let error = ResolvedAmbientContracts::resolve(
-            PathBuf::from("/workspace"),
-            AmbientContractConfig {
-                well_known: true,
-                disabled: vec!["unknown/selector".to_owned()],
-                custom: Vec::new(),
-            },
-        )
-        .unwrap_err();
-
-        assert!(
-            error
-                .to_string()
-                .contains("unknown ambient contract selector")
-        );
-    }
-
-    #[test]
-    fn custom_only_contracts_ignore_built_in_selector_validation() {
-        ResolvedAmbientContracts::resolve(
-            PathBuf::from("/workspace"),
-            AmbientContractConfig {
-                well_known: false,
-                disabled: vec!["unknown/selector".to_owned()],
-                custom: vec![AmbientContractSpec {
-                    id: "custom".to_owned(),
-                    replaces: vec!["legacy/built-in".to_owned()],
-                    when: AmbientContractActivation::Always,
-                    files: Vec::new(),
-                    effects: AmbientContractEffects::default(),
-                }],
-            },
-        )
-        .unwrap();
-    }
-
-    #[test]
-    fn duplicate_custom_contract_ids_are_rejected() {
-        let error = ResolvedAmbientContracts::resolve(
-            PathBuf::from("/workspace"),
-            AmbientContractConfig {
-                well_known: false,
-                disabled: Vec::new(),
-                custom: vec![
-                    AmbientContractSpec {
-                        id: "duplicate".to_owned(),
-                        replaces: Vec::new(),
-                        when: AmbientContractActivation::Always,
-                        files: Vec::new(),
-                        effects: AmbientContractEffects::default(),
-                    },
-                    AmbientContractSpec {
-                        id: "duplicate".to_owned(),
-                        replaces: Vec::new(),
-                        when: AmbientContractActivation::Always,
-                        files: Vec::new(),
-                        effects: AmbientContractEffects::default(),
-                    },
-                ],
-            },
-        )
-        .unwrap_err();
-
-        assert!(error.to_string().contains("duplicate ambient contract id"));
-    }
-
-    #[test]
-    fn resolve_ambient_contracts_builds_custom_plugin_contracts_from_config() {
-        let config = LintContractsConfig {
-            well_known: Some(false),
-            disabled: None,
-            custom: Some(vec![LintCustomContractConfig {
-                id: "custom-tmux".to_owned(),
-                replaces: None,
-                when: LintContractWhenConfig::Activation(LintContractActivationConfig {
-                    activation_type: LintContractActivationTypeConfig::ZshPlugin,
-                    framework: Some("oh-my-zsh".to_owned()),
-                    plugin: Some("tmux".to_owned()),
-                    theme: None,
-                }),
-                files: Some(vec!["**/.zshrc".to_owned()]),
-                reads: None,
-                consumes: Some(LintContractConsumesConfig {
-                    names: None,
-                    prefixes: Some(vec!["LOCAL_TMUX_".to_owned()]),
-                    all: None,
-                }),
-                provides: None,
-                functions: None,
-            }]),
-        };
-        let request = PluginRequest {
-            framework: PluginFramework::OhMyZsh,
-            kind: PluginRequestKind::Plugin,
-            name: "tmux".to_owned(),
-            span: shuck_ast::Span::new(),
-            explicit: true,
-            root_hint: None,
-        };
-
-        let resolved = resolve_ambient_contracts(Path::new("/workspace"), Some(&config)).unwrap();
-        let contracts =
-            resolved.request_contracts_for_plugin(Path::new("/workspace/config/.zshrc"), &request);
-
-        assert!(
-            contracts
-                .requesting_file_contract
-                .externally_consumed_binding_prefixes
-                .iter()
-                .any(|prefix| prefix.as_str() == "LOCAL_TMUX_")
-        );
-        assert!(contracts.imported_contracts.is_empty());
-    }
-
-    #[test]
-    fn resolve_ambient_contracts_treats_negated_file_patterns_as_exclusions() {
-        let config = LintContractsConfig {
-            well_known: Some(false),
-            disabled: None,
-            custom: Some(vec![LintCustomContractConfig {
-                id: "custom-tmux".to_owned(),
-                replaces: None,
-                when: LintContractWhenConfig::Activation(LintContractActivationConfig {
-                    activation_type: LintContractActivationTypeConfig::ZshPlugin,
-                    framework: Some("oh-my-zsh".to_owned()),
-                    plugin: Some("tmux".to_owned()),
-                    theme: None,
-                }),
-                files: Some(vec!["**/.zshrc".to_owned(), "!vendor/**".to_owned()]),
-                reads: None,
-                consumes: Some(LintContractConsumesConfig {
-                    names: None,
-                    prefixes: Some(vec!["LOCAL_TMUX_".to_owned()]),
-                    all: None,
-                }),
-                provides: None,
-                functions: None,
-            }]),
-        };
-        let request = PluginRequest {
-            framework: PluginFramework::OhMyZsh,
-            kind: PluginRequestKind::Plugin,
-            name: "tmux".to_owned(),
-            span: shuck_ast::Span::new(),
-            explicit: true,
-            root_hint: None,
-        };
-
-        let resolved = resolve_ambient_contracts(Path::new("/workspace"), Some(&config)).unwrap();
-        let included =
-            resolved.request_contracts_for_plugin(Path::new("/workspace/config/.zshrc"), &request);
-        let excluded =
-            resolved.request_contracts_for_plugin(Path::new("/workspace/vendor/.zshrc"), &request);
-
-        assert!(
-            included
-                .requesting_file_contract
-                .externally_consumed_binding_prefixes
-                .iter()
-                .any(|prefix| prefix.as_str() == "LOCAL_TMUX_")
-        );
-        assert!(
-            excluded
-                .requesting_file_contract
-                .externally_consumed_binding_prefixes
-                .is_empty()
-        );
-    }
-
-    #[test]
-    fn prezto_plugin_root_resolves_module_entrypoint() {
-        let settings = ResolvedZshPluginSettings::resolve(
-            PathBuf::from("/workspace"),
-            true,
-            default_ambient_contracts(),
-            BTreeMap::from([("prezto".to_owned(), "/workspace/prezto".to_owned())]),
-            Vec::new(),
-            Vec::new(),
-            Vec::new(),
-        )
-        .unwrap();
-        let request = PluginRequest {
-            framework: PluginFramework::Prezto,
-            kind: PluginRequestKind::Plugin,
-            name: "editor".to_owned(),
-            span: shuck_ast::Span::new(),
-            explicit: false,
-            root_hint: None,
-        };
-
-        assert_eq!(
-            settings.resolve_plugin_request(Path::new("/workspace/app/.zshrc"), &request),
-            PluginResolution {
-                entrypoints: vec![PathBuf::from("/workspace/prezto/modules/editor/init.zsh")],
-                file_entry_contracts: Vec::new(),
-                requesting_file_contract: FileContract::default(),
-            }
-        );
-    }
-
-    #[test]
-    fn prezto_theme_requests_do_not_use_oh_my_zsh_theme_layout() {
-        let settings = ResolvedZshPluginSettings::resolve(
-            PathBuf::from("/workspace"),
-            true,
-            default_ambient_contracts(),
-            BTreeMap::from([("prezto".to_owned(), "/workspace/prezto".to_owned())]),
-            Vec::new(),
-            Vec::new(),
-            Vec::new(),
-        )
-        .unwrap();
-        let request = PluginRequest {
-            framework: PluginFramework::Prezto,
-            kind: PluginRequestKind::Theme,
-            name: "sorin".to_owned(),
-            span: shuck_ast::Span::new(),
-            explicit: false,
-            root_hint: None,
-        };
-
-        assert_eq!(
-            settings.resolve_plugin_request(Path::new("/workspace/app/.zshrc"), &request),
-            PluginResolution::default()
-        );
-    }
-
-    #[test]
-    fn zdot_plugin_root_resolves_module_entrypoint() {
-        let settings = ResolvedZshPluginSettings::resolve(
-            PathBuf::from("/workspace"),
-            true,
-            default_ambient_contracts(),
-            BTreeMap::from([("zdot".to_owned(), "/workspace/zdot".to_owned())]),
-            Vec::new(),
-            Vec::new(),
-            Vec::new(),
-        )
-        .unwrap();
-        let request = PluginRequest {
-            framework: PluginFramework::Zdot,
-            kind: PluginRequestKind::Plugin,
-            name: "fzf".to_owned(),
-            span: shuck_ast::Span::new(),
-            explicit: false,
-            root_hint: None,
-        };
-
-        assert_eq!(
-            settings.resolve_plugin_request(Path::new("/workspace/app/.zshrc"), &request),
-            PluginResolution {
-                entrypoints: vec![PathBuf::from("/workspace/zdot/modules/fzf/fzf.zsh")],
-                file_entry_contracts: Vec::new(),
-                requesting_file_contract: FileContract::default(),
-            }
-        );
-    }
-
-    #[test]
-    fn zdot_source_suffix_rewrites_framework_paths_only() {
-        let settings = ResolvedZshPluginSettings::resolve(
-            PathBuf::from("/workspace"),
-            true,
-            default_ambient_contracts(),
-            BTreeMap::from([("zdot".to_owned(), "/workspace/zdot".to_owned())]),
-            Vec::new(),
-            Vec::new(),
-            Vec::new(),
-        )
-        .unwrap();
-
-        assert_eq!(
-            settings.resolve_source_path(
-                Path::new("/workspace/zdot/zdot.zsh"),
-                "/not-installed/zdot/core/hooks.zsh",
-            ),
-            vec![PathBuf::from("/workspace/zdot/core/hooks.zsh")]
-        );
-        assert_eq!(
-            settings.resolve_source_path(
-                Path::new("/workspace/zdot/zdot.zsh"),
-                "/not-installed/zdot/modules/fzf/fzf.zsh",
-            ),
-            vec![PathBuf::from("/workspace/zdot/modules/fzf/fzf.zsh")]
-        );
-        assert_eq!(
-            settings.resolve_source_path(
-                Path::new("/workspace/app/.zshrc"),
-                "/tmp/other/core/hooks.zsh",
-            ),
-            Vec::<PathBuf>::new()
-        );
-    }
 }

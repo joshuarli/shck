@@ -237,6 +237,5 @@ fn stmt_renders_with_subshell_open(stmt: &Stmt) -> bool {
     match &stmt.command {
         Command::Binary(command) => stmt_renders_with_subshell_open(&command.left),
         Command::Compound(CompoundCommand::Subshell(_)) => true,
-        _ => false,
-    }
+        _ => false }
 }

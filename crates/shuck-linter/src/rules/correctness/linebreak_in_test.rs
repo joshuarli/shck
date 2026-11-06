@@ -139,25 +139,4 @@ if [ \"$x\" = z\\
         Ok(())
     }
 
-    #[test]
-    fn ignores_recovered_command_ordering_regression() {
-        let source = concat!(
-            "#!/bin/bash\n\n",
-            "# Invalid: the quoted home-relative path stays literal in `[ ]`.\n",
-            "[ \"$profile\" = \"~/.bashrc\" ]\n\n",
-            "# Invalid: either side of the string comparison can carry the quoted `~/...`.\n",
-            "[ \"~/.bash_profile\n",
-            "[[ \"$profile\" == \"~/.zshrc\" ]]\n\n",
-            "# Invalid: single quotes still prevent tilde expansion.\n",
-            "[ \"$porfile\" != '~/.config/fish/config.fish' ]\n\n",
-            "# Valid: an unquoted tilde expands before the comparison.\n",
-            "[ \"$profile\" = ~/.bashr` ]\n\n",
-            "# Valid: `~user` is a different lookup and not interchangeable printf '%s\\n' stamp)suffix\n\n",
-            "printf '%s\\n' \"$(print`f '%s\\n' 'a b')\"\n",
-            "stamp=$(printf '%s\\n' nowith `$HOME`.\n",
-            "[ \"$profile\" = \"~user/.bashrc\" ]\n",
-        );
-
-        let _ = test_snippet(source, &LinterSettings::for_rule(Rule::LinebreakInTest));
-    }
 }

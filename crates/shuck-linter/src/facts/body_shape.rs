@@ -95,32 +95,18 @@ impl<'source> BodyShapeAnalyzer<'source> {
                             self.stmt_or_nested_sequence_contains_test_command(stmt)
                         })
                     }
-                    CompoundCommand::Always(command) => {
-                        command
-                            .body
-                            .iter()
-                            .any(|stmt| self.stmt_or_nested_sequence_contains_test_command(stmt))
-                            || command.always_body.iter().any(|stmt| {
-                                self.stmt_or_nested_sequence_contains_test_command(stmt)
-                            })
-                    }
                     CompoundCommand::Case(command) => command.cases.iter().any(|case| {
                         case.body
                             .iter()
                             .any(|stmt| self.stmt_or_nested_sequence_contains_test_command(stmt))
                     }),
                     CompoundCommand::Conditional(_)
-                    | CompoundCommand::Repeat(_)
-                    | CompoundCommand::Foreach(_)
                     | CompoundCommand::ArithmeticFor(_)
                     | CompoundCommand::Arithmetic(_)
                     | CompoundCommand::Coproc(_) => false,
                 }
             }
             Command::Function(function) => {
-                self.stmt_or_nested_sequence_contains_test_command(&function.body)
-            }
-            Command::AnonymousFunction(function) => {
                 self.stmt_or_nested_sequence_contains_test_command(&function.body)
             }
             Command::Simple(_) | Command::Builtin(_) | Command::Decl(_) => false,
@@ -221,17 +207,13 @@ impl<'source> BodyShapeAnalyzer<'source> {
                 | CompoundCommand::Select(_)
                 | CompoundCommand::Case(_)
                 | CompoundCommand::Conditional(_)
-                | CompoundCommand::Repeat(_)
-                | CompoundCommand::Foreach(_)
                 | CompoundCommand::ArithmeticFor(_)
                 | CompoundCommand::Arithmetic(_)
-                | CompoundCommand::Coproc(_)
-                | CompoundCommand::Always(_) => false,
+                | CompoundCommand::Coproc(_) => false,
             },
             Command::Builtin(_)
             | Command::Decl(_)
-            | Command::Function(_)
-            | Command::AnonymousFunction(_) => false,
+            | Command::Function(_) => false,
         }
     }
 
@@ -261,17 +243,13 @@ impl<'source> BodyShapeAnalyzer<'source> {
                 | CompoundCommand::Select(_)
                 | CompoundCommand::Case(_)
                 | CompoundCommand::Conditional(_)
-                | CompoundCommand::Repeat(_)
-                | CompoundCommand::Foreach(_)
                 | CompoundCommand::ArithmeticFor(_)
                 | CompoundCommand::Arithmetic(_)
-                | CompoundCommand::Coproc(_)
-                | CompoundCommand::Always(_) => false,
+                | CompoundCommand::Coproc(_) => false,
             },
             Command::Simple(_)
             | Command::Decl(_)
-            | Command::Function(_)
-            | Command::AnonymousFunction(_) => false,
+            | Command::Function(_) => false,
             Command::Builtin(
                 BuiltinCommand::Break(_) | BuiltinCommand::Continue(_) | BuiltinCommand::Exit(_),
             ) => false,
@@ -357,12 +335,6 @@ impl<'source> BodyShapeAnalyzer<'source> {
                 CompoundCommand::For(command) => {
                     self.visit_status_available_sites_in_seq(&command.body, true, visitor);
                 }
-                CompoundCommand::Repeat(command) => {
-                    self.visit_status_available_sites_in_seq(&command.body, true, visitor);
-                }
-                CompoundCommand::Foreach(command) => {
-                    self.visit_status_available_sites_in_seq(&command.body, true, visitor);
-                }
                 CompoundCommand::ArithmeticFor(command) => {
                     self.visit_status_available_sites_in_seq(&command.body, true, visitor);
                 }
@@ -401,19 +373,12 @@ impl<'source> BodyShapeAnalyzer<'source> {
                 CompoundCommand::Coproc(command) => {
                     self.visit_status_available_sites_in_stmt(&command.body, true, visitor);
                 }
-                CompoundCommand::Always(command) => {
-                    self.visit_status_available_sites_in_seq(&command.body, true, visitor);
-                    self.visit_status_available_sites_in_seq(&command.always_body, true, visitor);
-                }
             },
             Command::Binary(command) => {
                 self.visit_status_available_sites_in_stmt(&command.left, status_available, visitor);
                 self.visit_status_available_sites_in_stmt(&command.right, true, visitor);
             }
             Command::Function(command) => {
-                self.visit_status_available_sites_in_function_body(&command.body, visitor);
-            }
-            Command::AnonymousFunction(command) => {
                 self.visit_status_available_sites_in_function_body(&command.body, visitor);
             }
             Command::Builtin(_) | Command::Decl(_) => {}

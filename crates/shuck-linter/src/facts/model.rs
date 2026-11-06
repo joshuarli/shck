@@ -427,7 +427,7 @@ impl<'facts, 'a> CommandFactQueries<'facts, 'a> {
             .map(|id| self.command(id))
     }
 
-    pub(crate) fn expansion_behavior_at(self, offset: usize) -> ShellBehaviorAt<'a> {
+    pub(crate) fn expansion_behavior_at(self, offset: usize) -> ShellBehaviorAt {
         self.innermost_command_at(offset).map_or_else(
             || self.facts.semantic.shell_behavior_at(offset),
             |command| command.shell_behavior().clone(),
@@ -2020,7 +2020,6 @@ pub(crate) fn collect_scope_compat_command_substitution_name_uses_in_parts(
                 collect_scope_compat_arithmetic_name_use(expression_word_ast, source, uses);
             }
             WordPart::Literal(_)
-            | WordPart::ZshQualifiedGlob(_)
             | WordPart::SingleQuoted { .. }
             | WordPart::Variable(_)
             | WordPart::Parameter(_)
@@ -2256,7 +2255,7 @@ pub(crate) fn collect_array_assignment_split_scalar_expansion_spans(
 pub(crate) fn shell_has_brace_expansion(shell: ShellDialect) -> bool {
     matches!(
         shell,
-        ShellDialect::Bash | ShellDialect::Ksh | ShellDialect::Mksh | ShellDialect::Zsh
+        ShellDialect::Bash | ShellDialect::Ksh | ShellDialect::Mksh | ShellDialect::Bash
     )
 }
 

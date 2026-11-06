@@ -145,7 +145,7 @@ f() {
 
         let diagnostics = test_snippet(
             source,
-            &LinterSettings::for_rule(Rule::LocalDeclareCombined).with_shell(ShellDialect::Zsh),
+            &LinterSettings::for_rule(Rule::LocalDeclareCombined).with_shell(ShellDialect::Bash),
         );
 
         assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");

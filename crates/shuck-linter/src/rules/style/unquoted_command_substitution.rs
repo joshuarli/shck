@@ -500,24 +500,6 @@ kill $(cat \"$pidfile\")
     }
 
     #[test]
-    fn skips_native_zsh_command_substitutions_without_split_behavior() {
-        let source = "print $(cmd)\nsetopt sh_word_split\nprint $(cmd)\n";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::UnquotedCommandSubstitution)
-                .with_shell(ShellDialect::Zsh),
-        );
-
-        assert_eq!(
-            diagnostics
-                .iter()
-                .map(|diagnostic| diagnostic.span.slice(source))
-                .collect::<Vec<_>>(),
-            vec!["$(cmd)"]
-        );
-    }
-
-    #[test]
     fn reports_inner_command_substitution_inside_heredoc_eval_wrapper() {
         let source = "\
 #!/bin/bash

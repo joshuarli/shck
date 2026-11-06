@@ -158,71 +158,6 @@ fn test_ansi_c_control_escape_can_consume_quote() {
 }
 
 #[test]
-fn test_array_element_with_quoted_prefix_zsh_glob_qualifier_stays_one_word() {
-    let source = r#"plugins=( "$plugin_dir"/*(:t) )"#;
-    let mut lexer = Lexer::new(source);
-
-    assert_next_token(&mut lexer, TokenKind::Word, Some("plugins="));
-    assert_next_token(&mut lexer, TokenKind::LeftParen, None);
-
-    let token = lexer.next_lexed_token().unwrap();
-    assert_eq!(token.kind, TokenKind::Word);
-    assert_eq!(token.span.slice(source), r#""$plugin_dir"/*(:t)"#);
-
-    let word = token.word().unwrap();
-    let segments: Vec<_> = word
-        .segments()
-        .map(|segment| (segment.kind(), segment.as_str().to_string()))
-        .collect();
-    assert_eq!(
-        segments,
-        vec![
-            (
-                LexedWordSegmentKind::DoubleQuoted,
-                "$plugin_dir".to_string()
-            ),
-            (LexedWordSegmentKind::Plain, "/*".to_string()),
-            (LexedWordSegmentKind::Plain, "(:t)".to_string()),
-        ]
-    );
-
-    assert_next_token(&mut lexer, TokenKind::RightParen, None);
-    assert!(lexer.next_lexed_token().is_none());
-}
-
-#[test]
-fn test_array_element_with_quoted_variable_zsh_qualifier_stays_one_word() {
-    let source = r#"__GREP_ALIAS_CACHES=( "$__GREP_CACHE_FILE"(Nm-1) )"#;
-    let mut lexer = Lexer::new(source);
-
-    assert_next_token(&mut lexer, TokenKind::Word, Some("__GREP_ALIAS_CACHES="));
-    assert_next_token(&mut lexer, TokenKind::LeftParen, None);
-
-    let token = lexer.next_lexed_token().unwrap();
-    assert_eq!(token.kind, TokenKind::Word);
-    assert_eq!(token.span.slice(source), r#""$__GREP_CACHE_FILE"(Nm-1)"#);
-
-    let word = token.word().unwrap();
-    let segments: Vec<_> = word
-        .segments()
-        .map(|segment| (segment.kind(), segment.as_str().to_string()))
-        .collect();
-    assert_eq!(
-        segments,
-        vec![
-            (
-                LexedWordSegmentKind::DoubleQuoted,
-                "$__GREP_CACHE_FILE".to_string()
-            ),
-            (LexedWordSegmentKind::Plain, "(Nm-1)".to_string()),
-        ]
-    );
-
-    assert_next_token(&mut lexer, TokenKind::RightParen, None);
-    assert!(lexer.next_lexed_token().is_none());
-}
-
-#[test]
 fn test_case_arm_with_quoted_space_substitution_stays_line_local() {
     let input = concat!(
         "case \"${_input_type:-}\" in\n",
@@ -241,15 +176,3 @@ fn test_case_arm_with_quoted_space_substitution_stays_line_local() {
     assert!(tokens.contains(&(TokenKind::Word, Some("esac".to_string()))));
 }
 
-#[test]
-fn test_zsh_midfile_setopt_rc_quotes_merges_adjacent_single_quotes() {
-    let source = "setopt rc_quotes\nprint 'a''b'\n";
-    let profile = ShellProfile::native(crate::parser::ShellDialect::Zsh);
-    let mut lexer = Lexer::with_profile(source, &profile);
-
-    assert_next_token(&mut lexer, TokenKind::Word, Some("setopt"));
-    assert_next_token(&mut lexer, TokenKind::Word, Some("rc_quotes"));
-    assert_next_token(&mut lexer, TokenKind::Newline, None);
-    assert_next_token(&mut lexer, TokenKind::Word, Some("print"));
-    assert_next_token(&mut lexer, TokenKind::LiteralWord, Some("a'b"));
-}

@@ -100,7 +100,6 @@ pub fn normalize_command<'a>(command: &'a Command, source: &'a str) -> Normalize
         Command::Binary(command) => empty_normalized_command(command.span),
         Command::Compound(command) => empty_normalized_command(compound_span(command)),
         Command::Function(command) => empty_normalized_command(command.span),
-        Command::AnonymousFunction(command) => empty_normalized_command(command.span),
     }
 }
 
@@ -320,8 +319,6 @@ fn compound_span(command: &CompoundCommand) -> Span {
     match command {
         CompoundCommand::If(command) => command.span,
         CompoundCommand::For(command) => command.span,
-        CompoundCommand::Repeat(command) => command.span,
-        CompoundCommand::Foreach(command) => command.span,
         CompoundCommand::ArithmeticFor(command) => command.span,
         CompoundCommand::While(command) => command.span,
         CompoundCommand::Until(command) => command.span,
@@ -334,7 +331,6 @@ fn compound_span(command: &CompoundCommand) -> Span {
         CompoundCommand::Time(command) => command.span,
         CompoundCommand::Conditional(command) => command.span,
         CompoundCommand::Coproc(command) => command.span,
-        CompoundCommand::Always(command) => command.span,
     }
 }
 
@@ -432,12 +428,10 @@ fn find_exec_target_index(
                     .get(index + 1)
                     .map(|_| (WrapperKind::FindExecDir, index + 1));
             }
-            "-okdir" => {
-                if fallback.is_none() {
-                    fallback = words
-                        .get(index + 1)
-                        .map(|_| (WrapperKind::FindExec, index + 1));
-                }
+            "-okdir" if fallback.is_none() => {
+                fallback = words
+                    .get(index + 1)
+                    .map(|_| (WrapperKind::FindExec, index + 1));
             }
             _ => {}
         }

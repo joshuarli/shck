@@ -105,7 +105,7 @@ fn numeric_comparison_redirect_diagnostic(
     };
 
     let target = redirect_data.word_target()?;
-    if !static_word_text(target, source).is_some_and(|text| looks_like_decimal_integer(&text)) {
+    if !static_word_text(target, source).is_some_and(|text| looks_like_decimal_integer(text.as_ref())) {
         return None;
     }
 
@@ -263,7 +263,7 @@ fn has_decimal_version_like_operand(binary: &ConditionalBinaryFact<'_>, source: 
         operand
             .word()
             .and_then(|word| static_word_text(word, source))
-            .is_some_and(|text| is_decimal_version_like(&text))
+            .is_some_and(|text| is_decimal_version_like(text.as_ref()))
     })
 }
 
@@ -276,7 +276,7 @@ fn operand_is_numeric_literal(
         return false;
     };
 
-    static_word_text(word, source).is_some_and(|text| looks_like_decimal_integer(&text))
+    static_word_text(word, source).is_some_and(|text| looks_like_decimal_integer(text.as_ref()))
         || checker
             .facts()
             .words()
@@ -324,7 +324,7 @@ fn binding_is_numeric_literal(checker: &Checker<'_>, binding_id: BindingId) -> b
         .binding_value(binding_id)
         .and_then(|value| value.scalar_word())
         .and_then(|word| static_word_text(word, checker.source()))
-        .is_some_and(|text| looks_like_decimal_integer(&text))
+        .is_some_and(|text| looks_like_decimal_integer(text.as_ref()))
 }
 
 fn looks_like_decimal_integer(text: &str) -> bool {

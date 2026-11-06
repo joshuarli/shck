@@ -337,41 +337,6 @@ name+=still_ok
 }
 
 #[test]
-fn bare_command_name_assignments_respect_zsh_equals_option() {
-    let source = "\
-#!/bin/zsh
-unsetopt equals
-tool==grep run
-setopt magic_equal_subst
-magic_literal==grep run
-setopt equals
-path==grep run
-if cond; then
-  unsetopt equals
-fi
-maybe==grep run
-";
-
-    with_facts_dialect(
-        source,
-        None,
-        ParseShellDialect::Zsh,
-        ShellDialect::Zsh,
-        |_, facts| {
-            assert_eq!(
-                facts
-                    .command_facts()
-                    .bare_command_name_assignment_spans()
-                    .iter()
-                    .map(|span| span.slice(source))
-                    .collect::<Vec<_>>(),
-                vec!["tool==grep run", "magic_literal==grep run"]
-            );
-        },
-    );
-}
-
-#[test]
 fn ignores_assignment_like_text_after_literal_arrow_prefix() {
     let source = r#"#!/bin/bash
 rvm_info="
@@ -1093,96 +1058,6 @@ demo() {
     assert_eq!(
         subshell_later_use_slices(source, ShellDialect::Bash),
         vec!["${value:-}"]
-    );
-}
-
-#[test]
-fn zsh_status_capture_inside_subshell_is_not_connected_to_parent_return() {
-    let source = "\
-#!/bin/zsh
-demo() {
-  local retval=0
-  (
-    ( return 2 )
-    retval=$?
-    print -r -- $retval
-  ) || return $?
-  return $retval
-}
-";
-
-    assert!(subshell_assignment_slices(source, ShellDialect::Zsh).is_empty());
-    assert!(subshell_later_use_slices(source, ShellDialect::Zsh).is_empty());
-}
-
-#[test]
-fn zsh_subshell_loop_local_assignment_is_not_connected_to_parent_return() {
-    let source = "\
-#!/bin/zsh
-demo() {
-  local retval=0
-  for pair in \"$@\"; do
-    (
-      retval=1
-      continue
-    )
-  done
-  return $retval
-}
-";
-
-    assert!(subshell_assignment_slices(source, ShellDialect::Zsh).is_empty());
-    assert!(subshell_later_use_slices(source, ShellDialect::Zsh).is_empty());
-}
-
-#[test]
-fn zsh_sh_emulation_return_read_still_reports_subshell_assignment() {
-    let source = "\
-#!/bin/zsh
-demo() {
-  emulate sh
-  local retval=0
-  (
-    retval=1
-  )
-  return $retval
-}
-demo
-";
-
-    assert_eq!(
-        subshell_assignment_slices(source, ShellDialect::Zsh),
-        vec!["retval"]
-    );
-    assert_eq!(
-        subshell_later_use_slices(source, ShellDialect::Zsh),
-        vec!["$retval"]
-    );
-}
-
-#[test]
-fn zsh_sh_emulation_return_read_survives_later_option_updates() {
-    let source = "\
-#!/bin/zsh
-demo() {
-  emulate sh
-  setopt ksh_arrays
-  local retval=0
-  (
-    retval=1
-  )
-  return $retval
-}
-demo
-";
-
-    assert_eq!(
-        subshell_assignment_slices(source, ShellDialect::Zsh),
-        vec!["retval"]
-    );
-    assert_eq!(
-        subshell_later_use_slices(source, ShellDialect::Zsh),
-        vec!["$retval"]
     );
 }
 

@@ -213,7 +213,7 @@ fn resolve_large_corpus_shell(path: &Path, source: &[u8]) -> String {
     match ShellDialect::infer(source, Some(path)) {
         ShellDialect::Bash => "bash".into(),
         ShellDialect::Ksh | ShellDialect::Mksh => "ksh".into(),
-        ShellDialect::Zsh => "zsh".into(),
+        _ if false => unreachable!(),
         ShellDialect::Sh | ShellDialect::Dash => "sh".into(),
         ShellDialect::Unknown => "sh".into(),
     }

@@ -6,11 +6,10 @@ use shuck_formatter::{
 };
 use shuck_parser::{ShellDialect as ParseDialect, parser::Parser};
 
-pub(crate) const FORMAT_CASES: [FormatCase; 4] = [
+pub(crate) const FORMAT_CASES: [FormatCase; 3] = [
     FormatCase::new("fuzz.sh", ParseDialect::Posix, FormatDialect::Auto),
     FormatCase::new("fuzz.bash", ParseDialect::Bash, FormatDialect::Auto),
     FormatCase::new("fuzz.mksh", ParseDialect::Mksh, FormatDialect::Auto),
-    FormatCase::new("fuzz.zsh", ParseDialect::Zsh, FormatDialect::Auto),
 ];
 
 #[derive(Clone, Copy)]

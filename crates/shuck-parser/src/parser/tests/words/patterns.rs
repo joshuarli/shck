@@ -441,3 +441,4 @@ fn test_parse_glob_of_unescaped_double_left_bracket_stays_word() {
     assert_eq!(command.args[0].span.slice(input), "[[z]");
     assert_eq!(command.args[1].span.slice(input), "[]z]");
 }
+

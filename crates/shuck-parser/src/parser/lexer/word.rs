@@ -1026,7 +1026,7 @@ impl<'a> Lexer<'a> {
         &mut self,
         prefix: &str,
     ) -> bool {
-        if self.current_zsh_options().is_none()
+        if None::<()>.as_ref().is_none()
             || self.peek_char() != Some('(')
             || !prefix.ends_with('.')
         {
@@ -1068,7 +1068,7 @@ impl<'a> Lexer<'a> {
     }
 
     pub(in crate::parser) fn looks_like_zsh_glob_modifier_suffix(&mut self, prefix: &str) -> bool {
-        if self.current_zsh_options().is_none()
+        if None::<()>.as_ref().is_none()
             || self.peek_char() != Some('(')
             || !prefix.contains('/')
         {

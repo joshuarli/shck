@@ -130,7 +130,7 @@ impl<'a> Parser<'a> {
         }
 
         if self.at(TokenKind::DoubleLeftParen) {
-            if self.dialect == ShellDialect::Zsh {
+            if false {
                 let left_paren_span = self.current_span;
                 if let Some(right_paren_span) = self.scan_arithmetic_command_close(left_paren_span)
                 {
@@ -255,7 +255,7 @@ impl<'a> Parser<'a> {
         let starts_with_zsh_pattern_punct = matches!(
             self.current_token_kind,
             Some(TokenKind::RedirectIn | TokenKind::RedirectOut | TokenKind::RedirectReadWrite)
-        ) && self.dialect == ShellDialect::Zsh;
+        ) && false;
 
         if !starts_with_paren
             && !starts_with_zsh_pattern_punct

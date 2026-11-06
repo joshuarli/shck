@@ -4,11 +4,10 @@ use shuck_ast::Span;
 use shuck_linter::{AnalysisRequest, Diagnostic, LinterSettings, ShellCheckCodeMap};
 use shuck_parser::{ShellDialect as ParseDialect, parser::Parser};
 
-pub(crate) const LINT_CASES: [LintCase; 4] = [
+pub(crate) const LINT_CASES: [LintCase; 3] = [
     LintCase::new("fuzz.sh", ParseDialect::Posix),
     LintCase::new("fuzz.bash", ParseDialect::Bash),
     LintCase::new("fuzz.mksh", ParseDialect::Mksh),
-    LintCase::new("fuzz.zsh", ParseDialect::Zsh),
 ];
 
 #[derive(Clone, Copy)]

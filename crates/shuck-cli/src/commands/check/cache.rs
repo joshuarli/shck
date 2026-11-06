@@ -354,45 +354,7 @@ mod tests {
         assert_eq!(second.cache_misses, 0);
     }
 
-    #[test]
-    fn cache_tracks_missing_dependency_paths_until_they_exist() {
-        let tempdir = tempdir().unwrap();
-        let missing_dependency = tempdir.path().join("plugins/git.plugin.zsh");
-        fs::create_dir_all(missing_dependency.parent().unwrap()).unwrap();
 
-        let cache_data = CheckCacheData::from_displayed(
-            &[],
-            false,
-            std::slice::from_ref(&missing_dependency),
-            &[],
-        );
-
-        assert_eq!(
-            cache_data.dependency_paths(),
-            vec![missing_dependency.clone()]
-        );
-        assert!(cache_data.dependencies_match());
-
-        fs::write(&missing_dependency, "plugin_loaded=1\n").unwrap();
-
-        assert!(!cache_data.dependencies_match());
-    }
-
-    #[test]
-    fn cache_detects_when_a_dependency_disappears() {
-        let tempdir = tempdir().unwrap();
-        let dependency = tempdir.path().join("plugins/git.plugin.zsh");
-        fs::create_dir_all(dependency.parent().unwrap()).unwrap();
-        fs::write(&dependency, "plugin_loaded=1\n").unwrap();
-
-        let cache_data =
-            CheckCacheData::from_displayed(&[], false, std::slice::from_ref(&dependency), &[]);
-        assert!(cache_data.dependencies_match());
-
-        fs::remove_file(&dependency).unwrap();
-
-        assert!(!cache_data.dependencies_match());
-    }
 
     #[cfg(unix)]
     #[test]
@@ -402,12 +364,12 @@ mod tests {
         let tempdir = tempdir().unwrap();
         let targets = tempdir.path().join("targets");
         fs::create_dir_all(&targets).unwrap();
-        let first_target = targets.join("plugin-v1.zsh");
-        let second_target = targets.join("plugin-v2.zsh");
+        let first_target = targets.join("plugin-v1.sh");
+        let second_target = targets.join("plugin-v2.sh");
         fs::write(&first_target, "plugin_loaded=v1\n").unwrap();
         fs::write(&second_target, "plugin_loaded=v2\n").unwrap();
 
-        let symlink_path = tempdir.path().join("plugins/current.plugin.zsh");
+        let symlink_path = tempdir.path().join("plugins/current.plugin.sh");
         fs::create_dir_all(symlink_path.parent().unwrap()).unwrap();
         symlink(&first_target, &symlink_path).unwrap();
 
@@ -486,54 +448,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn cache_key_includes_home_for_home_relative_source_resolution() {
-        let tempdir = tempdir().unwrap();
-        let script = tempdir.path().join(".zshrc");
-        fs::write(
-            &script,
-            "#!/bin/zsh\nsource \"$HOME/.helpers/prompt.zsh\"\n",
-        )
-        .unwrap();
-
-        let mut args = check_args(false);
-        args.paths = vec![PathBuf::from(".zshrc")];
-        args.rule_selection.per_file_shell = Some(vec![PatternShellPair {
-            pattern: ".zshrc".to_owned(),
-            shell: ShellDialect::Zsh,
-        }]);
-
-        let project_root = ProjectRoot {
-            storage_root: tempdir.path().to_path_buf(),
-            canonical_root: fs::canonicalize(tempdir.path()).unwrap(),
-        };
-        let settings = resolve_project_check_settings(
-            &project_root,
-            &ConfigArguments::default(),
-            &args.rule_selection,
-            &args.zsh_plugin_resolution,
-        )
-        .unwrap();
-        let files = [DiscoveredFile {
-            display_path: PathBuf::from(".zshrc"),
-            absolute_path: script.clone(),
-            relative_path: PathBuf::from(".zshrc"),
-            project_root,
-            kind: FileKind::Shell,
-        }];
-        let base = CheckCacheSettings::new(&settings, &files);
-
-        let first = CheckCacheSettings {
-            source_resolution_home: Some(PathBuf::from("/tmp/home-a")),
-            ..base.clone()
-        };
-        let second = CheckCacheSettings {
-            source_resolution_home: Some(PathBuf::from("/tmp/home-b")),
-            ..base
-        };
-
-        assert_ne!(cache_key_hex(&first), cache_key_hex(&second));
-    }
 
     #[test]
     fn invalidates_cache_when_file_changes() {
@@ -695,173 +609,8 @@ mod tests {
         assert_eq!(second.diagnostics.len(), 1);
     }
 
-    #[test]
-    fn invalidates_cache_when_resolved_zsh_plugin_entrypoint_changes() {
-        let tempdir = tempdir().unwrap();
-        let omz_root = tempdir.path().join("oh-my-zsh");
-        let plugin_dir = omz_root.join("plugins/git");
-        fs::create_dir_all(&plugin_dir).unwrap();
-        fs::write(omz_root.join("oh-my-zsh.sh"), "# bootstrap\n").unwrap();
-        let plugin = plugin_dir.join("git.plugin.zsh");
-        fs::write(&plugin, "git_prompt() { :; }\n").unwrap();
-        fs::write(
-            tempdir.path().join(".zshrc"),
-            format!(
-                "ZSH='{}'\nplugins=(git)\nsource \"$ZSH/oh-my-zsh.sh\"\n",
-                omz_root.display()
-            ),
-        )
-        .unwrap();
 
-        let mut args = check_args(false);
-        args.paths = vec![PathBuf::from(".zshrc")];
-        args.rule_selection.per_file_shell = Some(vec![PatternShellPair {
-            pattern: ".zshrc".to_owned(),
-            shell: ShellDialect::Zsh,
-        }]);
 
-        let first = run_check_with_cwd(
-            &args,
-            &ConfigArguments::default(),
-            tempdir.path(),
-            &cache_root(tempdir.path()),
-        )
-        .unwrap();
-        let second = run_check_with_cwd(
-            &args,
-            &ConfigArguments::default(),
-            tempdir.path(),
-            &cache_root(tempdir.path()),
-        )
-        .unwrap();
-        assert_eq!(first.cache_hits, 0);
-        assert_eq!(first.cache_misses, 1);
-        assert_eq!(second.cache_hits, 1);
-        assert_eq!(second.cache_misses, 0);
-
-        fs::write(&plugin, "git_prompt() { echo changed; }\n").unwrap();
-
-        let third = run_check_with_cwd(
-            &args,
-            &ConfigArguments::default(),
-            tempdir.path(),
-            &cache_root(tempdir.path()),
-        )
-        .unwrap();
-        assert_eq!(third.cache_hits, 0);
-        assert_eq!(third.cache_misses, 1);
-    }
-
-    #[test]
-    fn invalidates_cache_when_configured_zsh_plugin_entrypoint_appears() {
-        let tempdir = tempdir().unwrap();
-        fs::write(tempdir.path().join(".zshrc"), "echo ok\n").unwrap();
-        fs::write(
-            tempdir.path().join("shuck.toml"),
-            "[lint.zsh.plugins]\nentrypoints = [{ pattern = '.zshrc', paths = ['./vendor/prompt.plugin.zsh'] }]\n",
-        )
-        .unwrap();
-
-        let mut args = check_args(false);
-        args.paths = vec![PathBuf::from(".zshrc")];
-        args.rule_selection.per_file_shell = Some(vec![PatternShellPair {
-            pattern: ".zshrc".to_owned(),
-            shell: ShellDialect::Zsh,
-        }]);
-
-        let first = run_check_with_cwd(
-            &args,
-            &ConfigArguments::default(),
-            tempdir.path(),
-            &cache_root(tempdir.path()),
-        )
-        .unwrap();
-        let second = run_check_with_cwd(
-            &args,
-            &ConfigArguments::default(),
-            tempdir.path(),
-            &cache_root(tempdir.path()),
-        )
-        .unwrap();
-        assert_eq!(first.cache_hits, 0);
-        assert_eq!(first.cache_misses, 1);
-        assert_eq!(second.cache_hits, 1);
-        assert_eq!(second.cache_misses, 0);
-
-        let plugin = tempdir.path().join("vendor/prompt.plugin.zsh");
-        fs::create_dir_all(plugin.parent().unwrap()).unwrap();
-        fs::write(&plugin, "prompt_fn() { :; }\n").unwrap();
-
-        let third = run_check_with_cwd(
-            &args,
-            &ConfigArguments::default(),
-            tempdir.path(),
-            &cache_root(tempdir.path()),
-        )
-        .unwrap();
-        assert_eq!(third.cache_hits, 0);
-        assert_eq!(third.cache_misses, 1);
-    }
-
-    #[test]
-    fn configured_zsh_plugin_loads_track_dependencies_for_dynamic_plugin_lists() {
-        let tempdir = tempdir().unwrap();
-        let omz_root = tempdir.path().join("oh-my-zsh");
-        let plugin_dir = omz_root.join("plugins/git");
-        fs::create_dir_all(&plugin_dir).unwrap();
-        fs::write(omz_root.join("oh-my-zsh.sh"), "# bootstrap\n").unwrap();
-        let plugin = plugin_dir.join("git.plugin.zsh");
-        fs::write(&plugin, "git_prompt() { :; }\n").unwrap();
-        fs::write(
-            tempdir.path().join(".zshrc"),
-            "plugin_name=git\nplugins=($plugin_name)\nsource \"$ZSH/oh-my-zsh.sh\"\n",
-        )
-        .unwrap();
-        fs::write(
-            tempdir.path().join("shuck.toml"),
-            format!(
-                "[lint.zsh.plugins.roots]\noh-my-zsh = '{}'\n\n[[lint.zsh.plugins.plugin-loads]]\npattern = '.zshrc'\nframework = 'oh-my-zsh'\nname = 'git'\n",
-                omz_root.display()
-            ),
-        )
-        .unwrap();
-
-        let mut args = check_args(false);
-        args.paths = vec![PathBuf::from(".zshrc")];
-        args.rule_selection.per_file_shell = Some(vec![PatternShellPair {
-            pattern: ".zshrc".to_owned(),
-            shell: ShellDialect::Zsh,
-        }]);
-
-        let first = run_check_with_cwd(
-            &args,
-            &ConfigArguments::default(),
-            tempdir.path(),
-            &cache_root(tempdir.path()),
-        )
-        .unwrap();
-        let second = run_check_with_cwd(
-            &args,
-            &ConfigArguments::default(),
-            tempdir.path(),
-            &cache_root(tempdir.path()),
-        )
-        .unwrap();
-        assert_eq!(first.cache_hits, 0);
-        assert_eq!(second.cache_hits, 1);
-
-        fs::write(&plugin, "git_prompt() { echo configured; }\n").unwrap();
-
-        let third = run_check_with_cwd(
-            &args,
-            &ConfigArguments::default(),
-            tempdir.path(),
-            &cache_root(tempdir.path()),
-        )
-        .unwrap();
-        assert_eq!(third.cache_hits, 0);
-        assert_eq!(third.cache_misses, 1);
-    }
 
     #[test]
     fn mixes_cache_hits_and_misses_in_a_single_run() {

@@ -466,7 +466,7 @@ impl SemanticModel {
         ) {
             return true;
         }
-        if self.shell_behavior_at(later_offset).zsh_sh_emulation() {
+        if false {
             return true;
         }
 

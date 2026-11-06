@@ -5,15 +5,9 @@ use std::{
 
 use smallvec::SmallVec;
 
-use shuck_ast::{
-    AnonymousFunctionCommand, Assignment, Comment, CompoundCommand, DeclOperand, FunctionDef, Name,
-    Position, Redirect, Span, TokenKind, Word,
-};
+use shuck_ast::{Assignment, Comment, CompoundCommand, DeclOperand, FunctionDef, Name, Position, Redirect, Span, TokenKind, Word};
 
-use super::{
-    Keyword, LexedToken, Lexer, ParseBudget, ShellDialect, ShellProfile, SyntaxFacts,
-    ZshOptionTimeline,
-};
+use super::{Keyword, LexedToken, Lexer, ParseBudget, ShellDialect, ShellProfile, SyntaxFacts};
 
 #[cfg(feature = "benchmarking")]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -97,15 +91,9 @@ pub(super) enum Command {
     Decl(Box<DeclClause>),
     Compound(Box<CompoundCommand>, SmallVec<[Redirect; 1]>),
     Function(FunctionDef),
-    AnonymousFunction(AnonymousFunctionCommand, SmallVec<[Redirect; 1]>),
 }
 
 /// Stateful parser for shell scripts.
-///
-/// Construct a parser with one of the `Parser::with_*` constructors and then
-/// call `parse` to obtain a [`super::ParseResult`]. The parser is single-use:
-/// `parse` consumes the value so internal recovery state cannot leak between
-/// parses.
 #[derive(Clone)]
 pub struct Parser<'a> {
     pub(super) input: &'a str,
@@ -146,12 +134,10 @@ pub struct Parser<'a> {
     pub(super) expand_next_word: bool,
     /// Nesting depth of active brace-delimited statement sequences.
     pub(super) brace_group_depth: usize,
-    /// Active brace-body parsing contexts, used to distinguish compact zsh
-    /// closers from literal `}` arguments.
+    /// Active brace-body parsing contexts.
     pub(super) brace_body_stack: Vec<BraceBodyContext>,
     pub(super) syntax_facts: SyntaxFacts,
     pub(super) shell_profile: ShellProfile,
-    pub(super) zsh_timeline: Option<Arc<ZshOptionTimeline>>,
     pub(super) dialect: ShellDialect,
     /// Reusable scratch buffer for cross-part brace syntax scans.
     pub(super) brace_scan_chars: std::cell::RefCell<Vec<(char, Position)>>,
@@ -171,16 +157,10 @@ pub(super) struct ParserCheckpoint<'a> {
     pub(super) peeked_token: Option<LexedToken<'a>>,
     pub(super) current_depth: usize,
     pub(super) source_text_pattern_depth: usize,
-    // `comments`, `brace_body_stack`, and the `syntax_facts` Vecs are append-only
-    // inside any speculative parse, so we save lengths and truncate on restore
-    // instead of cloning their backing storage.
     pub(super) comments_len: usize,
     pub(super) expand_next_word: bool,
     pub(super) brace_group_depth: usize,
     pub(super) brace_body_stack_len: usize,
-    pub(super) syntax_facts_zsh_brace_if_spans_len: usize,
-    pub(super) syntax_facts_zsh_always_spans_len: usize,
-    pub(super) syntax_facts_zsh_case_group_parts_len: usize,
     #[cfg(feature = "benchmarking")]
     pub(super) benchmark_counters: Option<ParserBenchmarkCounters>,
 }
@@ -239,8 +219,10 @@ pub(super) enum FlowControlBuiltinKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 pub(super) enum BraceBodyContext {
     Ordinary,
     Function,
+    #[allow(dead_code)]
     IfClause,
 }

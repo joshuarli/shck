@@ -15,7 +15,6 @@ pub(super) fn heredoc_body_is_semantically_inert(body: &HeredocBody, source: &st
 pub(super) fn word_part_is_semantically_inert(part: &WordPart) -> bool {
     match part {
         WordPart::Literal(_) | WordPart::SingleQuoted { .. } => true,
-        WordPart::ZshQualifiedGlob(glob) => zsh_qualified_glob_is_semantically_inert(glob),
         WordPart::DoubleQuoted { parts, .. } => parts
             .iter()
             .all(|part| word_part_is_semantically_inert(&part.kind)),
@@ -54,11 +53,9 @@ pub(super) fn heredoc_body_part_is_semantically_inert(
     }
 }
 
-pub(super) fn zsh_qualified_glob_is_semantically_inert(glob: &shuck_ast::ZshQualifiedGlob) -> bool {
-    glob.segments.iter().all(|segment| match segment {
-        ZshGlobSegment::Pattern(pattern) => pattern_is_semantically_inert(pattern),
-        ZshGlobSegment::InlineControl(_) => true,
-    })
+#[allow(dead_code)]
+pub(super) fn zsh_qualified_glob_is_semantically_inert(_glob: &()) -> bool {
+    false
 }
 
 pub(super) fn pattern_is_semantically_inert(pattern: &Pattern) -> bool {
@@ -156,33 +153,6 @@ mod tests {
         }]);
 
         assert!(!word_is_semantically_inert(&word));
-    }
-
-    #[test]
-    fn inert_zsh_qualified_glob_short_circuits() {
-        let word = word(vec![WordPart::ZshQualifiedGlob(Box::new(
-            shuck_ast::ZshQualifiedGlob {
-                span: Span::new(),
-                segments: vec![
-                    ZshGlobSegment::Pattern(pattern(vec![
-                        PatternPart::Literal(LiteralText::owned("foo")),
-                        PatternPart::AnyString,
-                        PatternPart::Group {
-                            kind: PatternGroupKind::ExactlyOne,
-                            patterns: vec![pattern(vec![PatternPart::CharClass(
-                                SourceText::from("[ab]"),
-                            )])],
-                        },
-                    ])),
-                    ZshGlobSegment::InlineControl(shuck_ast::ZshInlineGlobControl::StartAnchor {
-                        span: Span::new(),
-                    }),
-                ],
-                qualifiers: None,
-            },
-        ))]);
-
-        assert!(word_is_semantically_inert(&word));
     }
 
     #[test]

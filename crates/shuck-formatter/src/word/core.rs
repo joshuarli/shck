@@ -89,8 +89,7 @@ pub(super) enum WordRenderDecision<'source> {
     PreserveMultilineDoubleQuotedRaw { raw: &'source str },
     RenderParts { raw_fallback: Option<&'source str> },
     RenderSyntaxWithRawFallback { raw: &'source str },
-    RenderSyntax,
-}
+    RenderSyntax }
 
 impl<'source> WordRenderDecision<'source> {
     fn for_word(
@@ -167,8 +166,7 @@ impl<'source> WordRenderDecision<'source> {
 
         if word_needs_formatter_rendering(word, context) {
             return Self::RenderParts {
-                raw_fallback: preserve_raw.then_some(raw).flatten(),
-            };
+                raw_fallback: preserve_raw.then_some(raw).flatten() };
         }
 
         if preserve_raw
@@ -290,8 +288,7 @@ pub(super) fn word_part_has_escaped_command_substitution(
                         .is_some_and(|prefix| prefix.ends_with('\\'))
             }
         },
-        _ => false,
-    }
+        _ => false }
 }
 
 pub(super) fn raw_escaped_multiline_double_quoted_word(raw: &str) -> bool {
@@ -349,8 +346,7 @@ pub(super) fn word_part_has_parameter_raw_subscript_needs_compaction(
         WordPart::Parameter(parameter) => {
             parameter_raw_subscript_needs_compaction(parameter, context)
         }
-        _ => false,
-    }
+        _ => false }
 }
 
 pub(super) fn word_part_has_parameter_command_redirect_spacing_needs_normalization(
@@ -362,8 +358,7 @@ pub(super) fn word_part_has_parameter_command_redirect_spacing_needs_normalizati
         WordPart::Parameter(_) | WordPart::ParameterExpansion { .. } => {
             raw_source_slice(span, source).is_some_and(raw_parameter_command_spacing_would_change)
         }
-        _ => false,
-    }
+        _ => false }
 }
 
 pub(super) fn word_part_has_arithmetic_expansion_source_needs_trim(
@@ -375,8 +370,7 @@ pub(super) fn word_part_has_arithmetic_expansion_source_needs_trim(
             let raw = expression.slice(source);
             raw.trim_matches([' ', '\t', '\r']).len() != raw.len()
         }
-        _ => false,
-    }
+        _ => false }
 }
 
 pub(super) fn word_has_multiline_double_quoted_source(word: &Word, source: &str) -> bool {
@@ -404,8 +398,7 @@ pub(super) fn quoted_command_substitution_only_body(word: &Word) -> Option<&Stmt
             kind:
                 WordPart::DoubleQuoted {
                     parts,
-                    dollar: false,
-                },
+                    dollar: false },
             ..
         },
     ] = word.parts.as_slice()
@@ -420,8 +413,7 @@ pub(super) fn quoted_command_substitution_only_body(word: &Word) -> Option<&Stmt
                 substitution_body = Some(body);
             }
             WordPart::Literal(text) if text.is_empty() => {}
-            _ => return None,
-        }
+            _ => return None }
     }
 
     substitution_body
@@ -443,8 +435,7 @@ pub(super) fn part_needs_special_rendering(part: &WordPart) -> bool {
         | WordPart::ArraySlice { .. }
         | WordPart::CommandSubstitution { .. }
         | WordPart::ProcessSubstitution { .. } => true,
-        _ => false,
-    }
+        _ => false }
 }
 
 pub(super) fn render_word_parts(
@@ -472,8 +463,7 @@ pub(super) fn render_word_parts(
 pub(super) struct WordPartRenderContext {
     allow_source_indented_inline_command_substitution: bool,
     source_indented_inline_command_substitution: bool,
-    inside_double_quotes: bool,
-}
+    inside_double_quotes: bool }
 
 pub(super) fn render_word_part(
     rendered: &mut String,
@@ -547,8 +537,7 @@ pub(super) fn render_word_part(
                                 source_indented_inline_command_substitution: part_context
                                     .allow_source_indented_inline_command_substitution
                                     && follows_line_indent_literal,
-                                inside_double_quotes: true,
-                            },
+                                inside_double_quotes: true },
                         )?;
                         follows_line_indent_literal = false;
                     }
@@ -585,8 +574,7 @@ pub(super) fn render_word_part(
                         raw,
                         body,
                         span_start: span.start.offset(),
-                        context: env,
-                    };
+                        context: env };
                     if commented_command_substitution_can_use_structural_formatter(body) {
                         let rendered_start = rendered.len();
                         if render_command_substitution(
@@ -781,7 +769,7 @@ pub(super) fn render_word_part(
         WordPart::PrefixMatch { prefix, kind } => {
             std::write!(rendered, "${{!{}{}}}", prefix, kind.as_char())?;
         }
-        WordPart::Transformation { .. } | WordPart::ZshQualifiedGlob(_) => {
+        WordPart::Transformation { .. } => {
             rendered.push_str(span.slice(source));
         }
     }
@@ -851,8 +839,7 @@ pub(super) fn preferred_raw_word_part_source<'a>(
         } => (!(offset_ast.is_some() || length_ast.is_some()))
             .then(|| raw_source_slice(span, source))
             .flatten(),
-        _ => None,
-    }
+        _ => None }
 }
 
 pub(super) fn parameter_raw_subscript_needs_compaction(
@@ -892,8 +879,7 @@ pub(super) fn parameter_bourne_subscript(
         | BourneParameterExpansion::Slice { reference, .. }
         | BourneParameterExpansion::Operation { reference, .. }
         | BourneParameterExpansion::Transformation { reference, .. } => reference,
-        BourneParameterExpansion::PrefixMatch { .. } => return None,
-    };
+        BourneParameterExpansion::PrefixMatch { .. } => return None };
     reference.subscript.as_deref()
 }
 
@@ -924,8 +910,7 @@ pub(super) fn render_double_quoted_literal(rendered: &mut String, text: &str) {
                 rendered.push('\\');
                 rendered.push(ch);
             }
-            _ => rendered.push(ch),
-        }
+            _ => rendered.push(ch) }
     }
 }
 

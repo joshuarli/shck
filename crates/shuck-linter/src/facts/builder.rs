@@ -111,8 +111,6 @@ fn estimate_command_word_capacity(command: &Command, redirects: &[Redirect]) -> 
             .count(),
         Command::Compound(command) => match command {
             CompoundCommand::For(command) => command.words.as_ref().map_or(0, Vec::len),
-            CompoundCommand::Repeat(_) => 1,
-            CompoundCommand::Foreach(command) => command.words.len(),
             CompoundCommand::Select(command) => command.words.len(),
             CompoundCommand::Case(command) => 1usize.saturating_add(
                 command
@@ -130,11 +128,9 @@ fn estimate_command_word_capacity(command: &Command, redirects: &[Redirect]) -> 
             | CompoundCommand::Arithmetic(_)
             | CompoundCommand::Time(_)
             | CompoundCommand::Conditional(_)
-            | CompoundCommand::Coproc(_)
-            | CompoundCommand::Always(_) => 0,
+            | CompoundCommand::Coproc(_) => 0,
         },
         Command::Function(function) => function.header.entries.len(),
-        Command::AnonymousFunction(function) => function.args.len(),
         Command::Binary(_) => 0,
     });
 
@@ -502,13 +498,6 @@ impl<'a, 'analysis> LinterFactsBuilder<'a, 'analysis> {
                             &mut redundant_return_status_spans,
                         );
                     }
-                    Command::AnonymousFunction(function) => {
-                        collect_redundant_return_status_spans_in_function_body(
-                            &function.body,
-                            self.source,
-                            &mut redundant_return_status_spans,
-                        );
-                    }
                     Command::Simple(_)
                     | Command::Builtin(_)
                     | Command::Decl(_)
@@ -605,8 +594,7 @@ impl<'a, 'analysis> LinterFactsBuilder<'a, 'analysis> {
                     | Command::Decl(_)
                     | Command::Binary(_)
                     | Command::Compound(_)
-                    | Command::Function(_)
-                    | Command::AnonymousFunction(_) => {}
+                    | Command::Function(_) => {}
                 }
             }
         }
@@ -882,7 +870,7 @@ impl<'a, 'analysis> LinterFactsBuilder<'a, 'analysis> {
             semantic_analysis,
             &commands,
             self.source,
-            matches!(self.shell, ShellDialect::Zsh),
+            false,
             matches!(self.shell, ShellDialect::Bash) && pipefail_enabled_anywhere,
             &arithmetic_only_suppressed_subscript_spans,
         );
@@ -1589,8 +1577,7 @@ pub(crate) fn stmt_seq_contains_nested_control_flow(
                 | CompoundCommand::Until(_)
                 | CompoundCommand::For(_)
                 | CompoundCommand::Select(_)
-                | CompoundCommand::Case(_)
-                | CompoundCommand::Always(_),
+                | CompoundCommand::Case(_),
             ) => {
                 contains = true;
                 CommandTopologyTraversal::Break
@@ -1605,8 +1592,7 @@ pub(crate) fn stmt_seq_contains_nested_control_flow(
             | Command::Builtin(_)
             | Command::Decl(_)
             | Command::Compound(_)
-            | Command::Function(_)
-            | Command::AnonymousFunction(_) => CommandTopologyTraversal::SkipChildren,
+            | Command::Function(_) => CommandTopologyTraversal::SkipChildren,
         });
     contains
 }

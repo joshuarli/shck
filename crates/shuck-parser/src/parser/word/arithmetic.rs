@@ -100,7 +100,6 @@ impl<'a> Parser<'a> {
             WordPart::Literal(_)
                 | WordPart::SingleQuoted { .. }
                 | WordPart::DoubleQuoted { .. }
-                | WordPart::ZshQualifiedGlob(_)
         )
     }
 

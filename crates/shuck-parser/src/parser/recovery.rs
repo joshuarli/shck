@@ -19,7 +19,7 @@ impl<'a> Parser<'a> {
                 | (_, TokenKind::Pipe)
                 | (_, TokenKind::DoubleSemicolon)
                 | (_, TokenKind::SemiAmp)
-                | (_, TokenKind::SemiPipe)
+                
                 | (_, TokenKind::DoubleSemiAmp)
         )
     }

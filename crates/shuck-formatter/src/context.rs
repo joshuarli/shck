@@ -9,8 +9,7 @@ use shuck_parser::parser::Parser;
 pub(crate) struct RenderContext<'source, 'a> {
     pub(crate) source: &'source str,
     pub(crate) options: &'a ResolvedShellFormatOptions,
-    pub(crate) facts: &'a FormatterFacts<'source>,
-}
+    pub(crate) facts: &'a FormatterFacts<'source> }
 
 impl<'source, 'a> RenderContext<'source, 'a> {
     pub(crate) fn new(
@@ -21,8 +20,7 @@ impl<'source, 'a> RenderContext<'source, 'a> {
         Self {
             source,
             options,
-            facts,
-        }
+            facts }
     }
 
     pub(crate) fn source_map(self) -> &'a SourceMap<'source> {
@@ -48,8 +46,7 @@ pub(crate) struct FragmentFormatter<'source, 'a> {
     source: &'source str,
     options: &'a ResolvedShellFormatOptions,
     file: File,
-    facts: FormatterFacts<'source>,
-}
+    facts: FormatterFacts<'source> }
 
 impl<'source, 'a> FragmentFormatter<'source, 'a> {
     pub(crate) fn parse(
@@ -67,8 +64,7 @@ impl<'source, 'a> FragmentFormatter<'source, 'a> {
             source,
             options,
             file,
-            facts,
-        })
+            facts })
     }
 
     pub(crate) fn body(&self) -> &StmtSeq {

@@ -857,7 +857,7 @@ mod tests {
     fn collect_watch_targets_include_dependency_files() {
         let tempdir = tempdir().unwrap();
         fs::write(tempdir.path().join("script.sh"), "#!/bin/bash\necho ok\n").unwrap();
-        let dependency = tempdir.path().join("deps/plugin.plugin.zsh");
+        let dependency = tempdir.path().join("deps/plugin.plugin.sh");
         fs::create_dir_all(dependency.parent().unwrap()).unwrap();
         fs::write(&dependency, "plugin_fn() { :; }\n").unwrap();
 
@@ -883,7 +883,7 @@ mod tests {
         fs::write(tempdir.path().join("script.sh"), "#!/bin/bash\necho ok\n").unwrap();
         let dependency_dir = tempdir.path().join("deps");
         fs::create_dir_all(&dependency_dir).unwrap();
-        let missing_dependency = dependency_dir.join("plugin.plugin.zsh");
+        let missing_dependency = dependency_dir.join("plugin.plugin.sh");
 
         let targets = collect_watch_targets(
             &[PathBuf::from("script.sh")],
@@ -909,7 +909,7 @@ mod tests {
         let tempdir = tempdir().unwrap();
         fs::write(tempdir.path().join("script.sh"), "#!/bin/bash\necho ok\n").unwrap();
         let missing_parent = tempdir.path().join("vendor/plugins");
-        let missing_dependency = missing_parent.join("plugin.plugin.zsh");
+        let missing_dependency = missing_parent.join("plugin.plugin.sh");
 
         let targets = collect_watch_targets(
             &[PathBuf::from("script.sh")],
@@ -940,7 +940,7 @@ mod tests {
             "/shuck-watch-root-fallback-{}",
             tempdir.path().file_name().unwrap().to_string_lossy()
         );
-        let missing_dependency = Path::new(&top_level).join("plugins/plugin.plugin.zsh");
+        let missing_dependency = Path::new(&top_level).join("plugins/plugin.plugin.sh");
 
         let targets = collect_watch_targets(
             &[PathBuf::from("script.sh")],
@@ -974,12 +974,12 @@ mod tests {
             watch_path: PathBuf::from("/workspace"),
             watch_paths: vec![PathBuf::from("/workspace")],
             recursive: true,
-            match_paths: vec![PathBuf::from("/workspace/vendor/plugins/plugin.plugin.zsh")],
+            match_paths: vec![PathBuf::from("/workspace/vendor/plugins/plugin.plugin.sh")],
         };
 
         assert!(target.matches_event_path(Path::new("/workspace/vendor")));
         assert!(
-            target.matches_event_path(Path::new("/workspace/vendor/plugins/plugin.plugin.zsh",))
+            target.matches_event_path(Path::new("/workspace/vendor/plugins/plugin.plugin.sh",))
         );
         assert!(!target.matches_event_path(Path::new("/workspace/other")));
     }

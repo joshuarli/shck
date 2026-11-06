@@ -15,9 +15,7 @@ impl Violation for AssignmentToNumericVariable {
 }
 
 pub fn assignment_to_numeric_variable(checker: &mut Checker) {
-    if checker.shell() == ShellDialect::Zsh {
-        return;
-    }
+    // Rule applies to all supported shell dialects.
 
     let source = checker.source();
     let suppress_assign_special_zero_overlap =
@@ -143,39 +141,6 @@ a2=1
         );
 
         assert!(diagnostics.is_empty());
-    }
-
-    #[test]
-    fn ignores_zsh_numeric_parameter_assignments() {
-        let source = "\
-#!/bin/zsh
-0=${(%):-%N}
-1=value
-2+=more
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::AssignmentToNumericVariable)
-                .with_shell(ShellDialect::Zsh),
-        );
-
-        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
-    }
-
-    #[test]
-    fn ignores_zsh_plugin_numeric_zero_assignments_despite_bash_compat_shebang() {
-        let source = r#"#!/usr/bin/bash
-# shellcheck disable=SC1090,SC2154
-0="${${ZERO:-${0:#$ZSH_ARGZERO}}:-${(%):-%N}}"
-0="${${(M)0:#/*}:-$PWD/$0}"
-"#;
-        let diagnostics = test_snippet_at_path(
-            Path::new("/tmp/ohmyzsh/plugins/shell-proxy/shell-proxy.plugin.zsh"),
-            source,
-            &LinterSettings::for_rule(Rule::AssignmentToNumericVariable),
-        );
-
-        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
     }
 
     #[test]

@@ -48,46 +48,12 @@ impl<'a> Parser<'a> {
     ) -> bool {
         word.parts.iter().all(|part| match &part.kind {
             WordPart::Literal(text) => text.is_source_backed(),
-            WordPart::ZshQualifiedGlob(glob) => {
-                Self::zsh_glob_is_safe_for_prefixed_bare_group_reparse(glob)
-            }
+
             _ => false,
         })
     }
 
-    pub(in crate::parser) fn zsh_glob_is_safe_for_prefixed_bare_group_reparse(
-        glob: &ZshQualifiedGlob,
-    ) -> bool {
-        glob.segments
-            .iter()
-            .all(Self::zsh_glob_segment_is_safe_for_prefixed_bare_group_reparse)
-            && glob.qualifiers.is_none()
-    }
 
-    pub(in crate::parser) fn zsh_glob_segment_is_safe_for_prefixed_bare_group_reparse(
-        segment: &ZshGlobSegment,
-    ) -> bool {
-        match segment {
-            ZshGlobSegment::Pattern(pattern) => {
-                Self::pattern_is_safe_for_prefixed_bare_group_reparse(pattern)
-            }
-            ZshGlobSegment::InlineControl(_) => true,
-        }
-    }
-
-    pub(in crate::parser) fn pattern_is_safe_for_prefixed_bare_group_reparse(
-        pattern: &Pattern,
-    ) -> bool {
-        pattern.parts.iter().all(|part| match &part.kind {
-            PatternPart::Literal(text) => text.is_source_backed(),
-            PatternPart::AnyString | PatternPart::AnyChar => true,
-            PatternPart::CharClass(text) => text.is_source_backed(),
-            PatternPart::Group { patterns, .. } => patterns
-                .iter()
-                .all(Self::pattern_is_safe_for_prefixed_bare_group_reparse),
-            PatternPart::Word(_) => false,
-        })
-    }
 
     pub(in crate::parser) fn literal_text_has_prefixed_bare_group(text: &str) -> bool {
         let mut escaped = false;
@@ -155,24 +121,7 @@ impl<'a> Parser<'a> {
         false
     }
 
-    pub(in crate::parser) fn pattern_from_zsh_case_span(&mut self, span: Span) -> Pattern {
-        let text = span.slice(self.input);
-        let word = if Self::source_text_needs_quote_preserving_decode(text) {
-            self.decode_fragment_word_text(text, span, span.start, true)
-        } else {
-            self.decode_word_text(text, span, span.start, true)
-        };
-        let features = self.zsh_glob_parse_features_at(span.start.offset());
-        self.pattern_from_zsh_case_word_with_features(&word, features)
-    }
 
-    pub(in crate::parser) fn pattern_from_zsh_case_word_with_features(
-        &self,
-        word: &Word,
-        features: ZshGlobParseFeatures,
-    ) -> Pattern {
-        PatternParser::for_pattern_context(self.input, word, features).parse()
-    }
 
     pub(in crate::parser) fn pattern_from_source_text(&mut self, text: &SourceText) -> Pattern {
         let span = text.span();

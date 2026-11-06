@@ -4,8 +4,7 @@ use crate::raw_syntax::{RawShellScanner, matching_raw_command_substitution_close
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct SourceView<'source> {
-    source: &'source str,
-}
+    source: &'source str }
 
 impl<'source> SourceView<'source> {
     pub(crate) fn new(source: &'source str) -> Self {
@@ -135,8 +134,7 @@ impl<'source> SourceView<'source> {
         let close_offset = matching_raw_command_substitution_close(self.source, 2)?;
         Some(DollarCommandSubstitutionSource {
             view: self,
-            close_offset,
-        })
+            close_offset })
     }
 
     pub(crate) fn substitution_closes_on_own_line(self) -> bool {
@@ -162,8 +160,7 @@ impl<'source> SourceView<'source> {
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct DollarCommandSubstitutionSource<'source> {
     view: SourceView<'source>,
-    close_offset: usize,
-}
+    close_offset: usize }
 
 impl<'source> DollarCommandSubstitutionSource<'source> {
     pub(crate) fn body(self) -> Option<&'source str> {

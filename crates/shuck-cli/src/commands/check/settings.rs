@@ -6,9 +6,8 @@ use shuck_cache::{CacheKey, CacheKeyHasher};
 #[cfg(test)]
 pub(super) use shuck_config::resolve::parse_rule_selectors;
 use shuck_config::resolve::{
-    ParsedOverride, PerFileIgnoreSpec, ResolvePolicy, ResolvedZshPluginSettings,
-    RuleSelectionLayer, SettingsOverride, SettingsResolver, ZshLoadSpec, ZshPluginEntrypointSpec,
-    ZshPluginLayer,
+    ParsedOverride, PerFileIgnoreSpec, ResolvePolicy,
+    RuleSelectionLayer, SettingsOverride, SettingsResolver,
 };
 use shuck_config::{ConfigArguments, load_project_config};
 pub(super) use shuck_linter::{CompiledPerFileShellList, PerFileShell};
@@ -17,8 +16,8 @@ use shuck_linter::{
 };
 
 use crate::args::{
-    PatternFrameworkNameTriple, PatternPathPair, PatternRuleSelectorPair, PatternShellPair,
-    RuleSelectionArgs, ZshPluginArgs,
+    PatternRuleSelectorPair, PatternShellPair,
+    RuleSelectionArgs,
 };
 use crate::discover::ProjectRoot;
 
@@ -29,7 +28,6 @@ pub(super) struct EffectiveCheckSettings {
     per_file_shell: Vec<EffectivePerFileShell>,
     rule_options: EffectiveRuleOptions,
     ambient_contracts: EffectiveAmbientContractSettings,
-    zsh_plugins: EffectiveZshPluginSettings,
     source_paths: Vec<String>,
     lint_sources: bool,
     embedded_enabled: bool,
@@ -82,27 +80,6 @@ struct EffectiveAmbientContractSettings {
     custom_descriptors: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-struct EffectiveZshPluginSettings {
-    resolution_enabled: bool,
-    roots: Vec<(String, String)>,
-    plugin_loads: Vec<EffectiveZshPluginLoad>,
-    theme_loads: Vec<EffectiveZshPluginLoad>,
-    entrypoints: Vec<EffectiveZshPluginEntrypoint>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct EffectiveZshPluginLoad {
-    pattern: String,
-    framework: String,
-    name: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct EffectiveZshPluginEntrypoint {
-    pattern: String,
-    paths: Vec<String>,
-}
 
 impl EffectiveCheckSettings {
     #[allow(clippy::too_many_arguments)]
@@ -112,7 +89,6 @@ impl EffectiveCheckSettings {
         per_file_shell: &[PerFileShell],
         rule_options: &shuck_linter::LinterRuleOptions,
         ambient_contracts: &ResolvedAmbientContracts,
-        zsh_plugins: &ResolvedZshPluginSettings,
         source_paths: Vec<String>,
         lint_sources: bool,
         embedded_enabled: bool,
@@ -154,8 +130,7 @@ impl EffectiveCheckSettings {
             per_file_shell,
             rule_options: EffectiveRuleOptions::new(rule_options),
             ambient_contracts: EffectiveAmbientContractSettings::new(ambient_contracts),
-            zsh_plugins: EffectiveZshPluginSettings::new(zsh_plugins),
-            source_paths,
+                        source_paths,
             lint_sources,
             embedded_enabled,
         }
@@ -170,7 +145,6 @@ impl CacheKey for EffectiveCheckSettings {
         self.per_file_shell.cache_key(state);
         self.rule_options.cache_key(state);
         self.ambient_contracts.cache_key(state);
-        self.zsh_plugins.cache_key(state);
         self.source_paths.cache_key(state);
         self.lint_sources.cache_key(state);
         self.embedded_enabled.cache_key(state);
@@ -287,91 +261,10 @@ impl CacheKey for EffectiveAmbientContractSettings {
     }
 }
 
-impl EffectiveZshPluginSettings {
-    fn new(settings: &ResolvedZshPluginSettings) -> Self {
-        let mut roots = settings
-            .roots()
-            .iter()
-            .map(|(framework, path)| (framework.clone(), path.to_string_lossy().into_owned()))
-            .collect::<Vec<_>>();
-        roots.sort_by(|left, right| left.0.cmp(&right.0));
-
-        let effective_loads = |loads: &[shuck_config::resolve::CompiledZshLoad]| {
-            let mut loads = loads
-                .iter()
-                .map(|load| EffectiveZshPluginLoad {
-                    pattern: load.pattern().to_owned(),
-                    framework: load.framework().to_owned(),
-                    name: load.name().to_owned(),
-                })
-                .collect::<Vec<_>>();
-            loads.sort_by(|left, right| {
-                left.pattern
-                    .cmp(&right.pattern)
-                    .then(left.framework.cmp(&right.framework))
-                    .then(left.name.cmp(&right.name))
-            });
-            loads
-        };
-
-        let mut entrypoints = settings
-            .entrypoints()
-            .iter()
-            .map(|entrypoint| EffectiveZshPluginEntrypoint {
-                pattern: entrypoint.pattern().to_owned(),
-                paths: entrypoint
-                    .paths()
-                    .iter()
-                    .map(|path| path.to_string_lossy().into_owned())
-                    .collect(),
-            })
-            .collect::<Vec<_>>();
-        entrypoints.sort_by(|left, right| left.pattern.cmp(&right.pattern));
-
-        Self {
-            resolution_enabled: settings.is_enabled(),
-            roots,
-            plugin_loads: effective_loads(settings.plugin_loads()),
-            theme_loads: effective_loads(settings.theme_loads()),
-            entrypoints,
-        }
-    }
-}
-
-impl CacheKey for EffectiveZshPluginSettings {
-    fn cache_key(&self, state: &mut CacheKeyHasher) {
-        state.write_tag(b"effective-zsh-plugin-settings");
-        self.resolution_enabled.cache_key(state);
-        for (framework, path) in &self.roots {
-            framework.cache_key(state);
-            path.cache_key(state);
-        }
-        self.plugin_loads.cache_key(state);
-        self.theme_loads.cache_key(state);
-        self.entrypoints.cache_key(state);
-    }
-}
-
-impl CacheKey for EffectiveZshPluginLoad {
-    fn cache_key(&self, state: &mut CacheKeyHasher) {
-        self.pattern.cache_key(state);
-        self.framework.cache_key(state);
-        self.name.cache_key(state);
-    }
-}
-
-impl CacheKey for EffectiveZshPluginEntrypoint {
-    fn cache_key(&self, state: &mut CacheKeyHasher) {
-        self.pattern.cache_key(state);
-        self.paths.cache_key(state);
-    }
-}
-
 #[derive(Debug, Clone)]
 pub(super) struct ResolvedCheckSettings {
     pub(super) linter_settings: LinterSettings,
     pub(super) per_file_shell: Arc<CompiledPerFileShellList>,
-    pub(super) zsh_plugins: Arc<ResolvedZshPluginSettings>,
     pub(super) fixable_rules: RuleSet,
     /// Extra directories searched when resolving `# shuck: source=` directive
     /// targets, after the annotating file's own directory.
@@ -391,12 +284,10 @@ pub(super) fn resolve_project_check_settings(
     project_root: &ProjectRoot,
     config_arguments: &ConfigArguments,
     cli_rule_selection: &RuleSelectionArgs,
-    cli_zsh_plugins: &ZshPluginArgs,
 ) -> Result<ResolvedCheckSettings> {
     let config = load_project_config(&project_root.storage_root, config_arguments)?;
     let overrides = [SettingsOverride::Parsed(Box::new(ParsedOverride {
         rules: parse_cli_rule_selection_layer(cli_rule_selection),
-        zsh_plugins: parse_cli_zsh_plugin_layer(cli_zsh_plugins),
     }))];
     let resolved =
         SettingsResolver::new(&project_root.canonical_root, &config, ResolvePolicy::Strict)
@@ -409,7 +300,6 @@ pub(super) fn resolve_project_check_settings(
         &resolved.per_file_shell,
         &resolved.linter.rule_options,
         resolved.linter.ambient_contracts.as_ref(),
-        &resolved.zsh_plugins,
         resolved.source_paths.clone(),
         resolved.lint_sources,
         resolved.embedded,
@@ -418,7 +308,6 @@ pub(super) fn resolve_project_check_settings(
     Ok(ResolvedCheckSettings {
         linter_settings: resolved.linter,
         per_file_shell: resolved.compiled_per_file_shell,
-        zsh_plugins: resolved.zsh_plugins,
         fixable_rules: resolved.fixable_rules,
         source_paths: resolved.source_paths,
         lint_sources: resolved.lint_sources,
@@ -449,65 +338,6 @@ fn parse_cli_rule_selection_layer(args: &RuleSelectionArgs) -> RuleSelectionLaye
         fixable: args.fixable.clone(),
         unfixable: args.unfixable.clone(),
         extend_fixable: args.extend_fixable.clone(),
-    }
-}
-
-fn parse_cli_zsh_plugin_layer(args: &ZshPluginArgs) -> ZshPluginLayer {
-    ZshPluginLayer {
-        resolution: args.resolution(),
-        roots: args.zsh_plugin_root.as_ref().map(|roots| {
-            roots
-                .iter()
-                .map(|root| (root.framework.clone(), root.path.clone()))
-                .collect()
-        }),
-        extend_roots: args
-            .extend_zsh_plugin_root
-            .iter()
-            .map(|root| (root.framework.clone(), root.path.clone()))
-            .collect(),
-        plugin_loads: args
-            .zsh_plugin
-            .as_ref()
-            .map(|loads| loads.iter().map(zsh_load_spec_from_cli).collect()),
-        extend_plugin_loads: args
-            .extend_zsh_plugin
-            .iter()
-            .map(zsh_load_spec_from_cli)
-            .collect(),
-        theme_loads: args
-            .zsh_theme
-            .as_ref()
-            .map(|loads| loads.iter().map(zsh_load_spec_from_cli).collect()),
-        extend_theme_loads: args
-            .extend_zsh_theme
-            .iter()
-            .map(zsh_load_spec_from_cli)
-            .collect(),
-        entrypoints: args
-            .zsh_plugin_entrypoint
-            .as_ref()
-            .map(|loads| loads.iter().map(zsh_entrypoint_spec_from_cli).collect()),
-        extend_entrypoints: args
-            .extend_zsh_plugin_entrypoint
-            .iter()
-            .map(zsh_entrypoint_spec_from_cli)
-            .collect(),
-    }
-}
-
-fn zsh_load_spec_from_cli(load: &PatternFrameworkNameTriple) -> ZshLoadSpec {
-    ZshLoadSpec {
-        pattern: load.pattern.clone(),
-        framework: load.framework.clone(),
-        name: load.name.clone(),
-    }
-}
-
-fn zsh_entrypoint_spec_from_cli(load: &PatternPathPair) -> ZshPluginEntrypointSpec {
-    ZshPluginEntrypointSpec {
-        pattern: load.pattern.clone(),
-        paths: vec![load.path.clone()],
     }
 }
 
@@ -778,7 +608,6 @@ mod tests {
             },
             &ConfigArguments::default(),
             &RuleSelectionArgs::default(),
-            &ZshPluginArgs::default(),
         )
         .unwrap();
 
@@ -804,7 +633,6 @@ mod tests {
             },
             &ConfigArguments::default(),
             &RuleSelectionArgs::default(),
-            &ZshPluginArgs::default(),
         )
         .unwrap();
 
@@ -830,7 +658,6 @@ mod tests {
             },
             &ConfigArguments::default(),
             &RuleSelectionArgs::default(),
-            &ZshPluginArgs::default(),
         )
         .unwrap_err();
 
@@ -937,13 +764,8 @@ mod tests {
             custom: Some(vec![LintCustomContractConfig {
                 id: "custom-tmux".to_owned(),
                 replaces: None,
-                when: LintContractWhenConfig::Activation(LintContractActivationConfig {
-                    activation_type: LintContractActivationTypeConfig::ZshPlugin,
-                    framework: Some("oh-my-zsh".to_owned()),
-                    plugin: Some("tmux".to_owned()),
-                    theme: None,
-                }),
-                files: Some(vec!["**/.zshrc".to_owned()]),
+                when: LintContractWhenConfig::Always("always".to_owned()),
+                files: Some(vec!["**/.bashrc".to_owned()]),
                 reads: None,
                 consumes: Some(LintContractConsumesConfig {
                     names: None,

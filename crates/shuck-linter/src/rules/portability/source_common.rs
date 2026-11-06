@@ -38,8 +38,7 @@ fn source_anchor_span(
         | Command::Decl(_)
         | Command::Binary(_)
         | Command::Compound(_)
-        | Command::Function(_)
-        | Command::AnonymousFunction(_) => clip_first_line(fallback, source),
+        | Command::Function(_) => clip_first_line(fallback, source),
     }
 }
 

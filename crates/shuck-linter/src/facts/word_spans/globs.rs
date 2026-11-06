@@ -409,8 +409,7 @@ pub(crate) fn collect_unquoted_glob_pattern_spans(
             | WordPart::ArraySlice { .. }
             | WordPart::IndirectExpansion { .. }
             | WordPart::PrefixMatch { .. }
-            | WordPart::Transformation { .. }
-            | WordPart::ZshQualifiedGlob(_) => {
+            | WordPart::Transformation { .. } => {
                 flush_literal_run(&mut literal_run_start, &mut literal_run_end, spans);
             }
         }
@@ -461,16 +460,7 @@ pub(crate) fn collect_active_glob_pattern_spans(
                 literal_run_start.get_or_insert(index);
                 literal_run_end = Some(index);
             }
-            WordPart::ZshQualifiedGlob(glob) if !in_double_quotes => {
-                flush_literal_run(&mut literal_run_start, &mut literal_run_end, spans);
-                spans.extend(zsh_qualified_glob_active_pattern_spans(
-                    glob,
-                    source,
-                    pattern_behavior,
-                ));
-            }
             WordPart::Literal(_)
-            | WordPart::ZshQualifiedGlob(_)
             | WordPart::CommandSubstitution { .. }
             | WordPart::ProcessSubstitution { .. }
             | WordPart::SingleQuoted { .. }
@@ -653,23 +643,19 @@ fn zsh_exclusion_operator_has_pattern_operand(
 }
 
 pub(crate) fn zsh_qualified_glob_active_pattern_spans(
-    glob: &ZshQualifiedGlob,
+    glob: &(),
     source: &str,
     pattern_behavior: GlobPatternBehavior,
 ) -> Vec<Span> {
     if zsh_qualified_glob_has_control_syntax(glob) {
-        vec![glob.span]
+        Vec::new()
     } else {
-        active_literal_glob_pattern_spans(glob.span, source, pattern_behavior)
+        active_literal_glob_pattern_spans(shuck_ast::Span::default(), source, pattern_behavior)
     }
 }
 
-pub(crate) fn zsh_qualified_glob_has_control_syntax(glob: &ZshQualifiedGlob) -> bool {
-    glob.qualifiers.is_some()
-        || glob
-            .segments
-            .iter()
-            .any(|segment| matches!(segment, ZshGlobSegment::InlineControl(_)))
+pub(crate) fn zsh_qualified_glob_has_control_syntax(_glob: &()) -> bool {
+    false
 }
 
 fn literal_range_has_active_glob_syntax(
@@ -986,8 +972,7 @@ pub(crate) fn word_array_subscript_span_from_parts(
                     return Some(span);
                 }
             }
-            WordPart::ZshQualifiedGlob(_)
-            | WordPart::SingleQuoted { .. }
+            WordPart::SingleQuoted { .. }
             | WordPart::Variable(_)
             | WordPart::CommandSubstitution { .. }
             | WordPart::ArithmeticExpansion { .. }
@@ -1043,8 +1028,7 @@ pub(crate) fn collect_unbraced_variable_before_bracket_spans(
             | WordPart::ArraySlice { .. }
             | WordPart::IndirectExpansion { .. }
             | WordPart::Transformation { .. }
-            | WordPart::PrefixMatch { .. }
-            | WordPart::ZshQualifiedGlob(_) => {
+            | WordPart::PrefixMatch { .. } => {
                 pending_variable = None;
             }
         }
@@ -1087,11 +1071,6 @@ pub(crate) fn parameter_array_subscript_span(parameter: &ParameterExpansion) -> 
             }
             BourneParameterExpansion::PrefixMatch { .. } => None,
         },
-        ParameterExpansionSyntax::Zsh(syntax) => match &syntax.target {
-            ZshExpansionTarget::Reference(reference) => var_ref_subscript_span(reference),
-            ZshExpansionTarget::Nested(parameter) => parameter_array_subscript_span(parameter),
-            ZshExpansionTarget::Word(_) | ZshExpansionTarget::Empty => None,
-        },
     }
 }
 
@@ -1126,8 +1105,7 @@ pub(crate) fn word_surface_bytes(
                 }
             }
             WordPart::DoubleQuoted { .. } | WordPart::SingleQuoted { .. } => return None,
-            WordPart::ZshQualifiedGlob(_)
-            | WordPart::Variable(_)
+            WordPart::Variable(_)
             | WordPart::CommandSubstitution { .. }
             | WordPart::ArithmeticExpansion { .. }
             | WordPart::Parameter(_)

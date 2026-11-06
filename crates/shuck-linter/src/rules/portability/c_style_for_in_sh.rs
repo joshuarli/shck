@@ -35,7 +35,7 @@ pub fn c_style_for_in_sh(checker: &mut Checker) {
                 let diagnostic = Diagnostic::new(CStyleForInSh, span);
                 Some(
                     match c_style_for_fix(
-                        command,
+                        command.as_ref(),
                         fact.span_in_source(checker.source()),
                         checker.source(),
                     ) {
@@ -49,8 +49,7 @@ pub fn c_style_for_in_sh(checker: &mut Checker) {
             | Command::Decl(_)
             | Command::Binary(_)
             | Command::Compound(_)
-            | Command::Function(_)
-            | Command::AnonymousFunction(_) => None,
+            | Command::Function(_) => None,
         })
         .collect::<Vec<_>>();
 

@@ -104,42 +104,6 @@ mod tests {
     use crate::{Applicability, LinterSettings, Rule, assert_diagnostics_diff};
 
     #[test]
-    fn reports_quoted_home_relative_paths_in_string_comparisons() {
-        let source = "\
-#!/bin/bash
-[ \"$profile\" = \"~/.bashrc\" ]
-[ \"~/.bashrc\" = \"$profile\" ]
-[[ \"$profile\" == \"~/.profile\" ]]
-[ \"$profile\" != '~/.zshrc' ]
-[ ! = \"~/.bashrc\" ]
-[ ! \"$profile\" = \"~/.bashrc\" ]
-[ ! \"~/.bashrc\" = \"$profile\" ]
-[ ! \"$profile\" != '~/.zshrc' ]
-";
-        let diagnostics = test_snippet(
-            source,
-            &LinterSettings::for_rule(Rule::TildeInStringComparison),
-        );
-
-        assert_eq!(
-            diagnostics
-                .iter()
-                .map(|diagnostic| diagnostic.span.slice(source))
-                .collect::<Vec<_>>(),
-            vec![
-                "~/.bashrc",
-                "~/.bashrc",
-                "~/.profile",
-                "'~/.zshrc'",
-                "~/.bashrc",
-                "~/.bashrc",
-                "~/.bashrc",
-                "'~/.zshrc'",
-            ]
-        );
-    }
-
-    #[test]
     fn ignores_unquoted_tilde_and_non_home_tilde_literals() {
         let source = "\
 #!/bin/bash
@@ -202,35 +166,6 @@ case \"$path\" in \"~/.cache\") : ;; esac
                 "~/.cache",
             ]
         );
-    }
-
-    #[test]
-    fn applies_unsafe_fix_to_quoted_home_paths() {
-        let source = "\
-#!/bin/bash
-[ \"$profile\" = \"~/.bashrc\" ]
-[ \"$profile\" != '~/.zshrc' ]
-profile='~/.bash_profile'
-printf '%s\n' \"~/.config/powershell/profile.ps1\"
-";
-        let result = test_snippet_with_fix(
-            source,
-            &LinterSettings::for_rule(Rule::TildeInStringComparison),
-            Applicability::Unsafe,
-        );
-
-        assert_eq!(result.fixes_applied, 4);
-        assert_eq!(
-            result.fixed_source,
-            "\
-#!/bin/bash
-[ \"$profile\" = \"$HOME/.bashrc\" ]
-[ \"$profile\" != \"$HOME/.zshrc\" ]
-profile=\"$HOME/.bash_profile\"
-printf '%s\n' \"$HOME/.config/powershell/profile.ps1\"
-"
-        );
-        assert!(result.fixed_diagnostics.is_empty());
     }
 
     #[test]

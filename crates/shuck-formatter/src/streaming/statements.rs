@@ -318,7 +318,6 @@ where
             Command::Binary(command) => self.format_binary_command(command),
             Command::Compound(compound) => self.format_compound_command(compound),
             Command::Function(function) => self.format_function(function),
-            Command::AnonymousFunction(function) => self.format_anonymous_function(function),
         }
     }
 
@@ -326,8 +325,6 @@ where
         match command {
             CompoundCommand::If(command) => self.format_if(command),
             CompoundCommand::For(command) => self.format_for(command),
-            CompoundCommand::Repeat(command) => self.format_repeat(command),
-            CompoundCommand::Foreach(command) => self.format_foreach(command),
             CompoundCommand::ArithmeticFor(command) => self.format_arithmetic_for(command),
             CompoundCommand::While(command) => self.format_while(command),
             CompoundCommand::Until(command) => self.format_until(command),
@@ -339,7 +336,6 @@ where
             CompoundCommand::Time(command) => self.format_time(command),
             CompoundCommand::Conditional(command) => self.format_conditional(command),
             CompoundCommand::Coproc(command) => self.format_coproc(command),
-            CompoundCommand::Always(command) => self.format_always(command),
         }
     }
 
