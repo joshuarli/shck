@@ -1,4 +1,4 @@
-.PHONY: build test release verify-release run check hawk check-scripts setup-hooks setup-large-corpus ensure-cache test-large-corpus large-corpus-report large-corpus-report-from-log large-corpus-report-open test-oracle-shfmt test-oracle-shfmt-fixtures test-oracle-shfmt-benchmark test-oracle-shfmt-large-corpus update-oracle-shfmt-large-corpus-allowlist test-oracle-shellcheck-cli fuzz-setup fuzz-list fuzz-smoke fuzz-run fuzz-cli bench bench-save bench-compare bench-parser bench-arithmetic bench-lexer bench-semantic bench-linter bench-formatter bench-large-corpus-hotspots bench-macro bench-macro-single bench-macro-format bench-macro-format-summary bench-macro-format-single bench-macro-site-local bench-repo-corpus profile-parser profile-parser-view profile-arithmetic profile-arithmetic-view profile-formatter profile-formatter-view profile-linter profile-linter-view profile-cli profile-cli-view profile-large-corpus profile-large-corpus-view flame-parser flame-arithmetic flame-formatter flame-linter flame-cli
+.PHONY: build test release verify-release run check hawk check-scripts setup-hooks setup-large-corpus ensure-cache test-large-corpus large-corpus-report large-corpus-report-from-log large-corpus-report-open test-oracle-shfmt test-oracle-shfmt-fixtures test-oracle-shfmt-benchmark test-oracle-shfmt-large-corpus update-oracle-shfmt-large-corpus-allowlist test-oracle-shellcheck-cli fuzz-setup fuzz-list fuzz-smoke fuzz-run fuzz-cli bench bench-save bench-compare bench-parser bench-arithmetic bench-lexer bench-semantic bench-linter bench-formatter bench-large-corpus-hotspots bench-macro bench-macro-single bench-macro-format bench-macro-format-summary bench-macro-format-single bench-macro-site-local bench-repo-corpus profile-parser profile-parser-view profile-arithmetic profile-arithmetic-view profile-formatter profile-formatter-view profile-linter profile-linter-view profile-cli profile-cli-view profile-large-corpus profile-large-corpus-view
 
 ARGS ?= --help
 TARGET ?= $(shell rustc -vV | awk '/^host:/ {print $$2}')
@@ -295,31 +295,6 @@ profile-large-corpus: ensure-cache
 
 profile-large-corpus-view: ensure-cache
 	SAMPLY_VIEW=1 $(NIX_DEVELOP) ./scripts/profiling/profile_large_corpus.sh "$(PROFILE_CORPUS_FIXTURE)" "$(PROFILE_DIR)" "$(PROFILE_RATE)" "$(PROFILE_ITERATIONS)" "$(PROFILE_CORPUS_ITERATIONS)"
-
-flame-parser:
-	@mkdir -p $(PROFILE_DIR)
-	cargo flamegraph --profile profiling -p shuck-benchmark --bench parser -o $(PROFILE_DIR)/flame-parser-$(PROFILE_CASE).svg -- --bench $(PROFILE_CASE) --noplot
-	open $(PROFILE_DIR)/flame-parser-$(PROFILE_CASE).svg
-
-flame-arithmetic:
-	@mkdir -p $(PROFILE_DIR)
-	cargo flamegraph --profile profiling -p shuck-benchmark --bench arithmetic -o $(PROFILE_DIR)/flame-arithmetic-$(PROFILE_CASE).svg -- --bench $(PROFILE_CASE) --noplot
-	open $(PROFILE_DIR)/flame-arithmetic-$(PROFILE_CASE).svg
-
-flame-formatter:
-	@mkdir -p $(PROFILE_DIR)
-	cargo flamegraph --profile profiling -p shuck-benchmark --bench formatter -o $(PROFILE_DIR)/flame-formatter-$(PROFILE_CASE).svg -- --bench $(PROFILE_CASE) --noplot
-	open $(PROFILE_DIR)/flame-formatter-$(PROFILE_CASE).svg
-
-flame-linter:
-	@mkdir -p $(PROFILE_DIR)
-	cargo flamegraph --profile profiling -p shuck-benchmark --bench linter -o $(PROFILE_DIR)/flame-linter-$(PROFILE_CASE).svg -- --bench $(PROFILE_CASE) --noplot
-	open $(PROFILE_DIR)/flame-linter-$(PROFILE_CASE).svg
-
-flame-cli:
-	@mkdir -p $(PROFILE_DIR)
-	cargo flamegraph --profile profiling -p shuck-cli -o $(PROFILE_DIR)/flame-cli.svg -- check --no-cache "$(PROFILE_FILE)"
-	open $(PROFILE_DIR)/flame-cli.svg
 
 check-scripts:
 	cargo run -q -p shuck-cli -- check --no-cache scripts

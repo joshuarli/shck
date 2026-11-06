@@ -401,7 +401,7 @@ Use the profiling helpers to confirm that time moves out of the targeted hot pat
 
 ```bash
 make profile-formatter PROFILE_CASE=nvm
-make flame-formatter PROFILE_CASE=nvm
+make profile-formatter-view PROFILE_CASE=nvm
 ```
 
 ### Exit Criteria

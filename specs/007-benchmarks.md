@@ -321,7 +321,7 @@ debug = "full"
 lto = false
 ```
 
-This enables `cargo flamegraph` and `samply` on benchmark binaries without losing symbol resolution.
+This keeps symbols available to `samply` on benchmark binaries without losing symbol resolution.
 
 ### What We Measure
 
