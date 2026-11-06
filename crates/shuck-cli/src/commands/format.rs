@@ -3,8 +3,8 @@ use std::io::{self, BufWriter, Write};
 use std::path::{Path, PathBuf};
 
 use anyhow::{Result, anyhow};
+use deser::{Deserialize, Serialize};
 use rayon::prelude::*;
-use serde::{Deserialize, Serialize};
 use shuck_cache::{FileCacheKey, PackageCache};
 use shuck_config::ConfigArguments;
 use shuck_formatter::{FormatError, FormattedSource, format_source, source_is_formatted};

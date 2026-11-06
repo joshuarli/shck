@@ -6,44 +6,44 @@ use std::process::{Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use serde::{Deserialize, Serialize};
+use deser::{Deserialize, Serialize};
 
 const HELP_PROBE_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ShellCheckReplacement {
     pub line: usize,
-    #[serde(rename = "endLine")]
+    #[deser(rename = "endLine")]
     pub end_line: usize,
     pub column: usize,
-    #[serde(rename = "endColumn")]
+    #[deser(rename = "endColumn")]
     pub end_column: usize,
     pub precedence: usize,
-    #[serde(rename = "insertionPoint")]
+    #[deser(rename = "insertionPoint")]
     pub insertion_point: String,
     pub replacement: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ShellCheckFix {
-    #[serde(default)]
+    #[deser(default)]
     pub replacements: Vec<ShellCheckReplacement>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ShellCheckDiagnostic {
-    #[serde(default)]
+    #[deser(default)]
     pub file: String,
     pub code: u32,
     pub line: usize,
-    #[serde(rename = "endLine")]
+    #[deser(rename = "endLine")]
     pub end_line: usize,
     pub column: usize,
-    #[serde(rename = "endColumn")]
+    #[deser(rename = "endColumn")]
     pub end_column: usize,
     pub level: String,
     pub message: String,
-    #[serde(default)]
+    #[deser(default)]
     pub fix: Option<ShellCheckFix>,
 }
 
@@ -245,7 +245,7 @@ pub fn decode_shellcheck_diagnostics(data: &[u8]) -> Result<Vec<ShellCheckDiagno
     }
 
     if trimmed.starts_with('[') {
-        serde_json::from_str::<Vec<ShellCheckDiagnostic>>(trimmed)
+        deser_json::from_str::<Vec<ShellCheckDiagnostic>>(trimmed)
             .map_err(|err| format!("decode shellcheck json array: {err}"))
     } else if trimmed.starts_with('{') {
         #[derive(Deserialize)]
@@ -253,7 +253,7 @@ pub fn decode_shellcheck_diagnostics(data: &[u8]) -> Result<Vec<ShellCheckDiagno
             comments: Vec<ShellCheckDiagnostic>,
         }
 
-        serde_json::from_str::<Wrapper>(trimmed)
+        deser_json::from_str::<Wrapper>(trimmed)
             .map(|wrapper| wrapper.comments)
             .map_err(|err| format!("decode shellcheck json object: {err}"))
     } else {

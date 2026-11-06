@@ -3,7 +3,7 @@ use std::fs;
 use std::path::Path;
 
 use anyhow::{Context, Result, anyhow, bail};
-use serde::Deserialize;
+use deser::Deserialize;
 
 use crate::types::parse_shell_name;
 use crate::{Shell, VersionConstraint};
@@ -71,7 +71,8 @@ pub(crate) fn parse_script_metadata(source: &str) -> Result<Option<ScriptMetadat
     for (_, line) in lines.by_ref() {
         let trimmed = line.trim();
         if trimmed == "# ///" {
-            let block: MetadataBlock = toml::from_str(&body).context("parse shuck metadata")?;
+            let block: MetadataBlock =
+                deser_toml::from_str(&body).context("parse shuck metadata")?;
             let shell = parse_shell_name(&block.shell)?;
             let version = block
                 .version
@@ -132,10 +133,10 @@ fn contains_metadata_block<'a>(lines: impl Iterator<Item = &'a str>) -> bool {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[deser(deny_unknown_fields)]
 struct MetadataBlock {
     shell: String,
     version: Option<String>,
-    #[serde(rename = "metadata")]
-    _metadata: Option<BTreeMap<String, toml::Value>>,
+    #[deser(rename = "metadata")]
+    _metadata: Option<BTreeMap<String, deser_value::Value>>,
 }

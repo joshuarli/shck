@@ -1,10 +1,10 @@
 use std::any::Any;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fs;
 use std::panic::{self, AssertUnwindSafe};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
+use std::process::Command;
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicUsize, Ordering},
@@ -13,7 +13,7 @@ use std::sync::{
 use std::thread;
 use std::time::{Duration, Instant};
 
-use serde::{Deserialize, Serialize};
+use deser::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use shuck::shellcheck_runtime::{
     ShellCheckDiagnostic, ShellCheckProbe, ShellCheckRun, decode_shellcheck_diagnostics,
@@ -381,11 +381,11 @@ where
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, Default)]
-#[serde(deny_unknown_fields)]
+#[deser(deny_unknown_fields)]
 struct RuleCorpusMetadataDocument {
-    #[serde(default)]
+    #[deser(default)]
     review_all_divergences: bool,
-    #[serde(default)]
+    #[deser(default)]
     reviewed_divergences: Vec<ReviewedDivergenceRecord>,
 }
 
@@ -404,7 +404,7 @@ impl RuleCorpusMetadataDocument {
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "kebab-case")]
+#[deser(rename_all = "kebab-case")]
 enum CompatibilitySide {
     ShellcheckOnly,
     ShuckOnly,
@@ -420,22 +420,22 @@ impl CompatibilitySide {
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields)]
+#[deser(deny_unknown_fields)]
 struct ReviewedDivergenceRecord {
     side: CompatibilitySide,
-    #[serde(default)]
+    #[deser(default)]
     rule_wide: bool,
-    #[serde(default)]
+    #[deser(default)]
     path_suffix: Option<String>,
-    #[serde(default)]
+    #[deser(default)]
     path_contains: Option<String>,
-    #[serde(default)]
+    #[deser(default)]
     line: Option<usize>,
-    #[serde(default)]
+    #[deser(default)]
     end_line: Option<usize>,
-    #[serde(default)]
+    #[deser(default)]
     column: Option<usize>,
-    #[serde(default)]
+    #[deser(default)]
     end_column: Option<usize>,
     reason: String,
 }
@@ -592,14 +592,14 @@ impl ShellCheckCache {
     }
 
     fn cache_path(&self, fixture: &LargeCorpusFixture) -> PathBuf {
-        let key_data = serde_json::json!({
+        let key_data = deser_value::value!({
             "schema": SHELLCHECK_CACHE_SCHEMA,
             "path": fixture.cache_rel_path_key(),
-            "shell": fixture.shell,
-            "sourceHash": fixture.source_hash,
-            "versionText": self.version_text,
+            "shell": fixture.shell.clone(),
+            "sourceHash": fixture.source_hash.clone(),
+            "versionText": self.version_text.clone(),
         });
-        let key = hash_bytes(key_data.to_string().as_bytes());
+        let key = hash_bytes(deser_json::to_string(&key_data).unwrap().as_bytes());
         self.dir.join(format!("{key}.json"))
     }
 
@@ -633,14 +633,14 @@ impl ShellCheckCache {
         fixture: &LargeCorpusFixture,
         absolute_path: &Path,
     ) -> PathBuf {
-        let key_data = serde_json::json!({
+        let key_data = deser_value::value!({
             "schema": SHELLCHECK_CACHE_SCHEMA,
             "path": absolute_path.to_string_lossy(),
-            "shell": fixture.shell,
-            "sourceHash": fixture.source_hash,
-            "invocationHash": self.legacy_invocation_hash,
+            "shell": fixture.shell.clone(),
+            "sourceHash": fixture.source_hash.clone(),
+            "invocationHash": self.legacy_invocation_hash.clone(),
         });
-        let key = hash_bytes(key_data.to_string().as_bytes());
+        let key = hash_bytes(deser_json::to_string(&key_data).unwrap().as_bytes());
         self.dir.join(format!("{key}.json"))
     }
 
@@ -654,7 +654,7 @@ impl ShellCheckCache {
     fn read_cache(&self, fixture: &LargeCorpusFixture) -> Option<ShellCheckRun> {
         let path = self.cache_path(fixture);
         let data = fs::read_to_string(&path).ok()?;
-        let entry: ShellCheckCacheEntry = serde_json::from_str(&data).ok()?;
+        let entry: ShellCheckCacheEntry = deser_json::from_str(&data).ok()?;
         if entry.schema != SHELLCHECK_CACHE_SCHEMA {
             return None;
         }
@@ -674,7 +674,7 @@ impl ShellCheckCache {
             diagnostics: run.diagnostics.clone(),
             parse_aborted: run.parse_aborted,
         };
-        if let Ok(data) = serde_json::to_string(&entry) {
+        if let Ok(data) = deser_json::to_string(&entry) {
             let _ = fs::write(&path, data);
         }
     }
@@ -1353,10 +1353,6 @@ fn evaluate_fixture_compatibility(
     evaluation
 }
 
-fn path_arg(path: &Path) -> String {
-    path.to_string_lossy().into_owned()
-}
-
 fn fixture_failure_kind_for_message(message: &str, label: &str) -> FixtureFailureKind {
     if is_timeout_message(message, label) {
         FixtureFailureKind::Timeout
@@ -1430,7 +1426,7 @@ fn load_rule_corpus_metadata(rule_code: &str) -> RuleCorpusMetadataDocument {
     let data =
         fs::read_to_string(&path).unwrap_or_else(|err| panic!("read {}: {err}", path.display()));
     let metadata: RuleCorpusMetadataDocument =
-        serde_yaml::from_str(&data).unwrap_or_else(|err| panic!("parse {}: {err}", path.display()));
+        deser_yaml::from_str(&data).unwrap_or_else(|err| panic!("parse {}: {err}", path.display()));
     metadata
         .validate(rule_code, &path)
         .unwrap_or_else(|err| panic!("{err}"));
@@ -1861,7 +1857,6 @@ fn path_is_patch_file(path: &Path) -> bool {
     path.ends_with(".patch") || path.ends_with(".diff") || path.ends_with(".dpatch")
 }
 
-
 fn path_is_appledouble_file(path: &Path) -> bool {
     path.file_name()
         .and_then(|name| name.to_str())
@@ -2069,10 +2064,6 @@ fn update_hash_component(hasher: &mut Sha256, value: &str) {
 // ---------------------------------------------------------------------------
 // Fixture loading
 // ---------------------------------------------------------------------------
-
-fn load_fixtures(cfg: &LargeCorpusConfig) -> Vec<LargeCorpusFixture> {
-    select_configured_large_corpus_fixtures(collect_fixtures(&cfg.corpus_dir), cfg)
-}
 
 fn select_configured_large_corpus_fixtures(
     mut fixtures: Vec<LargeCorpusFixture>,
@@ -2300,32 +2291,6 @@ fn run_shuck_with_timeout(
             resolver.as_ref() as &(dyn shuck_semantic::SourcePathResolver + Send + Sync)
         });
         run_shuck(&fixture, &linter_settings, source_path_resolver)
-    })
-}
-
-fn parse_fixture_for_effective_large_corpus_shell_with_timeout(
-    fixture: &LargeCorpusFixture,
-    timeout: Duration,
-) -> Result<Result<(), String>, String> {
-    let fixture = fixture.clone();
-    let source = match fs::read_to_string(&fixture.path) {
-        Ok(source) => source,
-        Err(err) => return Ok(Err(format!("read error: {err}"))),
-    };
-    let timeout = effective_shuck_timeout(source.as_bytes(), timeout);
-    run_with_timeout("shuck", timeout, move || {
-        let shell = effective_large_corpus_shell(&fixture);
-        let shell_profile = shuck_linter::ShellDialect::from_name(shell).shell_profile();
-        let parsed =
-            shuck_parser::parser::Parser::with_profile(&source, shell_profile.clone()).parse();
-        if parsed.is_err() {
-            return Err(parsed.strict_error().to_string());
-        }
-
-        if shell == "zsh" {
-        }
-
-        Ok(())
     })
 }
 
@@ -2652,7 +2617,6 @@ mod tests {
     fn resolve_shell_dash_maps_to_sh() {
         assert_eq!(resolve_shell(Path::new("script"), b"#!/bin/dash\n"), "sh");
     }
-
 
     #[test]
     fn resolve_shell_csh_shebang_stays_unsupported() {
@@ -3030,10 +2994,6 @@ mod tests {
                 "expected {shell} in supported shells"
             );
         }
-        assert!(
-            true,
-            "unsupported shells are excluded"
-        );
     }
 
     #[test]
@@ -3068,7 +3028,6 @@ mod tests {
         assert!(path_is_sample_file(&fixture.path));
         assert!(!fixture_supported_for_large_corpus(&fixture, None));
     }
-
 
     #[test]
     fn shellcheck_parse_ignore_paths_are_kept_for_timing() {
@@ -4092,7 +4051,7 @@ mod tests {
         }
         fs::write(
             &stale_path,
-            serde_json::to_string(&ShellCheckCacheEntry {
+            deser_json::to_string(&ShellCheckCacheEntry {
                 schema: SHELLCHECK_CACHE_SCHEMA - 1,
                 diagnostics: vec![shellcheck_diagnostic(1088)],
                 parse_aborted: false,
@@ -4397,16 +4356,8 @@ mod tests {
         fs::write(path, cache_file_data(label)).unwrap();
     }
 
-    fn write_file(path: impl AsRef<Path>, contents: &str) {
-        let path = path.as_ref();
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).unwrap();
-        }
-        fs::write(path, contents).unwrap();
-    }
-
     fn cache_file_data(label: &str) -> String {
-        serde_json::to_string(&ShellCheckCacheEntry {
+        deser_json::to_string(&ShellCheckCacheEntry {
             schema: SHELLCHECK_CACHE_SCHEMA,
             diagnostics: vec![ShellCheckDiagnostic {
                 file: String::new(),

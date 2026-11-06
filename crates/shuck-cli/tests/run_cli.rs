@@ -6,8 +6,8 @@ use std::path::{Path, PathBuf};
 use std::process::Command as ProcessCommand;
 
 use assert_cmd::Command;
+use deser_value::{Map, value};
 use predicates::prelude::*;
-use serde_json::{Map, json};
 use sha2::{Digest, Sha256};
 use tempfile::tempdir;
 use url::Url;
@@ -81,7 +81,7 @@ fn registry_path(root: &Path, shell: &str, versions: &[(&str, &Path, &str)]) -> 
     for (version, archive, sha256) in versions {
         shell_versions.insert(
             (*version).to_owned(),
-            json!({
+            value!({
                 "manifest_url": format!("{version}.json"),
             }),
         );
@@ -89,15 +89,15 @@ fn registry_path(root: &Path, shell: &str, versions: &[(&str, &Path, &str)]) -> 
             shell_dir.join(format!("{version}.json")),
             format!(
                 "{}\n",
-                serde_json::to_string_pretty(&json!({
+                deser_json::to_string(&value!({
                     "version": 2,
                     "kind": "shuck.shells.release",
                     "shell": shell,
-                    "release": version,
+                    "release": *version,
                     "platforms": {
                         platform: {
                             "url": Url::from_file_path(archive).unwrap().to_string(),
-                            "sha256": sha256,
+                            "sha256": *sha256,
                         }
                     }
                 }))
@@ -111,7 +111,7 @@ fn registry_path(root: &Path, shell: &str, versions: &[(&str, &Path, &str)]) -> 
         shell_dir.join("index.json"),
         format!(
             "{}\n",
-            serde_json::to_string_pretty(&json!({
+            deser_json::to_string(&value!({
                 "version": 2,
                 "kind": "shuck.shells.versions",
                 "shell": shell,
@@ -127,7 +127,7 @@ fn registry_path(root: &Path, shell: &str, versions: &[(&str, &Path, &str)]) -> 
         &path,
         format!(
             "{}\n",
-            serde_json::to_string_pretty(&json!({
+            deser_json::to_string(&value!({
                 "version": 2,
                 "kind": "shuck.shells.index",
                 "shells": {

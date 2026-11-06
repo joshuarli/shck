@@ -31,10 +31,10 @@ insta = { workspace = true }
 similar = { workspace = true }
 test-case = { workspace = true }
 tempfile = { workspace = true }
-serde = { workspace = true }
-serde_yaml = { workspace = true }
+deser = { workspace = true }
+deser-yaml = { workspace = true }
 
 [build-dependencies]
 globset = { workspace = true }
-serde = { workspace = true }
-serde_yaml = { workspace = true }
+deser = { workspace = true }
+deser-yaml = { workspace = true }

@@ -3,7 +3,7 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
-use serde::{Serialize, de::DeserializeOwned};
+use deser::{Serialize, de::DeserializeOwned};
 use shuck_cache::{CacheKey, CacheKeyHasher, FileCacheKey, PackageCache};
 
 use crate::discover::{
@@ -263,7 +263,7 @@ where
 mod tests {
     use std::fs;
 
-    use serde::{Deserialize, Serialize};
+    use deser::{Deserialize, Serialize};
     use tempfile::tempdir;
 
     use super::*;

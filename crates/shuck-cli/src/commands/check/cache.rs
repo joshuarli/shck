@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use serde::{Deserialize, Serialize};
+use deser::{Deserialize, Serialize};
 use shuck_cache::{CacheKey, CacheKeyHasher, FileCacheKey};
 use shuck_linter::Applicability;
 
@@ -52,15 +52,15 @@ fn analyzed_shell_relative_paths(files: &[DiscoveredFile]) -> Vec<PathBuf> {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(super) struct CheckCacheData {
     pub(super) diagnostics: Vec<CachedDisplayedDiagnostic>,
-    #[serde(default)]
+    #[deser(default)]
     pub(super) parse_failed: bool,
-    #[serde(default)]
+    #[deser(default)]
     pub(super) dependency_fingerprints: Vec<ResolvedDependencyFingerprint>,
     /// Resolved `lint=true` directive targets this file pulled into the run.
     /// Kept so a cache hit still enqueues the targets for linting; source
     /// resolution candidates, including missing higher-precedence paths, are
     /// stored separately in `dependency_fingerprints`.
-    #[serde(default)]
+    #[deser(default)]
     pub(super) followed_paths: Vec<PathBuf>,
 }
 
@@ -105,7 +105,7 @@ impl CheckCacheData {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(super) struct ResolvedDependencyFingerprint {
     pub(super) path: PathBuf,
-    #[serde(default)]
+    #[deser(default)]
     pub(super) file_key: Option<FileCacheKey>,
 }
 
@@ -287,7 +287,7 @@ mod tests {
     use std::sync::mpsc::{TryRecvError, channel};
 
     use notify::event::{CreateKind, EventAttributes, ModifyKind, RemoveKind, RenameMode};
-        use shuck_linter::{
+    use shuck_linter::{
         Category, LinterSettings, Rule, RuleSelector, RuleSet, ShellCheckCodeMap, ShellDialect,
     };
     use shuck_parser::parser::Parser;
@@ -305,7 +305,7 @@ mod tests {
     };
     use crate::commands::check::cache::CachedDisplayedDiagnosticKind;
     use crate::commands::check::display::display_lint_diagnostics;
-        use crate::commands::check::run::run_check_with_cwd;
+    use crate::commands::check::run::run_check_with_cwd;
     use crate::commands::check::settings::{
         CompiledPerFileShellList, PerFileShell, parse_rule_selectors,
         resolve_project_check_settings,
@@ -349,8 +349,6 @@ mod tests {
         assert_eq!(second.cache_hits, 1);
         assert_eq!(second.cache_misses, 0);
     }
-
-
 
     #[cfg(unix)]
     #[test]
@@ -443,7 +441,6 @@ mod tests {
             diagnostic_codes(&broad_again)
         );
     }
-
 
     #[test]
     fn invalidates_cache_when_file_changes() {
@@ -604,9 +601,6 @@ mod tests {
         assert_eq!(second.cache_misses, 1);
         assert_eq!(second.diagnostics.len(), 1);
     }
-
-
-
 
     #[test]
     fn mixes_cache_hits_and_misses_in_a_single_run() {

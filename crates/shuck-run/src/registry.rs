@@ -4,7 +4,7 @@ use std::path::{Component, Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
 use anyhow::{Context, Result, anyhow, bail};
-use serde::Deserialize;
+use deser::Deserialize;
 use sha2::{Digest, Sha256};
 use tempfile::NamedTempFile;
 use url::Url;
@@ -348,7 +348,7 @@ where
 
 fn parse_root_document(source: &str) -> Result<RootDocument> {
     let document: RootDocument =
-        serde_json::from_str(source).context("decode root registry document")?;
+        deser_json::from_str(source).context("decode root registry document")?;
     if !registry_schema_version_is_supported(document.version) {
         bail!(
             "root registry document version {} is unsupported",
@@ -366,7 +366,7 @@ fn parse_root_document(source: &str) -> Result<RootDocument> {
 
 fn parse_shell_document(source: &str, expected_shell: &str) -> Result<ShellDocument> {
     let document: ShellDocument =
-        serde_json::from_str(source).context("decode shell registry document")?;
+        deser_json::from_str(source).context("decode shell registry document")?;
     if !registry_schema_version_is_supported(document.version) {
         bail!(
             "shell registry document for `{expected_shell}` has unsupported version {}",
@@ -394,7 +394,7 @@ fn parse_release_document(
     expected_version: &str,
 ) -> Result<ReleaseDocument> {
     let document: ReleaseDocument =
-        serde_json::from_str(source).context("decode release manifest")?;
+        deser_json::from_str(source).context("decode release manifest")?;
     if !registry_schema_version_is_supported(document.version) {
         bail!(
             "release manifest for `{expected_shell}` `{expected_version}` has unsupported version {}",

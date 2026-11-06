@@ -5,13 +5,13 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use serde::Deserialize;
+use deser::Deserialize;
 use shuck_parser::parser::Parser;
 
 const OILS_DIR: &str = "tests/testdata/oils";
 const EXPECTATIONS_PATH: &str = "tests/testdata/oils_expectations.json";
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[deser(rename_all = "snake_case")]
 enum Expectation {
     ParseOk,
     ParseErr,
@@ -200,7 +200,7 @@ fn is_directive_block_header(line: &str) -> bool {
 fn load_expectations(path: &Path) -> HashMap<String, ExpectationEntry> {
     let contents = fs::read_to_string(path)
         .unwrap_or_else(|err| panic!("failed to read {}: {err}", path.display()));
-    serde_json::from_str(&contents)
+    deser_json::from_str(&contents)
         .unwrap_or_else(|err| panic!("failed to parse {}: {err}", path.display()))
 }
 

@@ -12,7 +12,7 @@ categories = ["caching", "development-tools"]
 readme = "README.md"
 
 [dependencies]
-bincode = { version = "2", features = ["serde"] }
-serde = { workspace = true }
+deser-cbor = { workspace = true }
+deser = { workspace = true }
 sha2 = { workspace = true }
 tempfile = { workspace = true }

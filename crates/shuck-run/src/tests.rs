@@ -4,7 +4,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use serde_json::{Map, Value, json};
+use deser_value::{Map, Value, value};
 use sha2::{Digest, Sha256};
 use url::Url;
 
@@ -53,7 +53,7 @@ fn write_registry_document(root: &Path, relative_path: &str, document: &Value) -
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).unwrap();
     }
-    let contents = format!("{}\n", serde_json::to_string_pretty(document).unwrap());
+    let contents = format!("{}\n", deser_json::to_string(document).unwrap());
     fs::write(&path, contents).unwrap();
     path
 }
@@ -92,7 +92,7 @@ fn write_registry_site_with_schema(
     for (shell, versions) in &grouped {
         root_shells.insert(
             shell.clone(),
-            json!({
+            value!({
                 "versions_url": format!("shells/{shell}/index.json"),
             }),
         );
@@ -108,20 +108,20 @@ fn write_registry_site_with_schema(
         for version in version_names {
             shell_versions.insert(
                 version.clone(),
-                json!({
+                value!({
                     "manifest_url": format!("{version}.json"),
                 }),
             );
 
             let mut platforms = Map::new();
             for (platform, entry) in versions.get(&version).unwrap() {
-                let mut artifact = json!({
-                    "url": entry.url,
-                    "sha256": entry.sha256,
+                let mut artifact = value!({
+                    "url": entry.url.clone(),
+                    "sha256": entry.sha256.clone(),
                 });
                 if schema_version == 3 {
-                    artifact["asset_id"] = json!(123456);
-                    artifact["asset_digest"] = json!(format!("sha256:{}", entry.sha256));
+                    artifact["asset_id"] = value!(123456);
+                    artifact["asset_digest"] = value!(format!("sha256:{}", entry.sha256));
                 }
                 platforms.insert(platform.clone(), artifact);
             }
@@ -129,7 +129,7 @@ fn write_registry_site_with_schema(
             write_registry_document(
                 root,
                 &format!("shells/{shell}/{version}.json"),
-                &json!({
+                &value!({
                     "version": schema_version,
                     "kind": "shuck.shells.release",
                     "shell": shell,
@@ -142,7 +142,7 @@ fn write_registry_site_with_schema(
         write_registry_document(
             root,
             &format!("shells/{shell}/index.json"),
-            &json!({
+            &value!({
                 "version": schema_version,
                 "kind": "shuck.shells.versions",
                 "shell": shell,
@@ -154,7 +154,7 @@ fn write_registry_site_with_schema(
     write_registry_document(
         root,
         "index.json",
-        &json!({
+        &value!({
             "version": schema_version,
             "kind": "shuck.shells.index",
             "shells": root_shells,
@@ -309,7 +309,8 @@ fn resolves_cli_shell_and_config_version() {
 fn metadata_overrides_project_defaults() {
     let tempdir = tempfile::tempdir().unwrap();
     let (archive, sha256) = make_shell_archive(tempdir.path(), Shell::Dash, "0.5.12");
-    let registry_path = registry_for_archive(tempdir.path(), Shell::Dash, "0.5.12", &archive, &sha256);
+    let registry_path =
+        registry_for_archive(tempdir.path(), Shell::Dash, "0.5.12", &archive, &sha256);
     let environment = test_environment(
         tempdir.path(),
         Url::from_file_path(registry_path).unwrap().to_string(),
@@ -787,10 +788,14 @@ fn unparseable_version_keys_are_skipped() {
         registry_for_archive(tempdir.path(), Shell::Bash, "5.2.21", &archive, &sha256);
     let shell_index_path = tempdir.path().join("registry/shells/bash/index.json");
     let mut shell_index: Value =
-        serde_json::from_str(&fs::read_to_string(&shell_index_path).unwrap()).unwrap();
-    shell_index["versions"]["5.3-rc1"] = json!({ "manifest_url": "5.3-rc1.json" });
-    shell_index["versions"]["9.9.9"] = json!({ "manifest_url": "../../../escape.json" });
-    fs::write(&shell_index_path, shell_index.to_string()).unwrap();
+        deser_json::from_str(&fs::read_to_string(&shell_index_path).unwrap()).unwrap();
+    shell_index["versions"]["5.3-rc1"] = value!({ "manifest_url": "5.3-rc1.json" });
+    shell_index["versions"]["9.9.9"] = value!({ "manifest_url": "../../../escape.json" });
+    fs::write(
+        &shell_index_path,
+        deser_json::to_string(&shell_index).unwrap(),
+    )
+    .unwrap();
     let environment = test_environment(
         tempdir.path(),
         Url::from_file_path(registry_path).unwrap().to_string(),
@@ -1051,7 +1056,7 @@ fn explicit_registry_endpoint_url_is_fetched_as_given() {
         &endpoint_path,
         format!(
             "{}\n",
-            serde_json::to_string_pretty(&json!({
+            deser_json::to_string(&value!({
                 "version": 2,
                 "kind": "shuck.shells.index",
                 "shells": {
@@ -1068,7 +1073,7 @@ fn explicit_registry_endpoint_url_is_fetched_as_given() {
         tempdir.path().join("shells/bash/index.json"),
         format!(
             "{}\n",
-            serde_json::to_string_pretty(&json!({
+            deser_json::to_string(&value!({
                 "version": 2,
                 "kind": "shuck.shells.versions",
                 "shell": "bash",
@@ -1086,7 +1091,7 @@ fn explicit_registry_endpoint_url_is_fetched_as_given() {
         tempdir.path().join("shells/bash/5.2.21.json"),
         format!(
             "{}\n",
-            serde_json::to_string_pretty(&json!({
+            deser_json::to_string(&value!({
                 "version": 2,
                 "kind": "shuck.shells.release",
                 "shell": "bash",

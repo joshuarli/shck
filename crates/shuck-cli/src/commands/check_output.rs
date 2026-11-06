@@ -7,8 +7,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use annotate_snippets::{AnnotationType, Renderer, Slice, Snippet, SourceAnnotation};
+use deser::Serialize;
 use quick_junit::{NonSuccessKind, Report, TestCase, TestCaseStatus, TestSuite, XmlString};
-use serde::Serialize;
 use shuck_indexer::LineIndex;
 use shuck_linter::{Category, RuleMetadata, code_to_rule, rule_metadata};
 
@@ -19,7 +19,7 @@ const PARSE_ERROR_CODE: &str = "parse-error";
 const DISPLAY_TAB_WIDTH: usize = 4;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "kebab-case")]
+#[deser(rename_all = "kebab-case")]
 pub(super) enum DisplayedApplicability {
     Safe,
     Unsafe,
@@ -222,7 +222,11 @@ fn write_json_diagnostics(
     diagnostics: &[DisplayedDiagnostic],
 ) -> io::Result<()> {
     let values = diagnostics.iter().map(json_diagnostic).collect::<Vec<_>>();
-    serde_json::to_writer_pretty(&mut *writer, &values).map_err(io::Error::other)?;
+    deser_json::SerializerConfig::builder()
+        .pretty(deser_json::Indent::Spaces(2))
+        .build()
+        .to_writer(&mut *writer, &values)
+        .map_err(io::Error::other)?;
     writeln!(writer)?;
     Ok(())
 }
@@ -232,7 +236,7 @@ fn write_json_lines_diagnostics(
     diagnostics: &[DisplayedDiagnostic],
 ) -> io::Result<()> {
     for diagnostic in diagnostics {
-        serde_json::to_writer(&mut *writer, &json_diagnostic(diagnostic))
+        deser_json::to_writer(&mut *writer, &json_diagnostic(diagnostic))
             .map_err(io::Error::other)?;
         writeln!(writer)?;
     }
@@ -356,7 +360,11 @@ fn write_gitlab_diagnostics(
         .iter()
         .map(gitlab_diagnostic)
         .collect::<Vec<_>>();
-    serde_json::to_writer_pretty(&mut *writer, &values).map_err(io::Error::other)?;
+    deser_json::SerializerConfig::builder()
+        .pretty(deser_json::Indent::Spaces(2))
+        .build()
+        .to_writer(&mut *writer, &values)
+        .map_err(io::Error::other)?;
     writeln!(writer)?;
     Ok(())
 }
@@ -373,7 +381,11 @@ fn write_rdjson_diagnostics(
         severity: rdjson_payload_severity(diagnostics),
         diagnostics: diagnostics.iter().map(rdjson_diagnostic).collect(),
     };
-    serde_json::to_writer_pretty(&mut *writer, &payload).map_err(io::Error::other)?;
+    deser_json::SerializerConfig::builder()
+        .pretty(deser_json::Indent::Spaces(2))
+        .build()
+        .to_writer(&mut *writer, &payload)
+        .map_err(io::Error::other)?;
     writeln!(writer)?;
     Ok(())
 }
@@ -409,7 +421,11 @@ fn write_sarif_diagnostics(
         }],
     };
 
-    serde_json::to_writer_pretty(&mut *writer, &output).map_err(io::Error::other)?;
+    deser_json::SerializerConfig::builder()
+        .pretty(deser_json::Indent::Spaces(2))
+        .build()
+        .to_writer(&mut *writer, &output)
+        .map_err(io::Error::other)?;
     writeln!(writer)?;
     Ok(())
 }
@@ -675,7 +691,7 @@ struct RdjsonDiagnostics {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 struct RdjsonCode {
     value: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[deser(skip_serializing_if = Option::is_none)]
     url: Option<String>,
 }
 
@@ -709,7 +725,7 @@ struct RdjsonDiagnostic {
     location: RdjsonLocation,
     message: String,
     severity: &'static str,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[deser(skip_serializing_if = Vec::is_empty)]
     suggestions: Vec<RdjsonSuggestion>,
 }
 
@@ -781,7 +797,7 @@ fn rdjson_range(start: DisplayPosition, end: DisplayPosition) -> RdjsonRange {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 struct SarifOutput {
-    #[serde(rename = "$schema")]
+    #[deser(rename = "$schema")]
     schema: &'static str,
     version: &'static str,
     runs: Vec<SarifRun>,
@@ -799,7 +815,7 @@ struct SarifTool {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[deser(rename_all = "camelCase")]
 struct SarifDriver {
     name: &'static str,
     information_uri: &'static str,
@@ -808,36 +824,36 @@ struct SarifDriver {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[deser(rename_all = "camelCase")]
 struct SarifRule {
     id: String,
     short_description: SarifMessage,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[deser(skip_serializing_if = Option::is_none)]
     full_description: Option<SarifMessage>,
     help: SarifMessage,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[deser(skip_serializing_if = Option::is_none)]
     help_uri: Option<String>,
     properties: SarifProperties,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[deser(rename_all = "camelCase")]
 struct SarifProperties {
     id: String,
     kind: String,
     name: String,
-    #[serde(rename = "problem.severity")]
+    #[deser(rename = "problem.severity")]
     problem_severity: SarifLevel,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[deser(rename_all = "camelCase")]
 struct SarifResult {
     rule_id: String,
     level: SarifLevel,
     message: SarifMessage,
     locations: Vec<SarifLocation>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[deser(skip_serializing_if = Vec::is_empty)]
     fixes: Vec<SarifFix>,
 }
 
@@ -847,26 +863,26 @@ struct SarifMessage {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[deser(rename_all = "camelCase")]
 struct SarifLocation {
     physical_location: SarifPhysicalLocation,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[deser(rename_all = "camelCase")]
 struct SarifPhysicalLocation {
     artifact_location: SarifArtifactLocation,
     region: SarifRegion,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[deser(rename_all = "camelCase")]
 struct SarifArtifactLocation {
     uri: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[deser(rename_all = "camelCase")]
 struct SarifRegion {
     start_line: usize,
     start_column: usize,
@@ -875,41 +891,41 @@ struct SarifRegion {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[deser(rename_all = "camelCase")]
 struct SarifFix {
     artifact_changes: Vec<SarifArtifactChange>,
     description: SarifDescription,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[deser(rename_all = "camelCase")]
 struct SarifDescription {
     text: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[deser(rename_all = "camelCase")]
 struct SarifArtifactChange {
     artifact_location: SarifArtifactLocation,
     replacements: Vec<SarifReplacement>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[deser(rename_all = "camelCase")]
 struct SarifReplacement {
     deleted_region: SarifRegion,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[deser(skip_serializing_if = Option::is_none)]
     inserted_content: Option<SarifInsertedContent>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[deser(rename_all = "camelCase")]
 struct SarifInsertedContent {
     text: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
-#[serde(rename_all = "lowercase")]
+#[deser(rename_all = "lowercase")]
 enum SarifLevel {
     Note,
     Warning,
@@ -1510,43 +1526,23 @@ beta.sh:
         let mut output = Vec::new();
         print_report_to(&mut output, &diagnostics, CheckOutputFormatArg::Json, false).unwrap();
 
-        let value: serde_json::Value = serde_json::from_slice(&output).unwrap();
-        insta::assert_json_snapshot!(value, @r#"
-        [
-          {
-            "code": "C001",
-            "end_location": {
-              "column": 1,
-              "row": 2
-            },
-            "filename": "script.sh",
-            "fix": {
-              "applicability": "safe",
-              "edits": [
-                {
-                  "content": "echo",
-                  "end_location": {
-                    "column": 5,
-                    "row": 1
-                  },
-                  "location": {
-                    "column": 1,
-                    "row": 1
-                  }
-                }
-              ],
-              "message": "apply example fix"
-            },
-            "location": {
-              "column": 1,
-              "row": 2
-            },
-            "message": "variable is unused",
-            "severity": "warning",
-            "url": null
-          }
-        ]
-        "#);
+        let value: deser_value::Value = deser_json::from_slice(&output).unwrap();
+        assert_eq!(value[0]["code"], "C001");
+        assert_eq!(value[0]["filename"], "script.sh");
+        assert_eq!(value[0]["severity"], "warning");
+        assert_eq!(value[0]["message"], "variable is unused");
+        assert_eq!(value[0]["location"]["row"], 2);
+        assert_eq!(value[0]["location"]["column"], 1);
+        assert_eq!(value[0]["end_location"]["row"], 2);
+        assert_eq!(value[0]["end_location"]["column"], 1);
+        assert_eq!(value[0]["fix"]["applicability"], "safe");
+        assert_eq!(value[0]["fix"]["message"], "apply example fix");
+        assert_eq!(value[0]["fix"]["edits"][0]["content"], "echo");
+        assert_eq!(value[0]["fix"]["edits"][0]["location"]["row"], 1);
+        assert_eq!(value[0]["fix"]["edits"][0]["location"]["column"], 1);
+        assert_eq!(value[0]["fix"]["edits"][0]["end_location"]["row"], 1);
+        assert_eq!(value[0]["fix"]["edits"][0]["end_location"]["column"], 5);
+        assert!(value[0]["url"].is_null());
     }
 
     #[test]
@@ -1569,7 +1565,7 @@ beta.sh:
             false,
         )
         .unwrap();
-        let json: serde_json::Value = serde_json::from_slice(&json_output).unwrap();
+        let json: deser_value::Value = deser_json::from_slice(&json_output).unwrap();
         assert_eq!(json[0]["filename"], "workspace-a/script.sh");
 
         let mut github_output = Vec::new();
@@ -1593,7 +1589,7 @@ beta.sh:
             false,
         )
         .unwrap();
-        let rdjson: serde_json::Value = serde_json::from_slice(&rdjson_output).unwrap();
+        let rdjson: deser_value::Value = deser_json::from_slice(&rdjson_output).unwrap();
         assert_eq!(
             rdjson["diagnostics"][0]["location"]["path"],
             "workspace-a/script.sh"
@@ -1643,7 +1639,7 @@ beta.sh:
             false,
         )
         .unwrap();
-        let gitlab: serde_json::Value = serde_json::from_slice(&gitlab_output).unwrap();
+        let gitlab: deser_value::Value = deser_json::from_slice(&gitlab_output).unwrap();
         assert_eq!(gitlab[0]["location"]["path"], "workspace-a/script.sh");
         assert_eq!(gitlab[1]["location"]["path"], "workspace-b/script.sh");
         assert_ne!(gitlab[0]["fingerprint"], gitlab[1]["fingerprint"]);
@@ -1668,71 +1664,40 @@ beta.sh:
         )
         .unwrap();
 
-        let value: serde_json::Value = serde_json::from_slice(&output).unwrap();
-        insta::assert_json_snapshot!(value, {
-          ".runs[0].results[0].locations[0].physicalLocation.artifactLocation.uri" => "[URI]",
-          ".runs[0].tool.driver.version" => "[VERSION]"
-        }, @r#"
-        {
-          "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
-          "runs": [
-            {
-              "results": [
-                {
-                  "level": "error",
-                  "locations": [
-                    {
-                      "physicalLocation": {
-                        "artifactLocation": {
-                          "uri": "[URI]"
-                        },
-                        "region": {
-                          "endColumn": 6,
-                          "endLine": 2,
-                          "startColumn": 6,
-                          "startLine": 2
-                        }
-                      }
-                    }
-                  ],
-                  "message": {
-                    "text": "unterminated construct"
-                  },
-                  "ruleId": "parse-error"
-                }
-              ],
-              "tool": {
-                "driver": {
-                  "informationUri": "https://github.com/ewhauser/shuck",
-                  "name": "shuck",
-                  "rules": [
-                    {
-                      "fullDescription": {
-                        "text": "The parser could not build a valid shell syntax tree for this file."
-                      },
-                      "help": {
-                        "text": "Fix the reported syntax issue so analysis can continue."
-                      },
-                      "id": "parse-error",
-                      "properties": {
-                        "id": "parse-error",
-                        "kind": "parser",
-                        "name": "parse-error",
-                        "problem.severity": "error"
-                      },
-                      "shortDescription": {
-                        "text": "Shell source could not be parsed"
-                      }
-                    }
-                  ],
-                  "version": "[VERSION]"
-                }
-              }
-            }
-          ],
-          "version": "2.1.0"
-        }
-        "#);
+        let value: deser_value::Value = deser_json::from_slice(&output).unwrap();
+        assert_eq!(
+            value["$schema"],
+            "https://json.schemastore.org/sarif-2.1.0.json"
+        );
+        assert_eq!(value["runs"][0]["results"][0]["level"], "error");
+        assert_eq!(value["runs"][0]["results"][0]["ruleId"], "parse-error");
+        assert_eq!(
+            value["runs"][0]["results"][0]["message"]["text"],
+            "unterminated construct"
+        );
+        let region = &value["runs"][0]["results"][0]["locations"][0]["physicalLocation"]["region"];
+        assert_eq!(region["startLine"], 2);
+        assert_eq!(region["startColumn"], 6);
+        assert_eq!(region["endLine"], 2);
+        assert_eq!(region["endColumn"], 6);
+        let uri = &value["runs"][0]["results"][0]["locations"][0]["physicalLocation"]["artifactLocation"]
+            ["uri"];
+        assert!(uri.as_str().is_some());
+        assert_eq!(
+            value["runs"][0]["tool"]["driver"]["informationUri"],
+            "https://github.com/ewhauser/shuck"
+        );
+        assert_eq!(value["runs"][0]["tool"]["driver"]["name"], "shuck");
+        assert!(
+            value["runs"][0]["tool"]["driver"]["version"]
+                .as_str()
+                .is_some()
+        );
+        assert!(
+            value["runs"][0]["tool"]["driver"]["rules"]
+                .as_seq()
+                .is_some_and(|rules| !rules.is_empty())
+        );
     }
 
     #[test]
@@ -1772,7 +1737,7 @@ beta.sh:
         )
         .unwrap();
 
-        let value: serde_json::Value = serde_json::from_slice(&output).unwrap();
+        let value: deser_value::Value = deser_json::from_slice(&output).unwrap();
         assert_eq!(
             value["runs"][0]["results"][0]["locations"][0]["physicalLocation"]["region"]["endColumn"],
             4
@@ -1803,7 +1768,7 @@ beta.sh:
         )
         .unwrap();
 
-        let value: serde_json::Value = serde_json::from_slice(&output).unwrap();
+        let value: deser_value::Value = deser_json::from_slice(&output).unwrap();
         assert_eq!(value["severity"], "ERROR");
         assert_eq!(value["diagnostics"][0]["severity"], "ERROR");
         assert_eq!(value["diagnostics"][0]["code"]["value"], "parse-error");

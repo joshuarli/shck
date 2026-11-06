@@ -6,13 +6,12 @@
 //! The types in this crate power the `shuck` CLI cache, but are generic enough to reuse in other
 //! Rust tooling that wants SHA-256-based cache partitioning and serialized per-file entries.
 use std::collections::{BTreeMap, BTreeSet};
-use std::fs::{self, File};
-use std::io::{self, BufReader, Write};
+use std::fs;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use serde::Serialize;
-use serde::de::DeserializeOwned;
+use deser::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tempfile::NamedTempFile;
 
@@ -23,25 +22,19 @@ const MAX_LAST_SEEN_AGE: Duration = Duration::from_secs(30 * 24 * 60 * 60);
 
 /// Upper bound on the bytes a cache file may make the decoder allocate.
 ///
-/// Cache files are untrusted input: a corrupt or crafted length prefix must not
-/// be able to request an arbitrarily large allocation. Files whose contents
+/// Cache files are untrusted input: a corrupt or crafted file must not be
+/// able to request an arbitrarily large allocation. Files whose contents
 /// exceed this budget are treated as cache misses.
-const MAX_CACHE_DECODE_BYTES: usize = 256 * 1024 * 1024;
-
-fn decode_config() -> impl bincode::config::Config {
-    bincode::config::standard().with_limit::<MAX_CACHE_DECODE_BYTES>()
-}
+const MAX_CACHE_DECODE_BYTES: u64 = 256 * 1024 * 1024;
 
 /// Decodes a cache file, returning `None` when it is oversized or malformed.
-fn decode_cache_file<T: DeserializeOwned>(file: File) -> Option<T> {
-    if file
-        .metadata()
-        .is_ok_and(|metadata| metadata.len() > MAX_CACHE_DECODE_BYTES as u64)
-    {
+fn decode_cache_file<T: for<'de> Deserialize<'de>>(path: &Path) -> Option<T> {
+    let metadata = fs::metadata(path).ok()?;
+    if metadata.len() > MAX_CACHE_DECODE_BYTES {
         return None;
     }
-    let mut reader = BufReader::new(file);
-    bincode::serde::decode_from_std_read(&mut reader, decode_config()).ok()
+    let bytes = fs::read(path).ok()?;
+    deser_cbor::from_slice(&bytes).ok()
 }
 
 /// Returns the legacy cache directory that lives under a project root.
@@ -49,16 +42,20 @@ pub fn legacy_cache_dir(project_root: &Path) -> PathBuf {
     project_root.join(CACHE_DIR_NAME)
 }
 
-/// Reads the cached project root marker stored in a legacy cache file.
+/// Reads the cached project root marker stored in a cache file.
 pub fn read_project_root_from_cache_file(path: &Path) -> io::Result<Option<PathBuf>> {
-    let file = match File::open(path) {
-        Ok(file) => file,
+    #[derive(Deserialize)]
+    struct ProjectRootOnly {
+        project_root: PathBuf,
+    }
+
+    match fs::metadata(path) {
+        Ok(_) => {}
         Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(None),
         Err(err) => return Err(err),
-    };
+    }
 
-    // Only the leading project root is decoded; the rest of the file is ignored.
-    Ok(decode_cache_file(file))
+    Ok(decode_cache_file::<ProjectRootOnly>(path).map(|value| value.project_root))
 }
 
 /// Trait for values that can contribute to a deterministic package cache key.
@@ -262,7 +259,7 @@ where
 }
 
 /// File metadata used to validate cached entries against a filesystem path.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FileCacheKey {
     /// File modification time as nanoseconds since the Unix epoch.
     pub file_last_modified_ns: u128,
@@ -345,14 +342,14 @@ fn unix_timestamp_ns(seconds: i64, nanoseconds: i64) -> Option<u128> {
     Some((seconds as u128) * 1_000_000_000 + nanoseconds as u128)
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct CachedFile<T> {
     key: FileCacheKey,
     last_seen_ms: u64,
     data: T,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct StoredPackage<T> {
     project_root: PathBuf,
     files: BTreeMap<PathBuf, CachedFile<T>>,
@@ -376,7 +373,7 @@ pub struct PackageCache<T> {
 
 impl<T> PackageCache<T>
 where
-    T: Clone + Serialize + DeserializeOwned,
+    T: Clone + Serialize + for<'de> Deserialize<'de>,
 {
     /// Open a package cache file for a canonical project root and tool version.
     ///
@@ -390,15 +387,15 @@ where
         let key = cache_key_hex(package_key);
         let path = cache_root.join(tool_version).join(format!("{key}.bin"));
 
-        let file = match File::open(&path) {
-            Ok(file) => file,
+        match fs::metadata(&path) {
+            Ok(_) => {}
             Err(err) if err.kind() == io::ErrorKind::NotFound => {
                 return Ok(Self::empty(path, canonical_root));
             }
             Err(err) => return Err(err),
-        };
+        }
 
-        let Some(package) = decode_cache_file::<StoredPackage<T>>(file) else {
+        let Some(package) = decode_cache_file::<StoredPackage<T>>(&path) else {
             return Ok(Self::empty(path, canonical_root));
         };
 
@@ -453,8 +450,7 @@ where
         fs::create_dir_all(parent)?;
 
         let mut temp_file = NamedTempFile::new_in(parent)?;
-        let encoded = bincode::serde::encode_to_vec(&self.package, bincode::config::standard())
-            .map_err(io::Error::other)?;
+        let encoded = deser_cbor::to_vec(&self.package).map_err(io::Error::other)?;
         temp_file.write_all(&encoded)?;
 
         match temp_file.persist(&self.path) {
@@ -638,17 +634,14 @@ mod tests {
         let cache_path = cache.path().to_path_buf();
         cache.persist().unwrap();
 
-        let mut stored: StoredPackage<String> = {
-            let mut reader = BufReader::new(File::open(&cache_path).unwrap());
-            bincode::serde::decode_from_std_read(&mut reader, bincode::config::standard()).unwrap()
-        };
+        let mut stored: StoredPackage<String> =
+            deser_cbor::from_slice(&fs::read(&cache_path).unwrap()).unwrap();
         stored
             .files
             .get_mut(Path::new("stale.sh"))
             .unwrap()
             .last_seen_ms = 0;
-        let encoded = bincode::serde::encode_to_vec(&stored, bincode::config::standard()).unwrap();
-        fs::write(&cache_path, encoded).unwrap();
+        fs::write(&cache_path, deser_cbor::to_vec(&stored).unwrap()).unwrap();
 
         let mut reopened =
             PackageCache::<String>::open(&cache_root, canonical_root, "0.1.0", &settings).unwrap();
@@ -659,9 +652,8 @@ mod tests {
         );
         reopened.persist().unwrap();
 
-        let mut reader = BufReader::new(File::open(&cache_path).unwrap());
         let stored: StoredPackage<String> =
-            bincode::serde::decode_from_std_read(&mut reader, bincode::config::standard()).unwrap();
+            deser_cbor::from_slice(&fs::read(&cache_path).unwrap()).unwrap();
 
         assert!(!stored.files.contains_key(Path::new("stale.sh")));
         assert!(stored.files.contains_key(Path::new("fresh.sh")));
@@ -752,16 +744,8 @@ mod tests {
         assert_eq!(project_root, Some(canonical_root));
     }
 
-    /// A varint length prefix claiming an absurdly long string, as a corrupt or
-    /// crafted cache file might contain.
-    fn huge_length_prefix() -> Vec<u8> {
-        let mut bytes = vec![0xFD];
-        bytes.extend_from_slice(&(1u64 << 62).to_le_bytes());
-        bytes
-    }
-
     #[test]
-    fn corrupt_length_prefix_is_a_cache_miss_instead_of_an_allocation() {
+    fn corrupt_or_truncated_cache_is_a_miss() {
         let tempdir = tempfile::tempdir().unwrap();
         let cache_root = tempdir.path().join("cache");
         let canonical_root = fs::canonicalize(tempdir.path()).unwrap();
@@ -774,7 +758,42 @@ mod tests {
                 .unwrap();
         let cache_path = cache.path().to_path_buf();
         fs::create_dir_all(cache_path.parent().unwrap()).unwrap();
-        fs::write(&cache_path, huge_length_prefix()).unwrap();
+        fs::write(&cache_path, [0xFF, 0xFF, 0xFF, 0x00, 0x01]).unwrap();
+
+        let mut reopened =
+            PackageCache::<String>::open(&cache_root, canonical_root, "0.1.0", &settings).unwrap();
+        assert!(
+            reopened
+                .get(Path::new("script.sh"), &test_file_key(1, 2))
+                .is_none()
+        );
+        assert_eq!(
+            read_project_root_from_cache_file(&cache_path).unwrap(),
+            None
+        );
+    }
+
+    #[test]
+    fn oversized_cache_is_a_miss() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let cache_root = tempdir.path().join("cache");
+        let canonical_root = fs::canonicalize(tempdir.path()).unwrap();
+        let settings = TestSettings {
+            strict: true,
+            label: "alpha".to_string(),
+        };
+        let cache =
+            PackageCache::<String>::open(&cache_root, canonical_root.clone(), "0.1.0", &settings)
+                .unwrap();
+        let cache_path = cache.path().to_path_buf();
+        fs::create_dir_all(cache_path.parent().unwrap()).unwrap();
+        let file = fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(&cache_path)
+            .unwrap();
+        file.set_len(super::MAX_CACHE_DECODE_BYTES + 1).unwrap();
 
         let mut reopened =
             PackageCache::<String>::open(&cache_root, canonical_root, "0.1.0", &settings).unwrap();

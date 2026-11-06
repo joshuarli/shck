@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 #[cfg(not(test))]
 use std::env;
 
-use serde::Deserialize;
+use deser::Deserialize;
 
 #[derive(Debug, Deserialize)]
 struct RuleMetadata {
@@ -17,16 +17,16 @@ struct RuleMetadata {
     rationale: String,
     fix_description: Option<String>,
     legacy_code: Option<String>,
-    #[serde(default)]
+    #[deser(default)]
     aliases: Vec<String>,
-    #[serde(default)]
+    #[deser(default)]
     status: RuleSpecStatus,
 }
 
 /// Lifecycle of a rule spec in `docs/rules`. Specs without a `status` field are expected to
 /// have a registered `Rule`; `planned` and `retired` specs must not.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[deser(rename_all = "lowercase")]
 enum RuleSpecStatus {
     #[default]
     Implemented,
@@ -43,31 +43,31 @@ enum ShellCheckLevel {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+#[deser(rename_all = "kebab-case", deny_unknown_fields)]
 struct ContractDocument {
     version: u32,
     contracts: Vec<DeclarativeContract>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+#[deser(rename_all = "kebab-case", deny_unknown_fields)]
 struct DeclarativeContract {
     id: String,
-    #[serde(default)]
+    #[deser(default)]
     groups: Vec<String>,
     label: Option<String>,
     when: DeclarativeContractWhen,
-    #[serde(default, rename = "match")]
+    #[deser(default, rename = "match")]
     matcher: DeclarativeContractMatch,
-    #[serde(default)]
+    #[deser(default)]
     files: Vec<String>,
     effects: DeclarativeContractEffects,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+#[deser(rename_all = "kebab-case", deny_unknown_fields)]
 struct DeclarativeContractWhen {
-    #[serde(rename = "type")]
+    #[deser(rename = "type")]
     activation_type: DeclarativeContractActivationType,
     framework: Option<String>,
     plugin: Option<String>,
@@ -76,16 +76,16 @@ struct DeclarativeContractWhen {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 enum DeclarativeContractActivationType {
-    #[serde(rename = "always")]
+    #[deser(rename = "always")]
     Always,
-    #[serde(rename = "zsh_plugin")]
+    #[deser(rename = "zsh_plugin")]
     ZshPlugin,
-    #[serde(rename = "zsh_theme")]
+    #[deser(rename = "zsh_theme")]
     ZshTheme,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
-#[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
+#[deser(default, rename_all = "kebab-case", deny_unknown_fields)]
 struct DeclarativeContractMatch {
     shell: DeclarativeContractShell,
     source: DeclarativeContractSourceMatch,
@@ -94,31 +94,33 @@ struct DeclarativeContractMatch {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
 enum DeclarativeContractShell {
     #[default]
-    #[serde(rename = "any")]
+    #[deser(rename = "any")]
     Any,
-    #[serde(rename = "zsh")]
+    #[deser(rename = "zsh")]
     Zsh,
-    #[serde(rename = "zsh_or_unknown")]
+    #[deser(rename = "zsh_or_unknown")]
     ZshOrUnknown,
-    #[serde(rename = "zsh_runtime")]
+    #[deser(rename = "zsh_runtime")]
     ZshRuntime,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
-#[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
+#[deser(default, rename_all = "kebab-case", deny_unknown_fields)]
 struct DeclarativeContractSourceMatch {
     contains_any: Vec<String>,
     mentions_any_names: Vec<String>,
     mentions_all_names: Vec<String>,
     assigns_any_names: Vec<String>,
     assigns_all_names: Vec<String>,
-    assigns_any_prefixes: Vec<String>,    static_assignment_function_defs: Vec<String>,
+    assigns_any_prefixes: Vec<String>,
+    static_assignment_function_defs: Vec<String>,
     probable_function_definition: bool,
     source_command: bool,
-    completion_initializer_invoked: bool,}
+    completion_initializer_invoked: bool,
+}
 
 #[derive(Debug, Clone, Default, Deserialize)]
-#[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
+#[deser(default, rename_all = "kebab-case", deny_unknown_fields)]
 struct DeclarativeContractEffects {
     reads: Vec<String>,
     consumes: DeclarativeContractConsumes,
@@ -127,7 +129,7 @@ struct DeclarativeContractEffects {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
-#[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
+#[deser(default, rename_all = "kebab-case", deny_unknown_fields)]
 struct DeclarativeContractConsumes {
     names: Vec<String>,
     prefixes: Vec<String>,
@@ -135,7 +137,7 @@ struct DeclarativeContractConsumes {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
-#[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
+#[deser(default, rename_all = "kebab-case", deny_unknown_fields)]
 struct DeclarativeContractProvides {
     variables: Vec<String>,
     ambient_variables: Vec<String>,
@@ -143,12 +145,12 @@ struct DeclarativeContractProvides {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+#[deser(rename_all = "kebab-case", deny_unknown_fields)]
 struct DeclarativeFunctionEffects {
     name: String,
-    #[serde(default)]
+    #[deser(default)]
     reads: Vec<String>,
-    #[serde(default)]
+    #[deser(default)]
     sets: Vec<String>,
 }
 
@@ -183,10 +185,12 @@ struct NormalizedDeclarativeSourceMatch {
     mentions_all_names: Vec<String>,
     assigns_any_names: Vec<String>,
     assigns_all_names: Vec<String>,
-    assigns_any_prefixes: Vec<String>,    static_assignment_function_defs: Vec<String>,
+    assigns_any_prefixes: Vec<String>,
+    static_assignment_function_defs: Vec<String>,
     probable_function_definition: bool,
     source_command: bool,
-    completion_initializer_invoked: bool,}
+    completion_initializer_invoked: bool,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct NormalizedDeclarativeEffects {
@@ -257,7 +261,7 @@ fn parse_rule_metadata(
     data: &str,
 ) -> Result<(RuleMetadata, Option<u32>, Option<ShellCheckLevel>), String> {
     let metadata: RuleMetadata =
-        serde_yaml::from_str(data).map_err(|err| format!("invalid rule metadata: {err}"))?;
+        deser_yaml::from_str(data).map_err(|err| format!("invalid rule metadata: {err}"))?;
 
     let rule_code = metadata.new_code.trim();
     if rule_code.is_empty() {
@@ -286,7 +290,7 @@ fn parse_rule_metadata(
 }
 
 fn parse_declarative_contract_document(data: &str) -> Result<ContractDocument, String> {
-    serde_yaml::from_str(data).map_err(|err| format!("invalid declarative contracts: {err}"))
+    deser_yaml::from_str(data).map_err(|err| format!("invalid declarative contracts: {err}"))
 }
 
 fn validate_declarative_contract_document(
@@ -491,14 +495,16 @@ fn normalize_declarative_source_match(
             "match.source.assigns-any-prefixes",
             &source.assigns_any_prefixes,
             source_path,
-        )?,        static_assignment_function_defs: normalize_shell_names(
+        )?,
+        static_assignment_function_defs: normalize_shell_names(
             "match.source.static-assignment-function-defs",
             &source.static_assignment_function_defs,
             source_path,
         )?,
         probable_function_definition: source.probable_function_definition,
         source_command: source.source_command,
-        completion_initializer_invoked: source.completion_initializer_invoked,    })
+        completion_initializer_invoked: source.completion_initializer_invoked,
+    })
 }
 
 fn normalize_declarative_function_effects(
@@ -727,10 +733,12 @@ fn matcher_is_empty(matcher: &NormalizedDeclarativeMatch) -> bool {
         && matcher.source.mentions_all_names.is_empty()
         && matcher.source.assigns_any_names.is_empty()
         && matcher.source.assigns_all_names.is_empty()
-        && matcher.source.assigns_any_prefixes.is_empty()        && matcher.source.static_assignment_function_defs.is_empty()
+        && matcher.source.assigns_any_prefixes.is_empty()
+        && matcher.source.static_assignment_function_defs.is_empty()
         && !matcher.source.probable_function_definition
         && !matcher.source.source_command
-        && !matcher.source.completion_initializer_invoked}
+        && !matcher.source.completion_initializer_invoked
+}
 
 fn collect_yaml_files(dir: &Path) -> Result<Vec<PathBuf>, String> {
     let metadata = fs::symlink_metadata(dir)
@@ -994,7 +1002,8 @@ fn generate_declarative_contract_data(contracts: &[NormalizedDeclarativeContract
         generated.push_str(&format!(
             "                assigns_any_prefixes: {},\n",
             format_string_slice(&contract.matcher.source.assigns_any_prefixes)
-        ));        generated.push_str(&format!(
+        ));
+        generated.push_str(&format!(
             "                static_assignment_function_defs: {},\n",
             format_string_slice(&contract.matcher.source.static_assignment_function_defs)
         ));

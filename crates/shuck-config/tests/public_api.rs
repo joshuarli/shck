@@ -104,7 +104,7 @@ fn public_api_resolves_project_roots_and_discovered_config_paths() {
 #[test]
 fn public_api_rejects_format_dialect_in_config_patch() {
     let config = FormatConfig {
-        dialect: Some(toml::Value::String("bash".to_owned())),
+        dialect: Some(deser_value::Value::from("bash".to_owned())),
         ..FormatConfig::default()
     };
 

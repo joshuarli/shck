@@ -19,8 +19,8 @@ doctest = false
 
 [dependencies]
 js-sys = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
+deser = { workspace = true }
+deser-json = { workspace = true }
 shuck-ast = { workspace = true }
 shuck-formatter = { workspace = true }
 shuck-indexer = { workspace = true }

@@ -3,8 +3,8 @@ use std::path::Path;
 use std::process::Output;
 
 use assert_cmd::Command;
+use deser_value::Value;
 use predicates::prelude::*;
-use serde_json::Value;
 use tempfile::tempdir;
 
 fn compat_cmd() -> Command {
@@ -18,10 +18,12 @@ fn run_compat(args: &[&str], cwd: &Path) -> Output {
 }
 
 fn json1_comments(output: &Output) -> Vec<Value> {
-    serde_json::from_slice::<Value>(&output.stdout).unwrap()["comments"]
-        .as_array()
+    deser_json::from_slice::<Value>(&output.stdout).unwrap()["comments"]
+        .as_seq()
         .unwrap()
-        .clone()
+        .iter()
+        .cloned()
+        .collect()
 }
 
 fn comment_by_code(comments: &[Value], code: u64) -> &Value {
@@ -686,7 +688,7 @@ fn compat_json1_emits_sc2086_fix_payload_for_plain_expansions() {
 
     let comments = json1_comments(&output);
     let sc2086 = comment_by_code(&comments, 2086);
-    let replacements = sc2086["fix"]["replacements"].as_array().unwrap();
+    let replacements = sc2086["fix"]["replacements"].as_seq().unwrap();
     assert_eq!(replacements.len(), 2);
     assert_eq!(replacements[0]["column"].as_u64(), Some(6));
     assert_eq!(replacements[0]["endColumn"].as_u64(), Some(6));
@@ -715,7 +717,7 @@ fn compat_json1_emits_sc2086_fix_payload_for_mixed_words() {
 
     let comments = json1_comments(&output);
     let sc2086 = comment_by_code(&comments, 2086);
-    let replacements = sc2086["fix"]["replacements"].as_array().unwrap();
+    let replacements = sc2086["fix"]["replacements"].as_seq().unwrap();
     assert_eq!(replacements.len(), 2);
     assert_eq!(replacements[0]["column"].as_u64(), Some(17));
     assert_eq!(replacements[0]["endColumn"].as_u64(), Some(17));

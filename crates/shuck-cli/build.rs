@@ -54,11 +54,7 @@ fn resolve_git_dir() -> Option<PathBuf> {
     }
     let path_str = String::from_utf8(output.stdout).ok()?;
     let path = PathBuf::from(path_str.trim());
-    if path.exists() {
-        Some(path)
-    } else {
-        None
-    }
+    if path.exists() { Some(path) } else { None }
 }
 
 fn watch_git_dir(git_dir: &Path) {

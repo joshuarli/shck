@@ -5,8 +5,7 @@
 
 use std::path::Path;
 
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use deser::{Deserialize, Serialize};
 use shuck_ast::{TextRange, TextSize};
 use shuck_formatter::{
     FormatSettingsPatch, FormattedSource, IndentStyle, ShellDialect as FormatDialect,
@@ -111,7 +110,7 @@ pub fn format(source: &str, options: JsValue) -> Result<String, JsValue> {
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[deser(rename_all = "lowercase")]
 enum ShellName {
     Sh,
     Bash,
@@ -139,7 +138,7 @@ impl ShellName {
 }
 
 #[derive(Debug, Default, Deserialize)]
-#[serde(default, deny_unknown_fields, rename_all = "camelCase")]
+#[deser(default, deny_unknown_fields, rename_all = "camelCase")]
 struct LintOptions {
     filename: Option<String>,
     shell: Option<ShellName>,
@@ -148,7 +147,7 @@ struct LintOptions {
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[deser(rename_all = "lowercase")]
 enum IndentStyleName {
     Tab,
     Space,
@@ -164,7 +163,7 @@ impl From<IndentStyleName> for IndentStyle {
 }
 
 #[derive(Debug, Default, Deserialize)]
-#[serde(default, deny_unknown_fields, rename_all = "camelCase")]
+#[deser(default, deny_unknown_fields, rename_all = "camelCase")]
 struct FormatOptions {
     filename: Option<String>,
     shell: Option<ShellName>,
@@ -186,7 +185,7 @@ struct Diagnostic {
     message: String,
     severity: String,
     range: Range,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[deser(skip_serializing_if = Option::is_none)]
     fix: Option<DiagnosticFix>,
 }
 
@@ -198,7 +197,7 @@ struct DiagnosticFix {
 }
 
 #[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[deser(rename_all = "camelCase")]
 struct TextEdit {
     range: Range,
     new_text: String,
@@ -342,7 +341,7 @@ fn format_source(source: &str, options: &FormatOptions) -> Result<String, String
 
 fn decode_options<T>(value: JsValue) -> Result<T, JsValue>
 where
-    T: Default + DeserializeOwned,
+    T: Default + for<'de> deser::Deserialize<'de>,
 {
     if value.is_null() || value.is_undefined() {
         return Ok(T::default());
@@ -351,11 +350,11 @@ where
     let serialized = js_sys::JSON::stringify(&value)?
         .as_string()
         .ok_or_else(|| js_error("options must be a JSON-compatible object"))?;
-    serde_json::from_str(&serialized).map_err(js_error)
+    deser_json::from_str(&serialized).map_err(js_error)
 }
 
 fn encode_value<T: Serialize>(value: &T) -> Result<JsValue, JsValue> {
-    let serialized = serde_json::to_string(value).map_err(js_error)?;
+    let serialized = deser_json::to_string(value).map_err(js_error)?;
     js_sys::JSON::parse(&serialized)
 }
 

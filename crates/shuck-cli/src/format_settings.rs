@@ -223,7 +223,7 @@ mod tests {
     #[test]
     fn configured_dialect_errors_with_migration_hint() {
         let config = FormatConfig {
-            dialect: Some(toml::Value::String("bash".to_owned())),
+            dialect: Some(deser_value::Value::from("bash".to_owned())),
             ..FormatConfig::default()
         };
 

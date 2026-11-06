@@ -12,13 +12,14 @@ description = "Configuration loading, project-root discovery, and settings resol
 anyhow = { workspace = true }
 etcetera = { workspace = true }
 globset = { workspace = true }
-serde = { workspace = true }
+deser = { workspace = true }
+deser-toml = { workspace = true }
+deser-value = { workspace = true }
 shuck-ast = { workspace = true }
 shuck-formatter = { workspace = true }
 shuck-linter = { workspace = true }
 shuck-run = { workspace = true }
 shuck-semantic = { workspace = true }
-toml = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

@@ -4,7 +4,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Result, anyhow, bail};
-use serde::Deserialize;
+use deser::Deserialize;
 
 /// Supported shell families for `shuck run`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -376,7 +376,7 @@ pub struct AvailableShell {
 
 /// Runtime shell settings loaded from Shuck config.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
-#[serde(default, rename_all = "kebab-case")]
+#[deser(default, rename_all = "kebab-case")]
 pub struct RunConfig {
     /// Default shell name.
     pub shell: Option<String>,

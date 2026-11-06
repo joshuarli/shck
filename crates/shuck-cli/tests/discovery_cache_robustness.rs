@@ -330,41 +330,23 @@ fn check_fix_write_back_keeps_permissions() {
     assert_eq!(mode, 0o755);
 }
 
-const WORKFLOW: &str = "on: push
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - run: |
-          unused=1
-          echo ok
-";
-
 #[test]
-fn stdin_filename_workflow_is_extracted_like_a_file_on_disk() {
+fn stdin_filename_workflow_yaml_is_skipped_after_extraction_removal() {
     let tempdir = tempdir().unwrap();
+    let workflow =
+        "on: push\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo ok\n";
 
-    shuck(tempdir.path(), tempdir.path())
-        .args(["check", "--stdin-filename", ".github/workflows/ci.yml"])
-        .write_stdin(WORKFLOW)
-        .assert()
-        .code(1)
-        .stdout(predicate::str::contains("jobs.test.steps[0].run"))
-        .stdout(predicate::str::contains("C001"))
-        .stdout(predicate::str::contains("parse-error").not());
-
-    // `--fix` echoes the host document unchanged.
-    shuck(tempdir.path(), tempdir.path())
-        .args([
-            "check",
-            "--fix",
-            "--stdin-filename",
-            ".github/workflows/ci.yml",
-        ])
-        .write_stdin(WORKFLOW)
-        .assert()
-        .code(1)
-        .stdout(WORKFLOW);
+    for filename in [".github/workflows/ci.yml", ".github/workflows/ci.yaml"] {
+        shuck(tempdir.path(), tempdir.path())
+            .args(["check", "--stdin-filename", filename])
+            .write_stdin(workflow)
+            .assert()
+            .success()
+            .stdout("")
+            .stderr(predicate::str::contains(format!(
+                "warning: skipping {filename}: not a shell script"
+            )));
+    }
 }
 
 #[test]

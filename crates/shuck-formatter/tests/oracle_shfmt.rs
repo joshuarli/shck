@@ -7,8 +7,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use deser::{Deserialize, Serialize};
 use rayon::prelude::*;
-use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use shuck_formatter::{FormattedSource, ShellDialect, ShellFormatOptions, format_file_ast};
 use shuck_parser::parser::Parser;
@@ -92,14 +92,14 @@ struct FormatterOracleConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[deser(deny_unknown_fields)]
 struct ShfmtDiffHunk {
     start_line: usize,
     end_line: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[deser(deny_unknown_fields)]
 struct ShfmtLargeCorpusAllowlistEntry {
     path_suffix: String,
     hunks: Vec<ShfmtDiffHunk>,
@@ -108,10 +108,10 @@ struct ShfmtLargeCorpusAllowlistEntry {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[deser(deny_unknown_fields)]
 struct ShfmtLargeCorpusAllowlistDocument {
     schema: u32,
-    #[serde(default)]
+    #[deser(default)]
     entries: Vec<ShfmtLargeCorpusAllowlistEntry>,
 }
 
@@ -852,7 +852,6 @@ fn formatter_oracle_config(source: &str, path: &Path) -> Option<FormatterOracleC
             shfmt_language: "bash",
             options: ShellFormatOptions::default().with_dialect(ShellDialect::Bash),
         }),
-        
     }
 }
 
@@ -1042,7 +1041,7 @@ fn load_shfmt_large_corpus_allowlist() -> ShfmtLargeCorpusAllowlistDocument {
     let data =
         fs::read_to_string(&path).unwrap_or_else(|err| panic!("read {}: {err}", path.display()));
     let allowlist: ShfmtLargeCorpusAllowlistDocument =
-        serde_yaml::from_str(&data).unwrap_or_else(|err| {
+        deser_yaml::from_str(&data).unwrap_or_else(|err| {
             panic!(
                 "parse shfmt large-corpus allowlist {}: {err}",
                 path.display()
@@ -1060,7 +1059,7 @@ fn write_shfmt_large_corpus_allowlist(mismatches: &[ShfmtOracleMismatch]) {
     allowlist
         .validate(&path)
         .unwrap_or_else(|err| panic!("{err}"));
-    let yaml = serde_yaml::to_string(&allowlist)
+    let yaml = deser_yaml::to_string(&allowlist)
         .unwrap_or_else(|err| panic!("serialize {}: {err}", path.display()));
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)

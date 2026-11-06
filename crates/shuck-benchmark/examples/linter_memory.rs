@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::process;
 
-use serde::Serialize;
+use deser::Serialize;
 use shuck_benchmark::{benchmark_cases, parse_fixture};
 use shuck_indexer::Indexer;
 use shuck_linter::{Checker, LinterFacts, LinterSemanticArtifacts, LinterSettings, ShellDialect};
@@ -332,7 +332,7 @@ fn parse_case_arg() -> Option<String> {
     }
 }
 
-fn main() -> serde_json::Result<()> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let requested_case = parse_case_arg();
     let reports = if let Some(case_name) = requested_case {
         let Some(report) = single_case_report(&case_name) else {
@@ -347,7 +347,10 @@ fn main() -> serde_json::Result<()> {
             .collect::<Vec<_>>()
     };
 
-    serde_json::to_writer_pretty(std::io::stdout().lock(), &reports)?;
+    deser_json::SerializerConfig::builder()
+        .pretty(deser_json::Indent::Spaces(2))
+        .build()
+        .to_writer(std::io::stdout().lock(), &reports)?;
     println!();
     Ok(())
 }

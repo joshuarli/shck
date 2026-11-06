@@ -181,7 +181,7 @@ mod tests {
     #[cfg(feature = "parser-benchmarking")]
     use super::{Parser, parse_fixture_with_benchmark_counters};
     use super::{TEST_FILES, benchmark_cases, parse_fixture, resources_dir};
-    use serde::Deserialize;
+    use deser::Deserialize;
     use shuck_formatter::{FormattedSource, ShellFormatOptions, format_file_ast, format_source};
     use shuck_linter::{AnalysisRequest, LinterSettings, ShellCheckCodeMap};
 
@@ -198,7 +198,7 @@ mod tests {
 
     #[test]
     fn fixture_sources_match_manifest_sizes() {
-        let manifest = serde_json::from_str::<Manifest>(include_str!("../resources/manifest.json"))
+        let manifest = deser_json::from_str::<Manifest>(include_str!("../resources/manifest.json"))
             .expect("benchmark fixture manifest should parse");
 
         let fixture_sizes = manifest

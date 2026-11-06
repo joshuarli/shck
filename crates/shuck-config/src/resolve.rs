@@ -318,7 +318,6 @@ impl<'a> SettingsResolver<'a> {
         }
         self.per_file_shell = Some(per_file_shell.clone());
 
-
         let compiled_per_file_ignores = self
             .recover(CompiledPerFileIgnoreList::resolve(
                 self.project_root.to_path_buf(),
@@ -711,7 +710,6 @@ fn apply_extend_layer<T>(current: Vec<T>, replace: Option<Vec<T>>, extend: Vec<T
     merged
 }
 
-
 /// Compiles `[lint.contracts]` into resolved ambient contracts.
 pub fn resolve_ambient_contracts(
     project_root: &Path,
@@ -800,16 +798,12 @@ fn ambient_contract_activation_from_config(
             }
         }
         LintContractWhenConfig::Activation(activation) => match activation.activation_type {
-            LintContractActivationTypeConfig::Unknown => Err(anyhow!("unsupported ambient contract activation type")),
+            LintContractActivationTypeConfig::Unknown => {
+                Err(anyhow!("unsupported ambient contract activation type"))
+            }
         },
     }
 }
-
-
-
-
-
-
 
 #[allow(dead_code)]
 fn verbatim_stripped_match_path(path: &Path) -> Option<PathBuf> {
@@ -822,18 +816,14 @@ fn verbatim_stripped_match_path(path: &Path) -> Option<PathBuf> {
     path.strip_prefix(r"\\?\").map(PathBuf::from)
 }
 
-
 #[cfg(test)]
 mod tests {
     use std::path::Path;
-    
-
 
     use super::*;
-    
 
     fn invalid_config() -> ShuckConfig {
-        toml::from_str(
+        deser_toml::from_str(
             r#"
 [lint]
 select = ["C001", "oops"]
@@ -855,7 +845,11 @@ count = "bogus"
             .unwrap_err();
 
         let msg = format!("{error:#}");
-        assert!(msg.contains("invalid lint.per-file-shell shell") || msg.contains("invalid lint.select"), "{msg}");
+        assert!(
+            msg.contains("invalid lint.per-file-shell shell")
+                || msg.contains("invalid lint.select"),
+            "{msg}"
+        );
     }
 
     #[test]
@@ -880,9 +874,9 @@ count = "bogus"
 
     #[test]
     fn config_override_layers_use_selector_specificity() {
-        let config: ShuckConfig = toml::from_str("[lint]\nselect = ['ALL']\n").unwrap();
+        let config: ShuckConfig = deser_toml::from_str("[lint]\nselect = ['ALL']\n").unwrap();
         let client: ShuckConfig =
-            toml::from_str("[lint]\nignore = ['C']\nextend-select = ['C001']\n").unwrap();
+            deser_toml::from_str("[lint]\nignore = ['C']\nextend-select = ['C001']\n").unwrap();
         let overrides = [SettingsOverride::Config(Box::new(client))];
         let resolved =
             SettingsResolver::new(Path::new("/workspace"), &config, ResolvePolicy::Strict)
@@ -913,7 +907,8 @@ count = "bogus"
     #[test]
     fn format_resolution_ignores_invalid_lint_selectors() {
         let config: ShuckConfig =
-            toml::from_str("[lint]\nselect = ['oops']\n[format]\nindent-width = 2\n").unwrap();
+            deser_toml::from_str("[lint]\nselect = ['oops']\n[format]\nindent-width = 2\n")
+                .unwrap();
         let resolved =
             SettingsResolver::new(Path::new("/workspace"), &config, ResolvePolicy::Strict)
                 .resolve_format()
@@ -921,6 +916,4 @@ count = "bogus"
 
         assert_eq!(resolved.options.indent_width(), 2);
     }
-
-
 }

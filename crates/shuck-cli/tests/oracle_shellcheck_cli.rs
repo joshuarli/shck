@@ -4,7 +4,7 @@ use std::io::Write;
 use std::path::Path;
 use std::process::{Command, Output, Stdio};
 
-use serde_json::Value;
+use deser_value::Value;
 use tempfile::tempdir;
 
 fn shellcheck_available() -> bool {
@@ -63,9 +63,9 @@ fn run_compat_stdin(args: &[&str], cwd: &Path, stdin: &str) -> Output {
 }
 
 fn json1_codes(output: &Output) -> BTreeSet<u64> {
-    let value: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let value: Value = deser_json::from_slice(&output.stdout).unwrap();
     value["comments"]
-        .as_array()
+        .as_seq()
         .unwrap()
         .iter()
         .filter_map(|entry| entry["code"].as_u64())
@@ -73,17 +73,19 @@ fn json1_codes(output: &Output) -> BTreeSet<u64> {
 }
 
 fn json1_comments(output: &Output) -> Vec<Value> {
-    serde_json::from_slice::<Value>(&output.stdout).unwrap()["comments"]
-        .as_array()
+    deser_json::from_slice::<Value>(&output.stdout).unwrap()["comments"]
+        .as_seq()
         .unwrap()
-        .clone()
+        .iter()
+        .cloned()
+        .collect()
 }
 
 fn json1_comment_shapes(output: &Output) -> Vec<Value> {
     json1_comments(output)
         .into_iter()
         .map(|mut comment| {
-            comment.as_object_mut().unwrap().remove("message");
+            comment.as_map_mut().unwrap().remove("message");
             comment
         })
         .collect()
@@ -336,12 +338,12 @@ fn oracle_output_formats_stay_structurally_valid() {
     let json_sc = run_shellcheck(&["--norc", "-f", "json", "x.sh"], tempdir.path());
     let json_compat = run_compat(&["--norc", "-f", "json", "x.sh"], tempdir.path());
     assert_eq!(json_sc.status.code(), json_compat.status.code());
-    serde_json::from_slice::<Value>(&json_compat.stdout).unwrap();
+    deser_json::from_slice::<Value>(&json_compat.stdout).unwrap();
 
     let json1_sc = run_shellcheck(&["--norc", "-f", "json1", "x.sh"], tempdir.path());
     let json1_compat = run_compat(&["--norc", "-f", "json1", "x.sh"], tempdir.path());
     assert_eq!(json1_sc.status.code(), json1_compat.status.code());
-    serde_json::from_slice::<Value>(&json1_compat.stdout).unwrap();
+    deser_json::from_slice::<Value>(&json1_compat.stdout).unwrap();
 
     let checkstyle_sc = run_shellcheck(&["--norc", "-f", "checkstyle", "x.sh"], tempdir.path());
     let checkstyle_compat = run_compat(&["--norc", "-f", "checkstyle", "x.sh"], tempdir.path());

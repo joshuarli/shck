@@ -200,7 +200,7 @@ fn is_executable_file_busy(_err: &std::io::Error) -> bool {
 
 fn version_probe_commands(shell: Shell) -> Vec<Vec<OsString>> {
     match shell {
-        Shell::Bash | Shell::Bashkit  => vec![vec![OsString::from("--version")]],
+        Shell::Bash | Shell::Bashkit => vec![vec![OsString::from("--version")]],
         Shell::Gbash => vec![
             vec![OsString::from("--version")],
             vec![OsString::from("version")],

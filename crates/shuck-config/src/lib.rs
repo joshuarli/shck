@@ -13,11 +13,10 @@ use std::ffi::OsStr;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
 
 use anyhow::{Context, Result, anyhow};
+use deser::Deserialize;
 use globset::{Glob, GlobSet, GlobSetBuilder};
-use serde::Deserialize;
 pub use shuck_formatter::FormatSettingsPatch;
 use shuck_formatter::IndentStyle;
 use shuck_run::RunConfig;
@@ -102,7 +101,7 @@ const CONFIG_OVERRIDE_RUN_SHELL_NAMES: &[&str] =
 
 /// Top-level Shuck configuration loaded from project config files.
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(default)]
+#[deser(default)]
 pub struct ShuckConfig {
     /// File discovery and embedded-script checking options.
     pub check: CheckConfig,
@@ -111,7 +110,7 @@ pub struct ShuckConfig {
     /// Linter rule selection, contracts, and analysis options.
     pub lint: LintConfig,
     /// Shared per-file shell dialect overrides keyed by glob pattern.
-    #[serde(rename = "per-file-shell")]
+    #[deser(rename = "per-file-shell")]
     pub per_file_shell: Option<BTreeMap<String, String>>,
     /// Runtime shell resolution options for `shuck run`.
     pub run: RunConfig,
@@ -119,15 +118,15 @@ pub struct ShuckConfig {
 
 /// Configuration for file-level checking behavior.
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(default, rename_all = "kebab-case")]
+#[deser(default, rename_all = "kebab-case")]
 pub struct CheckConfig {}
 
 /// Configuration for shell formatting behavior.
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(default, rename_all = "kebab-case")]
+#[deser(default, rename_all = "kebab-case")]
 pub struct FormatConfig {
     /// Deprecated formatter dialect value retained only to reject config-file use clearly.
-    pub dialect: Option<toml::Value>,
+    pub dialect: Option<deser_value::Value>,
     /// Project-relative glob patterns for files that should not be formatted.
     pub exclude: Option<Vec<String>>,
     /// Requested indentation style, such as `tab` or `space`.
@@ -240,7 +239,7 @@ impl Default for FormatExclusions {
 
 /// Configuration for lint rule selection and analysis behavior.
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(default, rename_all = "kebab-case")]
+#[deser(default, rename_all = "kebab-case")]
 pub struct LintConfig {
     /// Rule selectors that replace the default enabled rule set.
     pub select: Option<Vec<String>>,
@@ -277,7 +276,7 @@ pub struct LintConfig {
 
 /// Configuration for ambient contracts used during lint analysis.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
-#[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
+#[deser(default, rename_all = "kebab-case", deny_unknown_fields)]
 pub struct LintContractsConfig {
     /// Whether built-in well-known contracts are enabled.
     pub well_known: Option<bool>,
@@ -289,7 +288,7 @@ pub struct LintContractsConfig {
 
 /// User-defined ambient contract configuration.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+#[deser(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct LintCustomContractConfig {
     /// Stable contract identifier.
     pub id: String,
@@ -311,7 +310,7 @@ pub struct LintCustomContractConfig {
 
 /// Activation condition for a user-defined contract.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(untagged)]
+#[deser(untagged)]
 pub enum LintContractWhenConfig {
     /// Always activate using a literal label.
     Always(String),
@@ -321,9 +320,9 @@ pub enum LintContractWhenConfig {
 
 /// Framework, plugin, or theme activation details for a contract.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+#[deser(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct LintContractActivationConfig {
-    #[serde(rename = "type")]
+    #[deser(rename = "type")]
     /// Activation class.
     pub activation_type: LintContractActivationTypeConfig,
     /// Optional framework name.
@@ -338,13 +337,13 @@ pub struct LintContractActivationConfig {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 pub enum LintContractActivationTypeConfig {
     /// Reserved for removed activation types.
-    #[serde(other)]
+    #[deser(other)]
     Unknown,
 }
 
 /// Variables consumed by an ambient contract.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
-#[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
+#[deser(default, rename_all = "kebab-case", deny_unknown_fields)]
 pub struct LintContractConsumesConfig {
     /// Exact variable names consumed by the contract.
     pub names: Option<Vec<String>>,
@@ -356,7 +355,7 @@ pub struct LintContractConsumesConfig {
 
 /// Values provided by an ambient contract.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
-#[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
+#[deser(default, rename_all = "kebab-case", deny_unknown_fields)]
 pub struct LintContractProvidesConfig {
     /// Variable names provided by the contract.
     pub variables: Option<Vec<String>>,
@@ -366,7 +365,7 @@ pub struct LintContractProvidesConfig {
 
 /// Function-specific ambient contract entry.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+#[deser(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct LintContractFunctionConfig {
     /// Function name.
     pub name: String,
@@ -378,7 +377,7 @@ pub struct LintContractFunctionConfig {
 
 /// Rule-specific lint options.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
-#[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
+#[deser(default, rename_all = "kebab-case", deny_unknown_fields)]
 pub struct LintRuleOptionsConfig {
     /// Options for rule C001.
     pub c001: Option<C001RuleOptionsConfig>,
@@ -459,7 +458,7 @@ impl LintRuleOptionsConfig {
 
 /// Options for rule C001.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
-#[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
+#[deser(default, rename_all = "kebab-case", deny_unknown_fields)]
 pub struct C001RuleOptionsConfig {
     /// Whether indirect expansion target names should count as variable usage.
     pub treat_indirect_expansion_targets_as_used: Option<bool>,
@@ -476,7 +475,7 @@ impl C001RuleOptionsConfig {
 
 /// Options for rule C063.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
-#[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
+#[deser(default, rename_all = "kebab-case", deny_unknown_fields)]
 pub struct C063RuleOptionsConfig {
     /// Whether nested function definitions in unreachable branches should be reported.
     pub report_unreached_nested_definitions: Option<bool>,
@@ -493,7 +492,7 @@ impl C063RuleOptionsConfig {
 
 /// Options for rule S078.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
-#[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
+#[deser(default, rename_all = "kebab-case", deny_unknown_fields)]
 pub struct S078RuleOptionsConfig {
     /// Shell names accepted in shebang interpreters.
     pub allowed_shells: Option<Vec<String>>,
@@ -509,7 +508,7 @@ impl S078RuleOptionsConfig {
 
 /// Options for rule S079.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
-#[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
+#[deser(default, rename_all = "kebab-case", deny_unknown_fields)]
 pub struct S079RuleOptionsConfig {
     /// Shebang invocation forms accepted by the policy.
     pub allowed_forms: Option<Vec<String>>,
@@ -530,7 +529,7 @@ impl S079RuleOptionsConfig {
 
 /// Options for rule S080.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
-#[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
+#[deser(default, rename_all = "kebab-case", deny_unknown_fields)]
 pub struct S080RuleOptionsConfig {
     /// Maximum line count allowed by the policy.
     pub max_lines: Option<usize>,
@@ -551,7 +550,7 @@ impl S080RuleOptionsConfig {
 
 /// Options for rule S081.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
-#[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
+#[deser(default, rename_all = "kebab-case", deny_unknown_fields)]
 pub struct S081RuleOptionsConfig {
     /// Whether files that contain only a shebang are exempt from the rule.
     pub ignore_shebang_only_files: Option<bool>,
@@ -567,7 +566,7 @@ impl S081RuleOptionsConfig {
 
 /// Options for rule S082.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
-#[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
+#[deser(default, rename_all = "kebab-case", deny_unknown_fields)]
 pub struct S082RuleOptionsConfig {
     /// Marker names treated as action comments.
     pub kinds: Option<Vec<String>>,
@@ -595,22 +594,22 @@ impl S082RuleOptionsConfig {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 pub enum S083RequireForConfig {
     /// Require documentation for every function.
-    #[serde(rename = "all")]
+    #[deser(rename = "all")]
     All,
     /// Require documentation for functions that do not use a private-style name.
-    #[serde(rename = "exported")]
+    #[deser(rename = "exported")]
     Exported,
     /// Require documentation for functions whose bodies exceed the configured line threshold.
-    #[serde(rename = "long")]
+    #[deser(rename = "long")]
     Long,
     /// Require documentation for functions that read positional parameters.
-    #[serde(rename = "parameterized")]
+    #[deser(rename = "parameterized")]
     Parameterized,
 }
 
 /// Options for rule S083.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
-#[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
+#[deser(default, rename_all = "kebab-case", deny_unknown_fields)]
 pub struct S083RuleOptionsConfig {
     /// Function subset that requires documentation.
     pub require_for: Option<S083RequireForConfig>,
@@ -631,7 +630,7 @@ impl S083RuleOptionsConfig {
 
 /// Options for rule S084.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
-#[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
+#[deser(default, rename_all = "kebab-case", deny_unknown_fields)]
 pub struct S084RuleOptionsConfig {
     /// Whether comments should document global variables used by a function body.
     pub require_globals: Option<bool>,
@@ -662,7 +661,7 @@ impl S084RuleOptionsConfig {
 
 /// Options for rule S085.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
-#[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
+#[deser(default, rename_all = "kebab-case", deny_unknown_fields)]
 pub struct S085RuleOptionsConfig {
     /// Minimum source line count before the script is checked.
     pub non_trivial_line_threshold: Option<usize>,
@@ -688,7 +687,7 @@ impl S085RuleOptionsConfig {
 
 /// Options for rule C158.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
-#[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
+#[deser(default, rename_all = "kebab-case", deny_unknown_fields)]
 pub struct C158RuleOptionsConfig {
     /// Whether readonly declarations document intentional globals.
     pub treat_readonly_as_documented: Option<bool>,
@@ -709,7 +708,7 @@ impl C158RuleOptionsConfig {
 
 /// Options for rule C159.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
-#[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
+#[deser(default, rename_all = "kebab-case", deny_unknown_fields)]
 pub struct C159RuleOptionsConfig {
     /// Whether conditional initialization should suppress later mutable-global reports.
     pub allow_conditional_init: Option<bool>,
@@ -725,7 +724,7 @@ impl C159RuleOptionsConfig {
 
 /// Options for rule C160.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
-#[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
+#[deser(default, rename_all = "kebab-case", deny_unknown_fields)]
 pub struct C160RuleOptionsConfig {
     /// Variable anchors treated as safe roots for sourced relative paths.
     pub allowed_anchors: Option<Vec<String>>,
@@ -741,7 +740,7 @@ impl C160RuleOptionsConfig {
 
 /// Options for rule C161.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
-#[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
+#[deser(default, rename_all = "kebab-case", deny_unknown_fields)]
 pub struct C161RuleOptionsConfig {
     /// Whether calls after a source command should be exempted.
     pub ignore_after_source: Option<bool>,
@@ -1689,9 +1688,7 @@ impl ShuckConfig {
 }
 
 impl CheckConfig {
-    fn apply_overrides(&mut self, overrides: CheckConfig) {
-
-    }
+    fn apply_overrides(&mut self, _overrides: CheckConfig) {}
 }
 
 impl FormatConfig {
@@ -1797,18 +1794,22 @@ impl LintContractsConfig {
 fn load_config_file(config_path: &Path) -> Result<ShuckConfig> {
     let source = fs::read_to_string(config_path)
         .with_context(|| format!("read {}", config_path.display()))?;
-    toml::from_str(&source).with_context(|| format!("parse {}", config_path.display()))
+    deser_toml::from_str(&source).with_context(|| format!("parse {}", config_path.display()))
 }
 
 fn parse_config_override(value: &str) -> std::result::Result<ShuckConfig, String> {
-    let table = toml::Table::from_str(value).map_err(|err| err.to_string())?;
+    let table: deser_value::Value = deser_toml::from_str(value).map_err(|err| err.to_string())?;
     validate_override_table(&table)?;
-    toml::from_str(value).map_err(|err: toml::de::Error| err.to_string())
+    deser_toml::from_str(value).map_err(|err| err.to_string())
 }
 
-fn validate_override_table(table: &toml::Table) -> std::result::Result<(), String> {
-    for key in table.keys() {
-        if !CONFIG_OVERRIDE_ROOT_KEYS.contains(&key.as_str()) {
+fn validate_override_table(value: &deser_value::Value) -> std::result::Result<(), String> {
+    let table = value
+        .as_map()
+        .ok_or_else(|| "config override must be a TOML table".to_owned())?;
+    for _key in table.keys() {
+        let key = _key.as_str().unwrap_or_default();
+        if !CONFIG_OVERRIDE_ROOT_KEYS.contains(&key) {
             return Err(format!(
                 "unsupported config option `{key}`; expected one of: {}",
                 CONFIG_OVERRIDE_ROOT_KEYS.join(", ")
@@ -1818,10 +1819,11 @@ fn validate_override_table(table: &toml::Table) -> std::result::Result<(), Strin
 
     if let Some(format_value) = table.get("format") {
         let format = format_value
-            .as_table()
+            .as_map()
             .ok_or_else(|| "`format` must be a TOML table".to_owned())?;
-        for key in format.keys() {
-            if !CONFIG_OVERRIDE_FORMAT_KEYS.contains(&key.as_str()) {
+        for _key in format.keys() {
+            let key = _key.as_str().unwrap_or_default();
+            if !CONFIG_OVERRIDE_FORMAT_KEYS.contains(&key) {
                 return Err(format!(
                     "unsupported `[format]` option `{key}`; expected one of: {}",
                     CONFIG_OVERRIDE_FORMAT_KEYS.join(", ")
@@ -1832,10 +1834,11 @@ fn validate_override_table(table: &toml::Table) -> std::result::Result<(), Strin
 
     if let Some(check_value) = table.get("check") {
         let check = check_value
-            .as_table()
+            .as_map()
             .ok_or_else(|| "`check` must be a TOML table".to_owned())?;
-        for key in check.keys() {
-            if !CONFIG_OVERRIDE_CHECK_KEYS.contains(&key.as_str()) {
+        for _key in check.keys() {
+            let key = _key.as_str().unwrap_or_default();
+            if !CONFIG_OVERRIDE_CHECK_KEYS.contains(&key) {
                 return Err(format!(
                     "unsupported `[check]` option `{key}`; expected one of: {}",
                     CONFIG_OVERRIDE_CHECK_KEYS.join(", ")
@@ -1846,10 +1849,11 @@ fn validate_override_table(table: &toml::Table) -> std::result::Result<(), Strin
 
     if let Some(lint_value) = table.get("lint") {
         let lint = lint_value
-            .as_table()
+            .as_map()
             .ok_or_else(|| "`lint` must be a TOML table".to_owned())?;
-        for key in lint.keys() {
-            if !CONFIG_OVERRIDE_LINT_KEYS.contains(&key.as_str()) {
+        for _key in lint.keys() {
+            let key = _key.as_str().unwrap_or_default();
+            if !CONFIG_OVERRIDE_LINT_KEYS.contains(&key) {
                 return Err(format!(
                     "unsupported `[lint]` option `{key}`; expected one of: {}",
                     CONFIG_OVERRIDE_LINT_KEYS.join(", ")
@@ -1871,12 +1875,13 @@ fn validate_override_table(table: &toml::Table) -> std::result::Result<(), Strin
     Ok(())
 }
 
-fn validate_lint_contracts_override(value: &toml::Value) -> std::result::Result<(), String> {
+fn validate_lint_contracts_override(value: &deser_value::Value) -> std::result::Result<(), String> {
     let contracts = value
-        .as_table()
+        .as_map()
         .ok_or_else(|| "`[lint.contracts]` must be a TOML table".to_owned())?;
-    for key in contracts.keys() {
-        if !CONFIG_OVERRIDE_LINT_CONTRACT_KEYS.contains(&key.as_str()) {
+    for _key in contracts.keys() {
+        let key = _key.as_str().unwrap_or_default();
+        if !CONFIG_OVERRIDE_LINT_CONTRACT_KEYS.contains(&key) {
             return Err(format!(
                 "unsupported `[lint.contracts]` option `{key}`; expected one of: {}",
                 CONFIG_OVERRIDE_LINT_CONTRACT_KEYS.join(", ")
@@ -1887,12 +1892,13 @@ fn validate_lint_contracts_override(value: &toml::Value) -> std::result::Result<
     Ok(())
 }
 
-fn validate_run_override(value: &toml::Value) -> std::result::Result<(), String> {
+fn validate_run_override(value: &deser_value::Value) -> std::result::Result<(), String> {
     let run = value
-        .as_table()
+        .as_map()
         .ok_or_else(|| "`run` must be a TOML table".to_owned())?;
-    for key in run.keys() {
-        if !CONFIG_OVERRIDE_RUN_KEYS.contains(&key.as_str()) {
+    for _key in run.keys() {
+        let key = _key.as_str().unwrap_or_default();
+        if !CONFIG_OVERRIDE_RUN_KEYS.contains(&key) {
             return Err(format!(
                 "unsupported `[run]` option `{key}`; expected one of: {}",
                 CONFIG_OVERRIDE_RUN_KEYS.join(", ")
@@ -1902,10 +1908,11 @@ fn validate_run_override(value: &toml::Value) -> std::result::Result<(), String>
 
     if let Some(shells_value) = run.get("shells") {
         let shells = shells_value
-            .as_table()
+            .as_map()
             .ok_or_else(|| "`[run.shells]` must be a TOML table".to_owned())?;
-        for key in shells.keys() {
-            if !CONFIG_OVERRIDE_RUN_SHELL_NAMES.contains(&key.as_str()) {
+        for _key in shells.keys() {
+            let key = _key.as_str().unwrap_or_default();
+            if !CONFIG_OVERRIDE_RUN_SHELL_NAMES.contains(&key) {
                 return Err(format!(
                     "unsupported `[run.shells]` shell `{key}`; expected one of: {}",
                     CONFIG_OVERRIDE_RUN_SHELL_NAMES.join(", ")
@@ -1929,12 +1936,15 @@ fn apply_run_overrides(target: &mut RunConfig, overrides: RunConfig) {
     }
 }
 
-fn validate_lint_rule_options_override(value: &toml::Value) -> std::result::Result<(), String> {
+fn validate_lint_rule_options_override(
+    value: &deser_value::Value,
+) -> std::result::Result<(), String> {
     let rule_options = value
-        .as_table()
+        .as_map()
         .ok_or_else(|| "`[lint.rule-options]` must be a TOML table".to_owned())?;
-    for key in rule_options.keys() {
-        if !CONFIG_OVERRIDE_LINT_RULE_OPTION_KEYS.contains(&key.as_str()) {
+    for _key in rule_options.keys() {
+        let key = _key.as_str().unwrap_or_default();
+        if !CONFIG_OVERRIDE_LINT_RULE_OPTION_KEYS.contains(&key) {
             return Err(format!(
                 "unsupported `[lint.rule-options]` option `{key}`; expected one of: {}",
                 CONFIG_OVERRIDE_LINT_RULE_OPTION_KEYS.join(", ")
@@ -1988,12 +1998,15 @@ fn validate_lint_rule_options_override(value: &toml::Value) -> std::result::Resu
     Ok(())
 }
 
-fn validate_c001_rule_options_override(value: &toml::Value) -> std::result::Result<(), String> {
+fn validate_c001_rule_options_override(
+    value: &deser_value::Value,
+) -> std::result::Result<(), String> {
     let c001 = value
-        .as_table()
+        .as_map()
         .ok_or_else(|| "`[lint.rule-options.c001]` must be a TOML table".to_owned())?;
-    for key in c001.keys() {
-        if !CONFIG_OVERRIDE_C001_RULE_OPTION_KEYS.contains(&key.as_str()) {
+    for _key in c001.keys() {
+        let key = _key.as_str().unwrap_or_default();
+        if !CONFIG_OVERRIDE_C001_RULE_OPTION_KEYS.contains(&key) {
             return Err(format!(
                 "unsupported `[lint.rule-options.c001]` option `{key}`; expected one of: {}",
                 CONFIG_OVERRIDE_C001_RULE_OPTION_KEYS.join(", ")
@@ -2004,12 +2017,15 @@ fn validate_c001_rule_options_override(value: &toml::Value) -> std::result::Resu
     Ok(())
 }
 
-fn validate_c063_rule_options_override(value: &toml::Value) -> std::result::Result<(), String> {
+fn validate_c063_rule_options_override(
+    value: &deser_value::Value,
+) -> std::result::Result<(), String> {
     let c063 = value
-        .as_table()
+        .as_map()
         .ok_or_else(|| "`[lint.rule-options.c063]` must be a TOML table".to_owned())?;
-    for key in c063.keys() {
-        if !CONFIG_OVERRIDE_C063_RULE_OPTION_KEYS.contains(&key.as_str()) {
+    for _key in c063.keys() {
+        let key = _key.as_str().unwrap_or_default();
+        if !CONFIG_OVERRIDE_C063_RULE_OPTION_KEYS.contains(&key) {
             return Err(format!(
                 "unsupported `[lint.rule-options.c063]` option `{key}`; expected one of: {}",
                 CONFIG_OVERRIDE_C063_RULE_OPTION_KEYS.join(", ")
@@ -2020,12 +2036,15 @@ fn validate_c063_rule_options_override(value: &toml::Value) -> std::result::Resu
     Ok(())
 }
 
-fn validate_s078_rule_options_override(value: &toml::Value) -> std::result::Result<(), String> {
+fn validate_s078_rule_options_override(
+    value: &deser_value::Value,
+) -> std::result::Result<(), String> {
     let s078 = value
-        .as_table()
+        .as_map()
         .ok_or_else(|| "`[lint.rule-options.s078]` must be a TOML table".to_owned())?;
-    for key in s078.keys() {
-        if !CONFIG_OVERRIDE_S078_RULE_OPTION_KEYS.contains(&key.as_str()) {
+    for _key in s078.keys() {
+        let key = _key.as_str().unwrap_or_default();
+        if !CONFIG_OVERRIDE_S078_RULE_OPTION_KEYS.contains(&key) {
             return Err(format!(
                 "unsupported `[lint.rule-options.s078]` option `{key}`; expected one of: {}",
                 CONFIG_OVERRIDE_S078_RULE_OPTION_KEYS.join(", ")
@@ -2036,12 +2055,15 @@ fn validate_s078_rule_options_override(value: &toml::Value) -> std::result::Resu
     Ok(())
 }
 
-fn validate_s079_rule_options_override(value: &toml::Value) -> std::result::Result<(), String> {
+fn validate_s079_rule_options_override(
+    value: &deser_value::Value,
+) -> std::result::Result<(), String> {
     let s079 = value
-        .as_table()
+        .as_map()
         .ok_or_else(|| "`[lint.rule-options.s079]` must be a TOML table".to_owned())?;
-    for key in s079.keys() {
-        if !CONFIG_OVERRIDE_S079_RULE_OPTION_KEYS.contains(&key.as_str()) {
+    for _key in s079.keys() {
+        let key = _key.as_str().unwrap_or_default();
+        if !CONFIG_OVERRIDE_S079_RULE_OPTION_KEYS.contains(&key) {
             return Err(format!(
                 "unsupported `[lint.rule-options.s079]` option `{key}`; expected one of: {}",
                 CONFIG_OVERRIDE_S079_RULE_OPTION_KEYS.join(", ")
@@ -2052,12 +2074,15 @@ fn validate_s079_rule_options_override(value: &toml::Value) -> std::result::Resu
     Ok(())
 }
 
-fn validate_s080_rule_options_override(value: &toml::Value) -> std::result::Result<(), String> {
+fn validate_s080_rule_options_override(
+    value: &deser_value::Value,
+) -> std::result::Result<(), String> {
     let s080 = value
-        .as_table()
+        .as_map()
         .ok_or_else(|| "`[lint.rule-options.s080]` must be a TOML table".to_owned())?;
-    for key in s080.keys() {
-        if !CONFIG_OVERRIDE_S080_RULE_OPTION_KEYS.contains(&key.as_str()) {
+    for _key in s080.keys() {
+        let key = _key.as_str().unwrap_or_default();
+        if !CONFIG_OVERRIDE_S080_RULE_OPTION_KEYS.contains(&key) {
             return Err(format!(
                 "unsupported `[lint.rule-options.s080]` option `{key}`; expected one of: {}",
                 CONFIG_OVERRIDE_S080_RULE_OPTION_KEYS.join(", ")
@@ -2071,7 +2096,7 @@ fn validate_s080_rule_options_override(value: &toml::Value) -> std::result::Resu
     Ok(())
 }
 
-fn validate_s080_count_value(value: &toml::Value) -> std::result::Result<(), String> {
+fn validate_s080_count_value(value: &deser_value::Value) -> std::result::Result<(), String> {
     let count = value
         .as_str()
         .ok_or_else(|| "`[lint.rule-options.s080].count` must be a string".to_owned())?;
@@ -2086,12 +2111,15 @@ fn validate_s080_count_value(value: &toml::Value) -> std::result::Result<(), Str
     }
 }
 
-fn validate_s084_rule_options_override(value: &toml::Value) -> std::result::Result<(), String> {
+fn validate_s084_rule_options_override(
+    value: &deser_value::Value,
+) -> std::result::Result<(), String> {
     let s084 = value
-        .as_table()
+        .as_map()
         .ok_or_else(|| "`[lint.rule-options.s084]` must be a TOML table".to_owned())?;
-    for key in s084.keys() {
-        if !CONFIG_OVERRIDE_S084_RULE_OPTION_KEYS.contains(&key.as_str()) {
+    for _key in s084.keys() {
+        let key = _key.as_str().unwrap_or_default();
+        if !CONFIG_OVERRIDE_S084_RULE_OPTION_KEYS.contains(&key) {
             return Err(format!(
                 "unsupported `[lint.rule-options.s084]` option `{key}`; expected one of: {}",
                 CONFIG_OVERRIDE_S084_RULE_OPTION_KEYS.join(", ")
@@ -2102,12 +2130,15 @@ fn validate_s084_rule_options_override(value: &toml::Value) -> std::result::Resu
     Ok(())
 }
 
-fn validate_s081_rule_options_override(value: &toml::Value) -> std::result::Result<(), String> {
+fn validate_s081_rule_options_override(
+    value: &deser_value::Value,
+) -> std::result::Result<(), String> {
     let s081 = value
-        .as_table()
+        .as_map()
         .ok_or_else(|| "`[lint.rule-options.s081]` must be a TOML table".to_owned())?;
-    for key in s081.keys() {
-        if !CONFIG_OVERRIDE_S081_RULE_OPTION_KEYS.contains(&key.as_str()) {
+    for _key in s081.keys() {
+        let key = _key.as_str().unwrap_or_default();
+        if !CONFIG_OVERRIDE_S081_RULE_OPTION_KEYS.contains(&key) {
             return Err(format!(
                 "unsupported `[lint.rule-options.s081]` option `{key}`; expected one of: {}",
                 CONFIG_OVERRIDE_S081_RULE_OPTION_KEYS.join(", ")
@@ -2118,12 +2149,15 @@ fn validate_s081_rule_options_override(value: &toml::Value) -> std::result::Resu
     Ok(())
 }
 
-fn validate_s082_rule_options_override(value: &toml::Value) -> std::result::Result<(), String> {
+fn validate_s082_rule_options_override(
+    value: &deser_value::Value,
+) -> std::result::Result<(), String> {
     let s082 = value
-        .as_table()
+        .as_map()
         .ok_or_else(|| "`[lint.rule-options.s082]` must be a TOML table".to_owned())?;
-    for key in s082.keys() {
-        if !CONFIG_OVERRIDE_S082_RULE_OPTION_KEYS.contains(&key.as_str()) {
+    for _key in s082.keys() {
+        let key = _key.as_str().unwrap_or_default();
+        if !CONFIG_OVERRIDE_S082_RULE_OPTION_KEYS.contains(&key) {
             return Err(format!(
                 "unsupported `[lint.rule-options.s082]` option `{key}`; expected one of: {}",
                 CONFIG_OVERRIDE_S082_RULE_OPTION_KEYS.join(", ")
@@ -2134,12 +2168,15 @@ fn validate_s082_rule_options_override(value: &toml::Value) -> std::result::Resu
     Ok(())
 }
 
-fn validate_s083_rule_options_override(value: &toml::Value) -> std::result::Result<(), String> {
+fn validate_s083_rule_options_override(
+    value: &deser_value::Value,
+) -> std::result::Result<(), String> {
     let s083 = value
-        .as_table()
+        .as_map()
         .ok_or_else(|| "`[lint.rule-options.s083]` must be a TOML table".to_owned())?;
-    for key in s083.keys() {
-        if !CONFIG_OVERRIDE_S083_RULE_OPTION_KEYS.contains(&key.as_str()) {
+    for _key in s083.keys() {
+        let key = _key.as_str().unwrap_or_default();
+        if !CONFIG_OVERRIDE_S083_RULE_OPTION_KEYS.contains(&key) {
             return Err(format!(
                 "unsupported `[lint.rule-options.s083]` option `{key}`; expected one of: {}",
                 CONFIG_OVERRIDE_S083_RULE_OPTION_KEYS.join(", ")
@@ -2150,12 +2187,15 @@ fn validate_s083_rule_options_override(value: &toml::Value) -> std::result::Resu
     Ok(())
 }
 
-fn validate_s085_rule_options_override(value: &toml::Value) -> std::result::Result<(), String> {
+fn validate_s085_rule_options_override(
+    value: &deser_value::Value,
+) -> std::result::Result<(), String> {
     let s085 = value
-        .as_table()
+        .as_map()
         .ok_or_else(|| "`[lint.rule-options.s085]` must be a TOML table".to_owned())?;
-    for key in s085.keys() {
-        if !CONFIG_OVERRIDE_S085_RULE_OPTION_KEYS.contains(&key.as_str()) {
+    for _key in s085.keys() {
+        let key = _key.as_str().unwrap_or_default();
+        if !CONFIG_OVERRIDE_S085_RULE_OPTION_KEYS.contains(&key) {
             return Err(format!(
                 "unsupported `[lint.rule-options.s085]` option `{key}`; expected one of: {}",
                 CONFIG_OVERRIDE_S085_RULE_OPTION_KEYS.join(", ")
@@ -2166,12 +2206,15 @@ fn validate_s085_rule_options_override(value: &toml::Value) -> std::result::Resu
     Ok(())
 }
 
-fn validate_c158_rule_options_override(value: &toml::Value) -> std::result::Result<(), String> {
+fn validate_c158_rule_options_override(
+    value: &deser_value::Value,
+) -> std::result::Result<(), String> {
     let c158 = value
-        .as_table()
+        .as_map()
         .ok_or_else(|| "`[lint.rule-options.c158]` must be a TOML table".to_owned())?;
-    for key in c158.keys() {
-        if !CONFIG_OVERRIDE_C158_RULE_OPTION_KEYS.contains(&key.as_str()) {
+    for _key in c158.keys() {
+        let key = _key.as_str().unwrap_or_default();
+        if !CONFIG_OVERRIDE_C158_RULE_OPTION_KEYS.contains(&key) {
             return Err(format!(
                 "unsupported `[lint.rule-options.c158]` option `{key}`; expected one of: {}",
                 CONFIG_OVERRIDE_C158_RULE_OPTION_KEYS.join(", ")
@@ -2182,12 +2225,15 @@ fn validate_c158_rule_options_override(value: &toml::Value) -> std::result::Resu
     Ok(())
 }
 
-fn validate_c159_rule_options_override(value: &toml::Value) -> std::result::Result<(), String> {
+fn validate_c159_rule_options_override(
+    value: &deser_value::Value,
+) -> std::result::Result<(), String> {
     let c159 = value
-        .as_table()
+        .as_map()
         .ok_or_else(|| "`[lint.rule-options.c159]` must be a TOML table".to_owned())?;
-    for key in c159.keys() {
-        if !CONFIG_OVERRIDE_C159_RULE_OPTION_KEYS.contains(&key.as_str()) {
+    for _key in c159.keys() {
+        let key = _key.as_str().unwrap_or_default();
+        if !CONFIG_OVERRIDE_C159_RULE_OPTION_KEYS.contains(&key) {
             return Err(format!(
                 "unsupported `[lint.rule-options.c159]` option `{key}`; expected one of: {}",
                 CONFIG_OVERRIDE_C159_RULE_OPTION_KEYS.join(", ")
@@ -2198,12 +2244,15 @@ fn validate_c159_rule_options_override(value: &toml::Value) -> std::result::Resu
     Ok(())
 }
 
-fn validate_c160_rule_options_override(value: &toml::Value) -> std::result::Result<(), String> {
+fn validate_c160_rule_options_override(
+    value: &deser_value::Value,
+) -> std::result::Result<(), String> {
     let c160 = value
-        .as_table()
+        .as_map()
         .ok_or_else(|| "`[lint.rule-options.c160]` must be a TOML table".to_owned())?;
-    for key in c160.keys() {
-        if !CONFIG_OVERRIDE_C160_RULE_OPTION_KEYS.contains(&key.as_str()) {
+    for _key in c160.keys() {
+        let key = _key.as_str().unwrap_or_default();
+        if !CONFIG_OVERRIDE_C160_RULE_OPTION_KEYS.contains(&key) {
             return Err(format!(
                 "unsupported `[lint.rule-options.c160]` option `{key}`; expected one of: {}",
                 CONFIG_OVERRIDE_C160_RULE_OPTION_KEYS.join(", ")
@@ -2214,12 +2263,15 @@ fn validate_c160_rule_options_override(value: &toml::Value) -> std::result::Resu
     Ok(())
 }
 
-fn validate_c161_rule_options_override(value: &toml::Value) -> std::result::Result<(), String> {
+fn validate_c161_rule_options_override(
+    value: &deser_value::Value,
+) -> std::result::Result<(), String> {
     let c161 = value
-        .as_table()
+        .as_map()
         .ok_or_else(|| "`[lint.rule-options.c161]` must be a TOML table".to_owned())?;
-    for key in c161.keys() {
-        if !CONFIG_OVERRIDE_C161_RULE_OPTION_KEYS.contains(&key.as_str()) {
+    for _key in c161.keys() {
+        let key = _key.as_str().unwrap_or_default();
+        if !CONFIG_OVERRIDE_C161_RULE_OPTION_KEYS.contains(&key) {
             return Err(format!(
                 "unsupported `[lint.rule-options.c161]` option `{key}`; expected one of: {}",
                 CONFIG_OVERRIDE_C161_RULE_OPTION_KEYS.join(", ")
@@ -2230,10 +2282,7 @@ fn validate_c161_rule_options_override(value: &toml::Value) -> std::result::Resu
     Ok(())
 }
 
-fn invalid_config_argument(
-    value: &str,
-    detail: &str,
-) -> ConfigCliError {
+fn invalid_config_argument(value: &str, detail: &str) -> ConfigCliError {
     use std::fmt::Write as _;
 
     let mut tip = "\
@@ -2257,9 +2306,7 @@ A `--config` flag must either be a path to a `.toml` configuration file
     }
 
     ConfigCliError {
-        message: format!(
-            "invalid value '{value}' for '--config <CONFIG_OPTION>'\n\n  tip: {tip}"
-        ),
+        message: format!("invalid value '{value}' for '--config <CONFIG_OPTION>'\n\n  tip: {tip}"),
     }
 }
 
@@ -2782,7 +2829,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn inline_config_overrides_reject_uninitialized_declaration_rule_option() {
         let err = parse_config_override(
@@ -2791,8 +2837,6 @@ mod tests {
         .unwrap_err();
         assert!(err.contains("unsupported `[lint.rule-options.c001]` option"));
     }
-
-
 
     #[test]
     fn inline_config_overrides_reject_unknown_lint_keys() {
@@ -3355,7 +3399,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn run_config_arguments_allow_last_override_to_win() {
         let tempdir = tempdir().unwrap();
@@ -3424,7 +3467,6 @@ mod tests {
 
         assert!(format!("{err:#}").contains("preview"));
     }
-
 
     #[test]
     fn isolated_only_uses_inline_overrides() {

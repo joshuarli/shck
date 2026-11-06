@@ -27,8 +27,9 @@ etcetera = { workspace = true }
 lexopt = { workspace = true }
 notify = { workspace = true }
 rayon = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
+deser = { workspace = true }
+deser-json = { workspace = true }
+deser-value = { workspace = true }
 quick-junit = { workspace = true }
 shuck-ast = { workspace = true }
 shuck-cache = { workspace = true }
@@ -42,16 +43,16 @@ shuck-run = { workspace = true }
 shuck-semantic = { workspace = true }
 similar = { workspace = true }
 tempfile = { workspace = true }
-toml = { workspace = true }
 url = { workspace = true }
 
 [dev-dependencies]
 assert_cmd = "2"
 insta = { workspace = true, features = ["json", "redactions"] }
 predicates = "3"
-serde = { workspace = true }
-serde_json = { workspace = true }
-serde_yaml = { workspace = true }
+deser = { workspace = true }
+deser-json = { workspace = true }
+deser-value = { workspace = true }
+deser-yaml = { workspace = true }
 sha2 = { workspace = true }
 shuck-indexer = { workspace = true }
 shuck-linter = { workspace = true }

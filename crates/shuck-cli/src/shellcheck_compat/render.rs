@@ -2,7 +2,7 @@ use std::cmp::min;
 use std::collections::BTreeMap;
 use std::io::{self, ErrorKind, Write};
 
-use serde::Serialize;
+use deser::Serialize;
 use similar::TextDiff;
 
 use super::{
@@ -269,7 +269,7 @@ fn render_gcc(report: &CompatReport) -> String {
 }
 
 fn render_json(report: &CompatReport) -> Result<String, CompatCliError> {
-    serde_json::to_string(&to_shellcheck_diagnostics(report))
+    deser_json::to_string(&to_shellcheck_diagnostics(report))
         .map_err(|err| CompatCliError::runtime(2, format!("could not encode json output: {err}")))
 }
 
@@ -279,7 +279,7 @@ fn render_json1(report: &CompatReport) -> Result<String, CompatCliError> {
         comments: Vec<ShellCheckDiagnostic>,
     }
 
-    serde_json::to_string(&Wrapper {
+    deser_json::to_string(&Wrapper {
         comments: to_shellcheck_diagnostics(report),
     })
     .map_err(|err| CompatCliError::runtime(2, format!("could not encode json output: {err}")))
