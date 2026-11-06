@@ -1,18 +1,17 @@
 # shuck
 
-A fast shell script linter, formatter, and language server, written in Rust.
+A fast shell script linter and formatter, written in Rust.
 
-Shuck parses, analyzes, formats, and powers editor feedback for shell scripts. It catches common bugs, style issues, security hazards, performance traps, and portability problems; formats shell sources with configurable layout rules; and ships a first-party Language Server Protocol (LSP) server for editor diagnostics, fixes, navigation, symbols, hover, completion, and formatting. A caching layer keeps incremental runs fast.
+Shuck parses, analyzes, and formats shell scripts. It catches bugs, style issues, security hazards, performance traps, and portability problems, and formats shell sources with configurable layout rules. A caching layer keeps incremental runs fast.
 
 ## Features
 
-- High performance — ~20-100x faster than ShellCheck
+- Fast — benchmarks compare against ShellCheck on real-world scripts
 - Linting with rules across correctness, security, performance, portability, and style categories
 - Safe and unsafe fix support for selected diagnostics
 - Shell formatting with write, check, diff, stdin, and configuration-file modes
 - Multi-dialect support: bash, sh/POSIX, dash, ksh, and mksh
 - Automatic file discovery via extensions and shebang detection
-- First-party Language Server Protocol server for editor diagnostics, code actions, navigation, symbols, hover, completion, and formatting
 - ShellCheck suppression compatibility (`# shellcheck disable=SC2086`)
 
 ## Installation
@@ -32,7 +31,7 @@ pip install shuck-cli
 The PyPI package is named `shuck-cli`, but it still installs the `shuck`
 command.
 
-### From source
+### Cargo
 
 ```sh
 cargo install shuck-cli
@@ -40,7 +39,7 @@ cargo install shuck-cli
 
 ### Pre-built binaries
 
-Pre-built binaries are available for macOS (aarch64) and Linux (x86_64) from the [releases page](https://github.com/ewhauser/shuck/releases).
+Pre-built binaries are published on the [releases page](https://github.com/ewhauser/shuck/releases) for macOS (aarch64) and Linux (x86_64 and aarch64).
 
 ### GitHub Actions
 
@@ -54,20 +53,16 @@ steps:
       mode: check
       paths: |
         scripts
-        .github/workflows
 ```
 
 See the action's documentation for setup-only and formatting modes, version pinning, and additional inputs.
 
 ## Usage
 
-Shuck's main workflows are split across subcommands:
-
 | Workflow | Command |
-|----------|---------|
+| --- | --- |
 | Lint files and directories | `shuck check` |
 | Format shell files | `shuck format` |
-| Run the editor language server over stdio | `shuck server` |
 | Run a script with a managed shell interpreter | `shuck run` |
 | Pre-install a managed shell interpreter, or list available versions | `shuck install` |
 | Start an interactive session with a managed shell interpreter | `shuck shell` |
@@ -120,38 +115,9 @@ printf 'foo(){\necho hi\n}\n' | shuck format --stdin-filename script.bash -
 shuck format --indent-style space --indent-width 2 --function-next-line .
 ```
 
-`shuck format` uses the same file discovery, exclusion, gitignore, project-root, and cache behavior as `shuck check`, but it only rewrites standalone shell files. Embedded GitHub Actions `run:` blocks are linted by `shuck check`; they are not rewritten by the formatter.
+`shuck format` uses the same file discovery, exclusion, gitignore, project-root, and cache behavior as `shuck check`, but it only rewrites standalone shell files.
 
 In `--check` and `--diff` modes, `shuck format` exits with status `1` when files would change and leaves the files untouched. Formatter parse errors exit with status `2`.
-
-### Pre-commit
-
-Use the binary-backed hook when you want pre-commit to install `shuck`
-without requiring a local Rust toolchain:
-
-```yaml
-repos:
-  - repo: https://github.com/ewhauser/shuck
-    rev: v0.0.38
-    hooks:
-      - id: shuck
-```
-
-Replace `v0.0.38` with the release you want to pin.
-
-If you would rather run from the checked-out Rust sources, or you are on a
-platform that does not have a published wheel yet, use the source hook instead:
-
-```yaml
-repos:
-  - repo: https://github.com/ewhauser/shuck
-    rev: v0.0.38
-    hooks:
-      - id: shuck-src
-```
-
-The `shuck-src` hook requires a working Rust toolchain because it runs
-`cargo run -p shuck-cli -- check ...` from the cloned hook repository.
 
 ### Clean caches
 
@@ -160,18 +126,6 @@ The `shuck-src` hook requires a working Rust toolchain because it runs
 shuck clean
 ```
 
-### Editor integration
-
-Shuck ships with a first-party Language Server Protocol (LSP) server in the main CLI. Editors and LSP clients should launch it over stdio:
-
-```sh
-shuck server
-```
-
-The server analyzes the editor's in-memory buffer, publishes diagnostics as you edit, and reuses the same parser, lint rules, formatter settings, configuration, and fix machinery as the CLI. It currently supports incremental document sync, real-time diagnostics, quick fixes, `source.fixAll.shuck`, disable-this-line actions, whole-document and range formatting, hover help for rule codes in `# shuck:` and `# shellcheck` directives, completion, go-to-definition, references, document highlights, call hierarchy (incoming and outgoing calls for functions, across files connected by `source` statements and `# shuck: source=` directives), document symbols, and workspace symbols.
-
-Any editor that can launch a stdio LSP server can use Shuck by pointing shell buffers at `shuck server`. See the [editor integration guide](https://ewhauser.github.io/shuck/docs/editors/) for setup examples.
-
 ## Output
 
 `shuck check` prints rich code-frame diagnostics by default:
@@ -179,13 +133,13 @@ Any editor that can launch a stdio LSP server can use Shuck by pointing shell bu
 ```
 warning[C001]: variable `tmp` is assigned but never used
  --> deploy.sh:14:1
-  |
+   |
 14 | tmp=$(mktemp)
-  | ^^^
-  |
+   | ^^^
+   |
 ```
 
-Use `--output-format concise` to keep the legacy one-line format:
+Use `--output-format concise` for one-line diagnostics, or `json` and `json-lines` for machine-readable output:
 
 ```
 path:line:col: severity[CODE] message
@@ -195,23 +149,22 @@ path:line:col: severity[CODE] message
 deploy.sh:14:1: warning[C001] variable `tmp` is assigned but never used
 deploy.sh:31:10: error[C006] undefined variable `DEPLY_ENV`
 deploy.sh:45:3: warning[S005] legacy backtick command substitution
-.github/workflows/ci.yml:12:11: warning[C001] jobs.test.steps[0].run: variable `summary` is assigned but never used
 ```
 
 ### Exit codes
 
 | Code | Meaning |
-|------|---------|
-| `0`  | No issues found |
-| `1`  | Lint violations or parse errors detected |
-| `2`  | Runtime error (bad arguments, I/O failure) |
+| --- | --- |
+| `0` | No issues found |
+| `1` | Lint violations or parse errors detected |
+| `2` | Runtime error (bad arguments, I/O failure) |
 
 ## Rules
 
 Shuck ships with rules organized into five categories:
 
 | Category | Prefix | Description |
-|----------|--------|-------------|
+| --- | --- | --- |
 | Correctness | C | Bugs, errors, and likely mistakes. Enabled by default. |
 | Style | S | Code quality and best-practice suggestions. |
 | Performance | P | Inefficient patterns that have simpler or faster alternatives. |
@@ -224,12 +177,7 @@ Each rule has a short code (e.g., `C006`, `S001`) that appears in diagnostics an
 
 Where possible, shuck rules align with ShellCheck rules. Shuck supports ShellCheck suppression syntax (`# shellcheck disable=SC2086`) and maps ShellCheck codes to their shuck equivalents, so existing suppression comments continue to work without changes. Both suppression syntaxes accept either code namespace, and native `# shuck: disable=...` follows ShellCheck's scope rules: before the first statement it is file-wide, otherwise it applies to the next command.
 
-That said, shuck is not a port of ShellCheck. It is a clean-room reimplementation built on its own parser and analysis engine, so results will sometimes differ:
-
-- Shuck's parser and analysis logic were written from scratch. Edge cases may be handled differently, and some diagnostics may fire in slightly different locations or contexts.
-- In cases where ShellCheck's behavior appears incorrect or inconsistent with shell semantics, shuck intentionally chooses correctness over compatibility.
-
-Compatibility is continuously validated against a large corpus of shell scripts from popular open-source projects including [acme.sh](https://github.com/acmesh-official/acme.sh), [oh-my-zsh](https://github.com/ohmyzsh/ohmyzsh), [nvm](https://github.com/nvm-sh/nvm), [pyenv](https://github.com/pyenv/pyenv), [pi-hole](https://github.com/pi-hole/pi-hole), [bats-core](https://github.com/bats-core/bats-core), [powerlevel10k](https://github.com/romkatv/powerlevel10k), [dokku](https://github.com/dokku/dokku), [gentoo](https://github.com/gentoo/gentoo), and [many others](scripts/corpus-download.sh). The latest conformance report is published at [ewhauser.github.io/shuck/reports/corpus](https://ewhauser.github.io/shuck/reports/corpus/).
+Shuck is not a port of ShellCheck. It is a clean-room reimplementation built on its own parser and analysis engine, so results will sometimes differ. Compatibility is continuously validated against a large corpus of popular open-source shell projects; the corpus is defined in [`scripts/corpus-download.sh`](scripts/corpus-download.sh).
 
 ## Suppression
 
@@ -257,16 +205,6 @@ code_here
 # Before the first statement, disable becomes file-wide
 # shuck: disable=S001
 ```
-
-For embedded GitHub Actions scripts, put suppression comments inside the `run:` block as shell comments:
-
-```yaml
-- run: |
-    # shellcheck disable=SC2086
-    echo $FOO
-```
-
-YAML comments outside the `run:` scalar are not visible to the shell parser and do not suppress shell diagnostics.
 
 ## Sourced files
 
@@ -311,11 +249,8 @@ source-paths = ["lib", "scripts"]
 lint-sources = true
 ```
 
-### Resolving a file that isn't next to the script
-
-When the target lives somewhere the annotating file can't reach relatively — a
-shared `lib/` while the script sits in `scripts/` — give the hint just the
-**file name** and add its directory to `source-paths`:
+When the target lives somewhere the annotating file cannot reach relatively,
+give the hint only the file name and add its directory to `source-paths`:
 
 ```sh
 # scripts/deploy.sh
@@ -330,12 +265,10 @@ greet   # defined in lib/util.sh
 source-paths = ["lib"]
 ```
 
-Resolution tries the hint against the annotating file's own directory first
-(`scripts/util.sh`), then each `source-paths` root (`lib/util.sh` — found). The
-hint may be a bare name (`util.sh`), a subpath (`net/http.sh`, joined onto each
-root), or an absolute path (used as-is). `source-paths` roots are relative to
-the project root; the token `SCRIPTDIR` means the annotating file's directory.
-This works the same in `shuck check` and in the editor (LSP call hierarchy).
+Resolution tries the hint against the annotating file's own directory, then each
+`source-paths` root. The hint may be a bare name (`util.sh`), a subpath
+(`net/http.sh`), or an absolute path. `source-paths` roots are relative to the
+project root; the token `SCRIPTDIR` means the annotating file's directory.
 
 ## Configuration
 
@@ -344,19 +277,21 @@ input to find the nearest of these files and treats that directory as the projec
 root.
 
 If no project config is found, Shuck falls back to a user-level global config at
-`~/.config/shuck/shuck.toml` (or `.shuck.toml`), honoring `XDG_CONFIG_HOME` when
-set. Set `SHUCK_CONFIG_HOME` to point at a different directory for the global
-config. A project config always takes precedence over the global one, and
-`--config <file>` or `--isolated` bypass global config entirely.
+`$XDG_CONFIG_HOME/shuck/shuck.toml` (or `~/.config/shuck/shuck.toml`) and
+accepts `.shuck.toml` there too. Set `SHUCK_CONFIG_HOME` to point at a different
+directory for the global config. A project config always takes precedence over
+the global one, and `--config <file>` or `--isolated` bypass global config
+entirely.
 
+```toml
 [per-file-shell]
-# Override shell dialect inference for matching files in check, format, and LSP.
+# Override shell dialect inference for matching files in check and format.
 "scripts/bash/**" = "bash"
 "vendor/**/*.sh" = "sh"
 "dot_env*" = "bash"
 
 [format]
-# Configure `shuck format` and editor formatting.
+# Configure `shuck format`.
 exclude = ["generated/**"] # project-relative globs that should never be formatted
 indent-style = "tab"       # tab | space
 indent-width = 4           # used when indent-style = "space"
@@ -368,23 +303,20 @@ function-next-line = false # put function opening braces on their own line
 never-split = false        # prefer compact layouts
 ```
 
-`format.exclude` applies to directory discovery, explicitly named files, and
-whole-document or range formatting requested through the language server. This
-makes it suitable for generated files that must remain untouched even when an
-editor has format-on-save enabled.
+`format.exclude` applies to directory discovery and explicitly named files. This
+makes it suitable for generated files that must remain untouched.
 
 `per-file-shell` patterns are resolved relative to the project root and apply to
-`shuck check`, direct and stdin formatting, and editor analysis/formatting.
-Supported values are `sh`, `bash`, `dash`, `ksh`, and `mksh`; generic
-`ksh` mappings remain available to the linter but cannot be used by the
-formatter. Overlapping patterns may select the same dialect, but selecting
-different dialects for one file is an error. Existing
+`shuck check` and direct and stdin formatting. Supported values are `sh`, `bash`,
+`dash`, `ksh`, and `mksh`; generic `ksh` mappings remain available to the linter
+but cannot be used by the formatter. Overlapping patterns may select the same
+dialect, but selecting different dialects for one file is an error. Existing
 `[lint].per-file-shell` and `[lint].extend-per-file-shell` settings remain
 supported as compatibility aliases.
 
-An explicit `shuck format --dialect bash|posix|mksh` override takes
-precedence over `per-file-shell`. Unmatched files continue to infer their
-dialect from the file name, shebang, and source.
+An explicit `shuck format --dialect bash|posix|mksh` override takes precedence
+over `per-file-shell`. Unmatched files continue to infer their dialect from the
+file name, shebang, and source.
 
 ## File discovery
 
@@ -407,18 +339,16 @@ Disable caching with `--no-cache` or remove a project's cache entries with `shuc
 
 ## Rust API
 
-Shuck's parser and analysis crates are published for embedders. Their supported pre-1.0
-integration path and selective compatibility guarantees are documented in
-[Rust API compatibility](docs/rust-api-compatibility.md).
+Shuck's parser and analysis crates are published for embedders. Their supported pre-1.0 integration path and selective compatibility guarantees are documented in [Rust API compatibility](docs/rust-api-compatibility.md).
 
 ## Acknowledgements
 
-Shuck builds on ideas and inspiration from several excellent open-source projects. This section is a thank-you to those communities — it does not imply endorsement, affiliation, or any formal relationship between shuck and these projects.
+Shuck builds on ideas and inspiration from several open-source projects. This section is a thank-you to those communities — it does not imply endorsement, affiliation, or any formal relationship between shuck and these projects.
 
-- **[bashkit](https://github.com/everruns/bashkit)** — shuck-parser was originally forked from bashkit's bash lexer and parser; it has since evolved substantially to meet the needs of a linter (comment and trivia preservation, error recovery, multi-dialect parse views, extended AST coverage).
-- **[Ruff](https://github.com/astral-sh/ruff)** — Linter architecture inspiration, particularly around caching, rule organization, and diagnostic output.
-- **[ShellCheck](https://github.com/koalaman/shellcheck)** — An amazing project and the original source of inspiration for shuck. ShellCheck set the standard for shell script analysis.
-- **[gbash](https://github.com/ewhauser/gbash)** — A lot of lessons learned from this earlier project carried forward into shuck.
+- **[bashkit](https://github.com/everruns/bashkit)** — shuck-parser was originally forked from bashkit's bash lexer and parser; it has since evolved substantially for linter needs (comment and trivia preservation, error recovery, multi-dialect views, extended AST coverage).
+- **[Ruff](https://github.com/astral-sh/ruff)** — Linter architecture inspiration, particularly caching, rule organization, and diagnostic output.
+- **[ShellCheck](https://github.com/koalaman/shellcheck)** — The original source of inspiration for shuck.
+- **[gbash](https://github.com/ewhauser/gbash)** — Lessons from this earlier project carried forward into shuck.
 
 ## License
 
