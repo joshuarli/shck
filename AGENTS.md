@@ -146,7 +146,7 @@ The parser (`crates/shuck-parser/src/parser/`) is a recursive descent parser. Ke
 
 ## Commit messages
 
-This repository uses [Conventional Commits](https://www.conventionalcommits.org/) because `release-please` parses commit history on `main` to generate `CHANGELOG.md` and pick the next version.
+This repository uses [Conventional Commits](https://www.conventionalcommits.org/).
 
 PRs are squash-merged, so the PR title is what lands on `main`. Write PR titles — and any commits on `main` — in this form:
 
@@ -154,10 +154,10 @@ PRs are squash-merged, so the PR title is what lands on `main`. Write PR titles 
 <type>(<optional scope>): <short summary>
 ```
 
-Common types (full list in `.release-please-config.json`):
+Common types:
 
-- `feat:` — user-visible new behavior (minor bump once we hit 1.0)
-- `fix:` — bug fix (patch bump)
+- `feat:` — user-visible new behavior
+- `fix:` — bug fix
 - `perf:` — performance improvement
 - `docs:` — docs-only changes
 - `refactor:` — internal restructuring with no behavior change
@@ -170,9 +170,9 @@ Append `!` or a `BREAKING CHANGE:` footer for breaking changes (e.g., `feat!: dr
 
 Optional scopes should match a crate or an area (e.g., `feat(linter): add C042`, `fix(parser): handle nested heredocs`, `chore(deps): bump clap`).
 
-Only `feat`, `fix`, `perf`, `revert`, `docs`, and `refactor` appear in the published changelog; the rest are kept in git history but hidden from `CHANGELOG.md`. Release notes come from this history — write the summary for a downstream reader, not for yourself.
+Write the summary for a downstream reader: the message is the permanent record of the change.
 
-Release flow: release-please watches `main` and opens/maintains a release PR that bumps `workspace.package.version` in `Cargo.toml` and updates `CHANGELOG.md`. Merging that PR creates the `vX.Y.Z` tag, which triggers `release.yml` (cargo-dist) to build and publish artifacts. Do not bump versions or edit `CHANGELOG.md` by hand.
+Release flow: dispatch the `release` workflow from `main`. It builds `aarch64-apple-darwin` and the two musl static Linux targets, then publishes a `release-<sha>` GitHub prerelease with zipped binaries and `SHA256SUMS`. Run `make release TARGET=<triple>` and `make verify-release TARGET=<triple>` to reproduce a build locally.
 
 ## Linter Rule Authoring
 
