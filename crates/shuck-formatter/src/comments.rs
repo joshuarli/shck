@@ -6,7 +6,7 @@ use shuck_indexer::{CloseDelimiterIndex, CloseDelimiterKind, IndexedComment, Ind
 use crate::source::SourceView;
 
 #[derive(Debug, Clone)]
-pub struct SourceMap<'a> {
+pub(crate) struct SourceMap<'a> {
     source: &'a str,
     data: Arc<SourceMapData> }
 
@@ -21,13 +21,13 @@ struct SourceMapData {
 impl<'a> SourceMap<'a> {
     #[must_use]
     #[cfg(test)]
-    pub fn new(source: &'a str) -> Self {
+    pub(crate) fn new(source: &'a str) -> Self {
         Self::new_with_alignment(source, true)
     }
 
     #[must_use]
     #[cfg(test)]
-    pub fn without_alignment_indexes(source: &'a str) -> Self {
+    pub(crate) fn without_alignment_indexes(source: &'a str) -> Self {
         Self::new_with_alignment(source, false)
     }
 
@@ -107,7 +107,7 @@ impl<'a> SourceMap<'a> {
     }
 
     #[must_use]
-    pub fn source(&self) -> &'a str {
+    pub(crate) fn source(&self) -> &'a str {
         self.source
     }
 
@@ -122,14 +122,14 @@ impl<'a> SourceMap<'a> {
     }
 
     #[must_use]
-    pub fn line_number_for_offset(&self, offset: usize) -> usize {
+    pub(crate) fn line_number_for_offset(&self, offset: usize) -> usize {
         self.data
             .line_index
             .line_number(TextSize::from_usize(self.clamped_offset(offset)))
     }
 
     #[must_use]
-    pub fn span_for_offsets(&self, start: usize, end: usize) -> Span {
+    pub(crate) fn span_for_offsets(&self, start: usize, end: usize) -> Span {
         let line = self.line_number_for_offset(start);
         let line_start = self
             .data
@@ -148,7 +148,7 @@ impl<'a> SourceMap<'a> {
     }
 
     #[must_use]
-    pub fn is_inline_comment(&self, offset: usize) -> bool {
+    pub(crate) fn is_inline_comment(&self, offset: usize) -> bool {
         self.first_non_whitespace_for_line(self.line_index_for_offset(offset))
             .is_some_and(|first| first < offset)
     }
@@ -222,12 +222,12 @@ impl<'a> SourceMap<'a> {
     }
 
     #[must_use]
-    pub fn contains_comment_between(&self, start: usize, end: usize) -> bool {
+    pub(crate) fn contains_comment_between(&self, start: usize, end: usize) -> bool {
         contains_offset_in_range(&self.data.hash_offsets, start, end)
     }
 
     #[must_use]
-    pub fn first_comment_between(&self, start: usize, end: usize) -> Option<usize> {
+    pub(crate) fn first_comment_between(&self, start: usize, end: usize) -> Option<usize> {
         if start >= end {
             return None;
         }
@@ -259,7 +259,7 @@ impl<'a> SourceMap<'a> {
     }
 
     #[must_use]
-    pub fn contains_newline_between(&self, start: usize, end: usize) -> bool {
+    pub(crate) fn contains_newline_between(&self, start: usize, end: usize) -> bool {
         if start >= end {
             return false;
         }
@@ -356,7 +356,7 @@ impl<'a> SourceMap<'a> {
     }
 
     #[must_use]
-    pub fn has_alignment_padding_between(&self, start: usize, end: usize) -> bool {
+    pub(crate) fn has_alignment_padding_between(&self, start: usize, end: usize) -> bool {
         if start >= end || !self.data.track_alignment || self.contains_newline_between(start, end) {
             return false;
         }
@@ -440,7 +440,7 @@ fn first_non_whitespace_in_line(source: &str, start: usize, end: usize) -> Optio
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SourceComment<'a> {
+pub(crate) struct SourceComment<'a> {
     text: &'a str,
     span: Span,
     line: usize,
@@ -448,22 +448,22 @@ pub struct SourceComment<'a> {
 
 impl<'a> SourceComment<'a> {
     #[must_use]
-    pub fn text(&self) -> &'a str {
+    pub(crate) fn text(&self) -> &'a str {
         self.text.trim_end_matches([' ', '\t', '\r'])
     }
 
     #[must_use]
-    pub fn span(&self) -> Span {
+    pub(crate) fn span(&self) -> Span {
         self.span
     }
 
     #[must_use]
-    pub fn line(&self) -> usize {
+    pub(crate) fn line(&self) -> usize {
         self.line
     }
 
     #[must_use]
-    pub fn inline(&self) -> bool {
+    pub(crate) fn inline(&self) -> bool {
         self.inline
     }
 }
@@ -542,7 +542,7 @@ impl<'a> CommentAttachmentModel<'a> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SequenceCommentAttachment<'a> {
+pub(crate) struct SequenceCommentAttachment<'a> {
     leading: Option<Vec<Vec<SourceComment<'a>>>>,
     trailing: Option<Vec<Vec<SourceComment<'a>>>>,
     dangling: Vec<SourceComment<'a>>,
@@ -583,7 +583,7 @@ impl<'a> SequenceCommentAttachment<'a> {
     }
 
     #[must_use]
-    pub fn leading_for(&self, index: usize) -> &[SourceComment<'a>] {
+    pub(crate) fn leading_for(&self, index: usize) -> &[SourceComment<'a>] {
         self.leading
             .as_ref()
             .and_then(|leading| leading.get(index))
@@ -591,7 +591,7 @@ impl<'a> SequenceCommentAttachment<'a> {
     }
 
     #[must_use]
-    pub fn trailing_for(&self, index: usize) -> &[SourceComment<'a>] {
+    pub(crate) fn trailing_for(&self, index: usize) -> &[SourceComment<'a>] {
         self.trailing
             .as_ref()
             .and_then(|trailing| trailing.get(index))
@@ -599,17 +599,17 @@ impl<'a> SequenceCommentAttachment<'a> {
     }
 
     #[must_use]
-    pub fn dangling(&self) -> &[SourceComment<'a>] {
+    pub(crate) fn dangling(&self) -> &[SourceComment<'a>] {
         &self.dangling
     }
 
     #[must_use]
-    pub fn is_ambiguous(&self) -> bool {
+    pub(crate) fn is_ambiguous(&self) -> bool {
         self.ambiguous
     }
 
     #[must_use]
-    pub fn has_comments(&self) -> bool {
+    pub(crate) fn has_comments(&self) -> bool {
         self.ambiguous
             || !self.dangling.is_empty()
             || self

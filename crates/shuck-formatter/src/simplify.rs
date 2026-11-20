@@ -15,13 +15,13 @@ const NESTED_SUBSHELLS: &str = "nested-subshells";
 const QUOTE_TIGHTENING: &str = "quote-tightening";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SimplifyReport {
-    pub applied: Vec<RewriteApplication> }
+pub(crate) struct SimplifyReport {
+    pub(crate) applied: Vec<RewriteApplication> }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RewriteApplication {
-    pub name: &'static str,
-    pub changes: usize }
+pub(crate) struct RewriteApplication {
+    pub(crate) name: &'static str,
+    pub(crate) changes: usize }
 
 #[derive(Default)]
 struct RewriteCounts {
@@ -72,7 +72,7 @@ impl RewriteCounts {
     }
 }
 
-pub fn simplify_file(file: &mut File, source: &str) -> SimplifyReport {
+pub(crate) fn simplify_file(file: &mut File, source: &str) -> SimplifyReport {
     let counts = RewriteCounts::default();
     {
         let mut visitor = SimplifyVisitor {

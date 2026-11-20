@@ -47,7 +47,7 @@ pub(crate) use self::groups::{
 pub(crate) use self::render_policy::{
     binary_stmt_attachment_span_from_operands, case_item_body_upper_bound,
     case_item_was_inline_in_source, compound_close_span, done_close_span, if_close_span,
-    line_gap_break_count, normalized_close_keyword_span, rendered_stmt_end_line_with_heredoc,
+    line_gap_break_count, rendered_stmt_end_line_with_heredoc,
     should_render_verbatim_with_heredoc, stmt_attachment_span_with_heredoc_and_compound_close,
     stmt_has_trailing_comment, stmt_render_start_line_with_heredoc };
 pub(crate) use self::spans::{

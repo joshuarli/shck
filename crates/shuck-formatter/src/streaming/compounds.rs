@@ -689,25 +689,6 @@ where
         }
     }
 
-    #[allow(dead_code)]
-    pub(super) fn write_parenthesized_word_list(&mut self, words: Option<&[Word]>) {
-        self.write_text(" (");
-        if let Some(words) = words {
-            self.write_space_separated_words(words);
-        }
-        self.write_text(")");
-    }
-
-    #[allow(dead_code)]
-    pub(super) fn write_space_separated_words(&mut self, words: &[Word]) {
-        for (index, word) in words.iter().enumerate() {
-            if index > 0 {
-                self.write_space();
-            }
-            self.write_word(word);
-        }
-    }
-
 
     pub(super) fn format_compound_body_plan(&mut self, plan: CompoundBodyPlan<'_>) -> Result<()> {
         match plan.layout() {

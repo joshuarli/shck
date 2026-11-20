@@ -300,13 +300,6 @@ pub(crate) fn function_header_span(command: &FunctionDef) -> Span {
 }
 
 
-    #[allow(dead_code)]
-pub(crate) fn words_span(words: &[shuck_ast::Word]) -> Span {
-    words.iter().fold(Span::new(), |span, word| {
-        merge_non_empty_span(span, word.span)
-    })
-}
-
 pub(crate) fn compound_format_span(command: &CompoundCommand) -> Span {
     match command {
         CompoundCommand::Subshell(commands) | CompoundCommand::BraceGroup(commands) => commands
