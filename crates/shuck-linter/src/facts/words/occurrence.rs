@@ -1096,16 +1096,11 @@ pub(crate) fn parameter_is_plain_reference(
     parameter: &ParameterExpansion,
     allow_all_elements_parameters: bool,
 ) -> bool {
-    match &parameter.syntax {
+    matches!(&parameter.syntax,
         ParameterExpansionSyntax::Bourne(BourneParameterExpansion::Access { reference })
             if reference.subscript.is_none()
                 && (allow_all_elements_parameters
-                    || !matches!(reference.name.as_str(), "@" | "*")) =>
-        {
-            true
-        }
-        _ => false,
-    }
+                    || !matches!(reference.name.as_str(), "@" | "*")))
 }
 
 pub(crate) fn word_is_direct_numeric_expansion(word: &Word) -> bool {
@@ -1130,10 +1125,8 @@ pub(crate) fn word_part_is_direct_numeric_expansion(part: &WordPart) -> bool {
 }
 
 pub(crate) fn parameter_is_direct_numeric_expansion(parameter: &ParameterExpansion) -> bool {
-    match &parameter.syntax {
-        ParameterExpansionSyntax::Bourne(BourneParameterExpansion::Length { .. }) => true,
-        _ => false,
-    }
+    matches!(&parameter.syntax,
+        ParameterExpansionSyntax::Bourne(BourneParameterExpansion::Length { .. }))
 }
 
 fn safe_value_special_parameter_access(word: &Word) -> bool {
@@ -1250,10 +1243,7 @@ fn zsh_parameter_targets_visible_array(
     parameter: &ParameterExpansion,
     context: ZshArrayFanoutContext<'_, '_, '_>,
 ) -> bool {
-    match &parameter.syntax {
-        ParameterExpansionSyntax::Bourne(BourneParameterExpansion::Access { reference }) => false,
-                _ => false,
-    }
+    false
 }
 
 fn visible_name_is_array_like(

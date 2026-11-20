@@ -675,14 +675,12 @@ pub(crate) fn parameter_needs_wrapped_arithmetic_fallback(
     parameter: &ParameterExpansion,
     source: &str,
 ) -> bool {
-    match &parameter.syntax {
+    matches!(&parameter.syntax,
         ParameterExpansionSyntax::Bourne(BourneParameterExpansion::Slice {
             offset_ast: None,
             offset,
             ..
-        }) => offset.is_source_backed() && offset.slice(source).starts_with("$(("),
-        _ => false,
-    }
+        }) if offset.is_source_backed() && offset.slice(source).starts_with("$(("))
 }
 
 pub(crate) fn collect_dollar_spans_in_nested_arithmetic_expansions_from_parts(

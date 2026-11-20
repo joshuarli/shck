@@ -2266,12 +2266,9 @@ fn parameter_operator_guards_unset_reference(operator: &ParameterOp) -> bool {
 }
 
 fn parameter_is_plain_unindexed_reference(parameter: &shuck_ast::ParameterExpansion) -> bool {
-    match &parameter.syntax {
-        ParameterExpansionSyntax::Bourne(BourneParameterExpansion::Access { reference }) => {
-            reference.subscript.is_none() && name_is_plain_reference_candidate(&reference.name)
-        }
-        _ => false,
-    }
+    matches!(&parameter.syntax,
+        ParameterExpansionSyntax::Bourne(BourneParameterExpansion::Access { reference })
+            if reference.subscript.is_none() && name_is_plain_reference_candidate(&reference.name))
 }
 
 fn name_is_plain_reference_candidate(name: &Name) -> bool {
