@@ -437,3 +437,15 @@ fn shell_subcommand_defaults_to_managed_bash() {
         .write_stdin("printf '%s|%s\\n' \"$SHUCK_SHELL\" \"$SHUCK_SHELL_VERSION\"\n");
     cmd.assert().success().stdout("bash|5.2.21\n");
 }
+
+#[test]
+fn run_preserves_nonzero_child_status() {
+    let dir = tempdir().unwrap();
+    let bin_dir = dir.path().join("bin");
+    fake_system_shell(&bin_dir.join("bash"), "bash", "5.2.21");
+    let mut cmd = Command::cargo_bin("shuck").unwrap();
+    cmd.current_dir(dir.path())
+        .env("PATH", &bin_dir)
+        .args(["run", "--system", "-c", "exit 37"]);
+    cmd.assert().code(37);
+}

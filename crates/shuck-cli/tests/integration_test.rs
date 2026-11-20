@@ -1082,6 +1082,8 @@ fn check_sarif_output_is_valid_json() {
     let value: deser_value::Value = deser_json::from_slice(&output.stdout).unwrap();
     assert_eq!(value["version"], "2.1.0");
     assert_eq!(value["runs"][0]["tool"]["driver"]["name"], "shuck");
+    assert_eq!(value["runs"][0]["results"].as_seq().unwrap().len(), 1);
+    assert_eq!(value["runs"][0]["results"][0]["ruleId"], "C001");
 }
 
 #[test]
@@ -2676,4 +2678,97 @@ fn operator_chain_limit_is_reported_alongside_lint_diagnostics() {
     assert!(!output.status.success());
     assert!(text.contains("pipeline too long"), "{text}");
     assert!(text.contains("C006"), "{text}");
+}
+
+#[test]
+fn check_cache_invalidates_transitive_source_changes() {
+    let dir = tempdir().unwrap();
+    let root = dir.path();
+    fs::write(root.join("main.sh"), "#!/bin/bash\n# shuck: source=a.sh lint=true\nsource ./a.sh\necho \"$b_var\"\n").unwrap();
+    fs::write(root.join("a.sh"), "# shuck: source=b.sh lint=true\nsource ./b.sh\n").unwrap();
+    fs::write(root.join("b.sh"), "b_var=1\n").unwrap();
+    let run = |extra: &[&str]| {
+        let mut args = vec!["check", "--output-format", "concise"];
+        args.extend_from_slice(extra);
+        args.push("main.sh");
+        run_check_output(root, &args)
+    };
+    let first = run(&[]);
+    let unchanged = run(&[]);
+    assert_eq!(first.status.code(), unchanged.status.code());
+    assert_eq!(first.stdout, unchanged.stdout);
+    assert!(!stdout_string(&first).contains("C006"));
+    fs::write(root.join("b.sh"), "other=1\n").unwrap();
+    let cached = run(&[]);
+    let fresh = run(&["--no-cache"]);
+    assert_eq!(cached.status.code(), fresh.status.code());
+    assert_eq!(cached.stdout, fresh.stdout);
+    assert!(stdout_string(&cached).contains("C006"), "{}", stdout_string(&cached));
+}
+
+#[test]
+fn format_minified_compound_heredoc_reparses() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("script.sh");
+    fs::write(&path, "#!/bin/bash\nif true; then\ncat <<EOF\nbody\nEOF\nfi\necho after\n").unwrap();
+    let mut cmd = Command::cargo_bin("shuck").unwrap();
+    configure_env_cache(&mut cmd, dir.path());
+    cmd.current_dir(dir.path()).args(["format", "--minify", "script.sh"]).assert().success();
+    let formatted = fs::read_to_string(&path).unwrap();
+    assert!(formatted.contains("if true; then cat <<EOF"), "{formatted}");
+    assert!(formatted.contains("EOF\nfi"), "{formatted}");
+    let output = ProcessCommand::new("bash").arg("-n").arg(&path).output().unwrap();
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+}
+
+#[test]
+fn check_grouped_output_groups_diagnostics_by_file() {
+    let dir = tempdir().unwrap();
+    fs::write(dir.path().join("warn.sh"), "#!/bin/bash\nunused=1\necho ok\n").unwrap();
+    let output = run_check_output(dir.path(), &["check", "--output-format", "grouped", "warn.sh"]);
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(stdout_string(&output), "warn.sh:\n  2:1: warning[C001] variable `unused` is assigned but never used\n");
+}
+
+#[test]
+fn format_flags_change_stdin_output() {
+    for (flag, source, expected) in [
+        ("--binary-next-line", "cat foo | \\\ncat<<EOF\nhello\nEOF\n", "cat foo \\\n\t| cat <<EOF\nhello\nEOF\n"),
+        ("--switch-case-indent", "case $x in\na) echo a;;\nesac\n", "case $x in\n\ta)\n\t\techo a\n\t\t;;\nesac\n"),
+        ("--space-redirects", "echo hi>out\n", "echo hi > out\n"),
+        ("--keep-padding", "a=1  b=2\n", "a=1  b=2\n"),
+        ("--never-split", "if true; then\necho hi\nfi\n", "if true; then echo hi; fi\n"),
+        ("--simplify", "[[ ! -n \"$foo\" ]]\n", "[[ -z $foo ]]\n"),
+    ] {
+        let dir = tempdir().unwrap();
+        let mut cmd = Command::cargo_bin("shuck").unwrap();
+        configure_env_cache(&mut cmd, dir.path());
+        cmd.current_dir(dir.path()).args(["format", flag, "-"]).write_stdin(source);
+        let output = cmd.output().unwrap();
+        assert!(output.status.success(), "{flag}: {}", String::from_utf8_lossy(&output.stderr));
+        assert_eq!(stdout_string(&output), expected, "{flag}");
+    }
+}
+
+#[test]
+fn check_additive_rule_flags_change_diagnostics() {
+    let dir = tempdir().unwrap();
+    fs::write(dir.path().join("warn.sh"), "#!/bin/sh\nunused=1\nread\n").unwrap();
+    let run = |flags: &[&str]| {
+        let mut args = vec!["check", "--no-cache", "--output-format", "concise"];
+        args.extend_from_slice(flags);
+        args.push("warn.sh");
+        run_check_output(dir.path(), &args)
+    };
+    let selected = run(&["--select", "S036", "--extend-select", "C001"]);
+    assert_eq!(selected.status.code(), Some(1));
+    let text = stdout_string(&selected);
+    assert!(text.contains("warning[S036]"), "{text}");
+    assert!(text.contains("warning[C001]"), "{text}");
+    let ignored = run(&["--select", "C001", "--ignore", "C001"]);
+    assert_eq!(ignored.status.code(), Some(0));
+    assert_eq!(stdout_string(&ignored), "");
+    let per_file = run(&["--select", "C001", "--extend-per-file-ignores", "warn.sh:C001"]);
+    assert_eq!(per_file.status.code(), Some(0));
+    assert_eq!(stdout_string(&per_file), "");
 }
