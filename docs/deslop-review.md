@@ -60,3 +60,12 @@ None identified beyond the demonstrated findings and the excluded filed issues. 
 ## Evidence and limits
 
 Inspected the cumulative diff and surrounding paths for source dependency collection and fingerprints, minified heredoc flushing and pre-write parsing, line-index ownership, diagnostic state, parser recovery and limits, conversions, removed parser and semantic paths, and benchmark selection. Built the reviewed CLI. A nested-case heredoc minification fixture formatted successfully and `bash -n` accepted the result; this is one case, not a proof of semantic equivalence. The bench driver unit tests passed (3 tests) and its Edit-tier listing selected the harness. `cargo test -p shuck-parser resource_limits` passed: 13 tests, 0 failures (exit 0). No base-revision build, large corpus, full benchmark, network access, or exhaustive search of all possible shell inputs was performed. `git diff --check` on the campaign diff reported an existing trailing blank line at `TODO-DESLOP.md:171`; it is not a behavior finding.
+
+## Resolution
+
+Both findings are fixed in the same change as this review:
+
+- P2: `check` on stdin now reports a resource-limit parse error alongside lint diagnostics, using the same rule as file input (`stdin.rs`). The regression test is `stdin_reports_resource_limit_alongside_lint_diagnostics`.
+- P3: fuel exhaustion in the recovery loop's `tick` and `skip_newlines` exits now sets `ParseStatus::LimitExceeded`. The regression test is `fuel_exhausted_between_commands_reports_limit_exceeded`.
+
+Each test fails against the reviewed revision and passes with the fix.

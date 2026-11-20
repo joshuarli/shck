@@ -85,11 +85,13 @@ impl<'a> Parser<'a> {
             if let Err(error) = self.tick() {
                 diagnostics.push(self.parse_diagnostic_from_error(error.clone()));
                 terminal_error.get_or_insert(error);
+                limit_exceeded = !self.nested && self.budget.take_limit_error().is_some();
                 break;
             }
             if let Err(error) = self.skip_newlines() {
                 diagnostics.push(self.parse_diagnostic_from_error(error.clone()));
                 terminal_error.get_or_insert(error);
+                limit_exceeded = !self.nested && self.budget.take_limit_error().is_some();
                 break;
             }
             if let Err(error) = self.check_error_token() {

@@ -2772,3 +2772,19 @@ fn check_additive_rule_flags_change_diagnostics() {
     assert_eq!(per_file.status.code(), Some(0));
     assert_eq!(stdout_string(&per_file), "");
 }
+
+#[test]
+fn stdin_reports_resource_limit_alongside_lint_diagnostics() {
+    let tempdir = tempdir().unwrap();
+    let source = format!("#!/bin/bash\necho $missing\n{}true\n", "true && ".repeat(1_001));
+    let mut cmd = Command::cargo_bin("shuck").unwrap();
+    configure_env_cache(&mut cmd, tempdir.path());
+    cmd.current_dir(tempdir.path())
+        .args(["check", "--no-cache", "--output-format", "concise", "-"])
+        .write_stdin(source);
+    let output = cmd.output().unwrap();
+    let text = String::from_utf8(output.stdout).unwrap();
+    assert_eq!(output.status.code(), Some(1), "{text}");
+    assert!(text.contains("error[C006]"), "{text}");
+    assert!(text.contains("command list too long"), "{text}");
+}

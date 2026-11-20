@@ -8,7 +8,10 @@ use shuck_config::{
     ConfigArguments, resolve_project_root_for_file, resolve_project_root_for_input,
 };
 use shuck_linter::{Applicability, LinterSettings, ShellCheckCodeMap, ShellDialect};
-use shuck_parser::{Error as ParseError, parser::Parser};
+use shuck_parser::{
+    Error as ParseError,
+    parser::{ParseStatus, Parser},
+};
 
 use super::CheckReport;
 use super::analyze::{
@@ -165,13 +168,20 @@ pub(super) fn check_stdin(
     }
 
     let parse_failed = parse_result.is_err();
-    let diagnostics = if parse_failed && analysis.diagnostics.is_empty() {
+    let limit_error = parse_result.status == ParseStatus::LimitExceeded;
+    let mut diagnostics = display_lint_diagnostics_for_file(
+        &file,
+        &checked_source,
+        &analysis.diagnostics,
+        include_source,
+    );
+    if parse_failed && (diagnostics.is_empty() || limit_error) {
         let ParseError::Parse {
             message,
             line,
             column,
         } = parse_result.strict_error();
-        vec![display_parse_error(
+        diagnostics.push(display_parse_error(
             &file.display_path,
             &file.relative_path,
             &file.absolute_path,
@@ -179,15 +189,8 @@ pub(super) fn check_stdin(
             column,
             message,
             include_source.then_some(checked_source.clone()),
-        )]
-    } else {
-        display_lint_diagnostics_for_file(
-            &file,
-            &checked_source,
-            &analysis.diagnostics,
-            include_source,
-        )
-    };
+        ));
+    }
     let report = CheckReport {
         diagnostics,
         fixes_applied,
