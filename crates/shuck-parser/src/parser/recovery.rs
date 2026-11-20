@@ -132,12 +132,17 @@ impl<'a> Parser<'a> {
                             message,
                             span: Span::from_positions(command_start_span.start, end),
                         });
-                        terminal_error.get_or_insert(error);
+                        terminal_error = Some(error);
+                        break;
                     }
                 }
                 Err(error) => {
-                    if !self.nested {
-                        self.budget.take_limit_error();
+                    if !self.nested
+                        && let Some(limit_error) = self.budget.take_limit_error()
+                    {
+                        diagnostics.push(self.parse_diagnostic_from_error(limit_error.clone()));
+                        terminal_error = Some(limit_error);
+                        break;
                     }
                     diagnostics.push(self.parse_diagnostic_from_error(error.clone()));
                     let recovered = self.recover_to_command_boundary(command_start);

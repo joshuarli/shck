@@ -131,13 +131,18 @@ fn analyze_shell_file(
     }
 
     let parse_failed = parse_result.is_err();
-    let diagnostics = if parse_failed && diagnostics.is_empty() {
+    let limit_error = matches!(
+        &parse_result.terminal_error,
+        Some(ParseError::Parse { message, .. }) if message.starts_with("AST nesting too deep")
+    );
+    let mut displayed = display_lint_diagnostics(&pending, &source, &diagnostics, include_source);
+    if parse_failed && (displayed.is_empty() || limit_error) {
         let ParseError::Parse {
             message,
             line,
             column,
         } = parse_result.strict_error();
-        vec![display_parse_error(
+        displayed.push(display_parse_error(
             &pending.file.display_path,
             &pending.file.relative_path,
             &pending.file.absolute_path,
@@ -145,10 +150,9 @@ fn analyze_shell_file(
             column,
             message,
             include_source.then_some(source.clone()),
-        )]
-    } else {
-        display_lint_diagnostics(&pending, &source, &diagnostics, include_source)
-    };
+        ));
+    }
+    let diagnostics = displayed;
     let mut dependency_paths = analysis.semantic.imported_dependency_paths().to_vec();
     let collected_source_paths = source_resolver
         .map(|resolver| {

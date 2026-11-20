@@ -37,7 +37,7 @@ Files connected by `source` statements or `# shuck: source=` directives particip
 - `Parser::parse` is the single parse entry and returns `ParseResult { file, diagnostics, status, terminal_error, syntax_facts }`.
 - `ParseStatus` is `Clean`, `Recovered`, or `Fatal`. Recovery records a diagnostic and skips to the next command boundary, so rules can still analyze the surrounding script.
 - Dialects are `Posix`, `Mksh`, and `Bash`. `ShellProfile` and `DialectFeatures` gate constructs such as `[[ ]]`, arithmetic commands, `function`, `select`, and `coproc`.
-- Work is bounded by a shared `ParseBudget`: fuel of `max(100_000, input length)`, a default AST depth of 100, a 1536 KiB native-stack budget, an operator-chain limit of 1000, and a substitution-nesting limit of 50. Oversized input and exhausted limits produce a fatal result rather than uncontrolled recursion.
+- Work is bounded by a shared `ParseBudget`: fuel of `max(100_000, input length)`, a default AST depth of 100, a 1536 KiB native-stack budget, an operator-chain limit of 1000, and a substitution-nesting limit of 50. Oversized input and reportable resource limits produce a fatal result; tighter limits in nested parsers can instead fall back to a literal interpretation.
 - Alias expansion, heredoc decoding, and source-text re-parsing run through nested parser state with the same budget.
 
 AST invariants:

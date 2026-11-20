@@ -17,6 +17,8 @@ DSLP-7 closed: minified heredocs now end before compound separators, with regres
 
 DSLP-9 closed: parse-diagnostic enrichment precomputes per-line state; existing fixture diagnostics match the baseline.
 
+DSLP-10 closed: parser depth-limit errors survive recovery and are reported without cascading closing-keyword diagnostics.
+
 ## Tickets
 
 ### DSLP-3 · P2 · Types: strict profile and typing findings
@@ -53,15 +55,6 @@ DSLP-9 closed: parse-diagnostic enrichment precomputes per-line state; existing 
 - **Problem:** The rustybench harness exists, but the bench-pyramid entrypoint and its outcome list have not been established (campaign decision 14).
 - **Recommendation:** Run the bench-pyramid skill as the deslop Bench step on the existing harness. Never run the Full tier. Accept: `make bench`, `bench-check` and `bench-list` work with tier and workload selectors and a preflight; gaps are filed as tickets ranked by the risk of a missed regression.
 - **Fix with:** bench-pyramid
-- **Effort:** M
-
-### DSLP-10 · P2 · nesting past the parser depth limit floods false C016 errors on valid scripts
-
-- **Area:** deslop · diagnose · parser diagnostics
-- **Where:** crates/shuck-parser/src/parser/limits.rs:35 and :137 (depth limit 100); crates/shuck-linter/src/parse_diagnostics.rs:1662 stray_closing_keyword_spans and :1499 if_missing_then_span; docs/architecture.md:40 claims exhausted limits produce a fatal result
-- **Problem:** A valid script nested deeper than 100 control blocks produces one false C016 'this control keyword has no matching opener' per recovered line and never reports that the nesting limit was hit. Repro: python3 -c "open('if150.sh','w').write('if true; then\n'*150+':\n'+'fi\n'*150)"; bash -n if150.sh exits 0; target/release/shuck check --no-cache if150.sh exits 1 with 102 error[C016] diagnostics, the first pointing at the 'then' on line 101. 99 nested ifs produce 0 diagnostics and 101 produce 102; while and for nesting behave the same, and the same happens on a .bash file. No diagnostic mentions the depth limit.
-- **Recommendation:** Surface the recorded resource-limit error (for example 'AST nesting too deep') and suppress the recovery-derived parse-rule diagnostics that follow from it; do not treat 'then'/'do' as stray closing keywords when the opener was dropped by the depth cap.
-- **Fix with:** refactor-rust
 - **Effort:** M
 
 ### DSLP-15 · P2 · default check output rebuilds a line index per diagnostic
