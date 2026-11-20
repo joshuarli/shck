@@ -316,6 +316,10 @@ fn source_line_count(source: &[u8]) -> usize {
     }
 }
 
+fn timeout_seconds(timeout: Duration) -> usize {
+    usize::try_from(timeout.as_secs()).expect("timeout fits usize")
+}
+
 fn effective_shuck_timeout(source: &[u8], base_timeout: Duration) -> Duration {
     if env::var_os(LARGE_CORPUS_SHUCK_TIMEOUT_ENV).is_some() {
         return base_timeout;
@@ -323,7 +327,7 @@ fn effective_shuck_timeout(source: &[u8], base_timeout: Duration) -> Duration {
 
     let line_count = source_line_count(source);
     let scaled_timeout_secs = line_count.div_ceil(LARGE_CORPUS_AUTOSCALED_SHUCK_LINES_PER_SEC);
-    if scaled_timeout_secs <= base_timeout.as_secs() as usize {
+    if scaled_timeout_secs <= timeout_seconds(base_timeout) {
         return base_timeout;
     }
 
@@ -782,14 +786,14 @@ fn collect_fixture_timings(
     fixtures: &[&LargeCorpusFixture],
     shuck_timeout: Duration,
     linter_settings: &shuck_linter::LinterSettings,
-    shuck_path_resolver: Arc<LargeCorpusPathResolver>,
+    shuck_path_resolver: &Arc<LargeCorpusPathResolver>,
 ) -> LargeCorpusTimingCollection {
     collect_fixture_timing_records(fixtures, |fixture| {
         measure_fixture_timing(
             fixture,
             shuck_timeout,
             linter_settings,
-            Arc::clone(&shuck_path_resolver),
+            shuck_path_resolver,
         )
     })
 }
@@ -824,7 +828,7 @@ fn measure_fixture_timing(
     fixture: &LargeCorpusFixture,
     base_shuck_timeout: Duration,
     linter_settings: &shuck_linter::LinterSettings,
-    shuck_path_resolver: Arc<LargeCorpusPathResolver>,
+    shuck_path_resolver: &Arc<LargeCorpusPathResolver>,
 ) -> LargeCorpusTimingRecord {
     let start = Instant::now();
     let outcome = match panic::catch_unwind(AssertUnwindSafe(|| {
@@ -834,7 +838,7 @@ fn measure_fixture_timing(
             fixture,
             linter_settings,
             shuck_timeout,
-            Some(Arc::clone(&shuck_path_resolver)),
+            Some(Arc::clone(shuck_path_resolver)),
         )
     })) {
         Ok(Ok(run)) => {
@@ -966,7 +970,7 @@ fn large_corpus_conforms_with_shellcheck() {
             &supported_fixtures,
             cfg.shuck_timeout,
             &linter_settings,
-            shuck_path_resolver,
+            &shuck_path_resolver,
         );
         eprintln!("{}", format_large_corpus_timing_report(&timings));
         return;
@@ -1912,11 +1916,11 @@ fn resolve_large_corpus_config() -> Option<LargeCorpusConfig> {
         if let Some(corpus_dir) = normalize_large_corpus_root(candidate) {
             let timeout_secs = positive_env_int(
                 LARGE_CORPUS_SHELLCHECK_TIMEOUT_ENV,
-                LARGE_CORPUS_DEFAULT_SHELLCHECK_TIMEOUT.as_secs() as usize,
+                timeout_seconds(LARGE_CORPUS_DEFAULT_SHELLCHECK_TIMEOUT),
             );
             let shuck_timeout_secs = positive_env_int(
                 LARGE_CORPUS_SHUCK_TIMEOUT_ENV,
-                LARGE_CORPUS_DEFAULT_SHUCK_TIMEOUT.as_secs() as usize,
+                timeout_seconds(LARGE_CORPUS_DEFAULT_SHUCK_TIMEOUT),
             );
             let total_shards = positive_env_int(LARGE_CORPUS_SHARDS_ENV, 1);
             let shard_index = non_negative_env_int(LARGE_CORPUS_SHARD_ENV, 0);
@@ -2717,11 +2721,11 @@ mod tests {
 
     #[test]
     fn ranked_large_corpus_timings_sorts_descending_and_truncates_to_limit() {
-        let records = (0..30)
+        let records = (0u64..30)
             .map(|i| {
                 timing_record(
                     &format!("script-{i:02}.sh"),
-                    (i + 1) as u64,
+                    i + 1,
                     LargeCorpusTimingOutcome::Ok,
                 )
             })
@@ -3974,7 +3978,7 @@ mod tests {
 
         cache.prepare(
             std::slice::from_ref(&fixture),
-            &[current_root.clone(), alternate_root.clone()],
+            &[current_root, alternate_root],
         );
 
         assert!(stable_path.is_file());

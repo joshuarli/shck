@@ -20,7 +20,7 @@ pub(crate) fn clean(
     let cwd = std::env::current_dir()?;
     let cache_root = resolve_cache_root(&cwd, cache_dir)?;
     let inputs = if args.paths.is_empty() {
-        vec![cwd.clone()]
+        vec![cwd]
     } else {
         args.paths
             .iter()

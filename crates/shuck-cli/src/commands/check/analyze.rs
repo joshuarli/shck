@@ -146,7 +146,7 @@ fn analyze_shell_file(
             line,
             column,
             message,
-            include_source.then_some(source.clone()),
+            include_source.then_some(source),
         ));
     }
     let diagnostics = displayed;
@@ -378,7 +378,7 @@ mod tests {
             .iter()
             .map(|diagnostic| match &diagnostic.kind {
                 DisplayedDiagnosticKind::Lint { code, .. } => code.as_str(),
-                other => panic!("expected lint diagnostic, got {other:?}"),
+                other @ DisplayedDiagnosticKind::ParseError => panic!("expected lint diagnostic, got {other:?}"),
             })
             .collect::<Vec<_>>();
 
@@ -448,7 +448,7 @@ mod tests {
         ));
         match &result.diagnostics[0].kind {
             DisplayedDiagnosticKind::ParseError => {}
-            other => panic!("expected parse error, got {other:?}"),
+            other @ DisplayedDiagnosticKind::Lint { .. } => panic!("expected parse error, got {other:?}"),
         }
         assert!(result.diagnostics[0].message.contains("expected 'fi'"));
     }

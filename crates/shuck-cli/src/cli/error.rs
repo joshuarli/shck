@@ -45,7 +45,10 @@ impl CliError {
         match self {
             Self::Help(_) | Self::Version(_) => 0,
             Self::Custom { exit_code, .. } => *exit_code,
-            _ => 2,
+            Self::UnknownCommand { .. } | Self::UnknownOption { .. } | Self::MissingValue { .. }
+            | Self::InvalidValue { .. } | Self::MissingRequired { .. }
+            | Self::UnexpectedArgument { .. } | Self::DuplicateOption { .. }
+            | Self::ArgumentConflict { .. } | Self::InvalidUtf8 { .. } => 2,
         }
     }
 }

@@ -423,7 +423,7 @@ fn shell_subcommand_defaults_to_managed_bash() {
     let (archive, sha256) = fake_shell_archive(tempdir.path(), "bash", "5.2.21");
     let registry = registry_path(tempdir.path(), "bash", &[("5.2.21", &archive, &sha256)]);
     let path = std::env::join_paths(
-        std::iter::once(bin_dir.clone()).chain(std::env::split_paths(
+        std::iter::once(bin_dir).chain(std::env::split_paths(
             &std::env::var_os("PATH").unwrap_or_default(),
         )),
     )

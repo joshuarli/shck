@@ -843,7 +843,7 @@ fn analyze_one(
     file_errors: &mut Vec<FileAccessError>,
 ) -> Result<(), CompatCliError> {
     let canonical = canonicalize_or_clone(path);
-    if !visited.insert(canonical.clone()) {
+    if !visited.insert(canonical) {
         return Ok(());
     }
 

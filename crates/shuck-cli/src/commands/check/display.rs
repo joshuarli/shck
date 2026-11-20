@@ -137,7 +137,7 @@ fn display_position_at_offset(
     line_index: &shuck_indexer::LineIndex,
     target_offset: usize,
 ) -> DisplayPosition {
-    let line = line_index.line_number(TextSize::new(target_offset as u32));
+    let line = line_index.line_number(TextSize::from_usize(target_offset));
     let line_start = line_index
         .line_start(line)
         .map(usize::from)

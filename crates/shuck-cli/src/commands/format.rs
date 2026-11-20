@@ -263,7 +263,7 @@ fn format_pending_file(
 
     let mut outcome = PendingFormatOutcome {
         relative_path: file.relative_path,
-        cached_key: file_key.clone(),
+        cached_key: file_key,
         cached_result: None,
         error: None,
         changed_path: None,
