@@ -339,6 +339,18 @@ mod tests {
     use super::*;
 
     #[test]
+    fn position_span_and_text_range_preserve_byte_offsets() {
+        let start = Position::at(2, 3, 4);
+        let end = Position::at(2, 5, 8);
+        let range = Span::from_positions(start, end).to_range();
+        assert_eq!((start.line(), start.column(), start.offset()), (2, 3, 4));
+        assert_eq!((usize::from(range.start()), usize::from(range.end())), (4, 8));
+        assert_eq!(range.len().to_u32(), 4);
+        assert_eq!(TextSize::from_usize(u32::MAX as usize).to_u32(), u32::MAX);
+        assert_eq!(range.slice("abcdwxyz!"), "wxyz");
+    }
+
+    #[test]
     #[cfg(target_pointer_width = "64")]
     #[should_panic(expected = "source position must fit in u32")]
     fn oversized_position_is_rejected() {

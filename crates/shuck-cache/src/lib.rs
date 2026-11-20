@@ -771,11 +771,23 @@ mod tests {
             strict: true,
             label: "alpha".to_string(),
         };
-        let cache =
+        let mut cache =
             PackageCache::<String>::open(&cache_root, canonical_root.clone(), "0.1.0", &settings)
                 .unwrap();
+        cache.insert(
+            PathBuf::from("script.sh"),
+            test_file_key(1, 2),
+            "ok".to_string(),
+        );
         let cache_path = cache.path().to_path_buf();
-        fs::create_dir_all(cache_path.parent().unwrap()).unwrap();
+        cache.persist().unwrap();
+        let mut valid =
+            PackageCache::<String>::open(&cache_root, canonical_root.clone(), "0.1.0", &settings)
+                .unwrap();
+        assert_eq!(
+            valid.get(Path::new("script.sh"), &test_file_key(1, 2)).as_deref(),
+            Some("ok")
+        );
         fs::write(&cache_path, [0xFF, 0xFF, 0xFF, 0x00, 0x01]).unwrap();
 
         let mut reopened =
