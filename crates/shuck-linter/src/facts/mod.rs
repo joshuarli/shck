@@ -91,12 +91,13 @@ use shuck_ast::{
 use shuck_indexer::{CommentIndex, Indexer, LineIndex, RegionIndex};
 #[cfg(test)]
 use shuck_parser::parser::Parser;
+use shuck_semantic::glob::GlobPatternBehavior;
 use shuck_semantic::{
     ArithmeticLiteralBehavior, ArrayReferencePolicy, Binding, BindingAttributes, BindingId,
     BindingKind, CaseCliDispatch, CommandKind, CompoundCommandKind, Declaration,
     DeclarationBuiltin, DeclarationOperand as SemanticDeclarationOperand, FieldSplittingBehavior,
     FileExpansionOrderBehavior, FunctionScopeKind, GlobDotBehavior, GlobFailureBehavior,
-    GlobPatternBehavior, NonpersistentAssignmentAnalysisContext,
+    NonpersistentAssignmentAnalysisContext,
     NonpersistentAssignmentAnalysisOptions, NonpersistentAssignmentCommandContext,
     NonpersistentAssignmentExtraRead, PathnameExpansionBehavior, Reference,
     ReferenceId, ReferenceKind, ScopeId, ScopeKind, SemanticAnalysis, SemanticModel,

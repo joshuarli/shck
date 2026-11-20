@@ -146,10 +146,7 @@ impl GlobPatternBehavior {
         self.ksh_glob
     }
 
-    /// Returns whether sh-compatible glob parsing is active.
-    pub fn sh_glob(self) -> PatternOperatorBehavior {
-        self.sh_glob
-    }
+
 }
 
 impl ShellBehaviorAt {
@@ -238,7 +235,5 @@ mod tests {
             behavior.brace_character_classes(),
             BraceCharacterClassBehavior::Disabled
         );
-        let pattern = behavior.glob_pattern();
-        assert_eq!(pattern.sh_glob(), PatternOperatorBehavior::Enabled);
     }
 }

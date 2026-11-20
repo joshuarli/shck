@@ -135,15 +135,6 @@ Open after the pass:
 - **Fix with:** bench-pyramid
 - **Effort:** S
 
-### DSLP-23 · P3 · Decide whether GlobPatternBehavior::sh_glob stays public
-
-- **Area:** Needs owner · deslop · dead code
-- **Where:** crates/shuck-semantic/src/glob.rs:150 (GlobPatternBehavior::sh_glob, re-exported from lib.rs)
-- **Problem:** The public constructor has only an in-crate test consumer in the workspace, including fuzz/. Removing it changes the published semantic API; external consumers are unknown.
-- **Recommendation:** Owner decides: remove it or narrow it to pub(crate) if shuck-semantic has no external consumers, or keep it as supported API.
-- **Fix with:** deslop
-- **Effort:** S
-
 ### DSLP-24 · P3 · X047 fixture never fires its rule
 
 - **Area:** deslop · tests
