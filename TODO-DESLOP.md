@@ -1,5 +1,5 @@
 Prefix: DSLP
-Next: 23
+Next: 24
 
 Deslop campaign backlog ([plan](https://github.com/laputa-systems/stuff/blob/main/docs/campaigns/deslop.md), tier D, by component). One agent works this file with the `deslop` skill: take the lowest-numbered open ticket whose area does not start with `Needs owner ·`. After DSLP-6 (Bench), work the open P1 and P2 findings; file P3 and P4 findings without fixing them. Then fill in `## Report` below.
 
@@ -130,6 +130,15 @@ DSLP-15 closed: full output shares a line index across diagnostics for each sour
 - **Where:** crates/shuck-parser: Error::parse_at, text_looks_like_nontrivial_arithmetic_expression, Parser::with_fuel, Parser::with_limits_and_profile, ParseResult::expect_err
 - **Problem:** These public items have no consumer in another workspace crate or fuzz/; some are used only by parser tests or internally. Removing or narrowing them changes the published parser API, and external consumers are unknown.
 - **Recommendation:** Owner decides: narrow them to pub(crate) (keeping test use) if the parser has no external consumers, or keep them as supported API.
+- **Fix with:** deslop
+- **Effort:** S
+
+### DSLP-23 · P3 · Decide whether GlobPatternBehavior::sh_glob stays public
+
+- **Area:** Needs owner · deslop · dead code
+- **Where:** crates/shuck-semantic/src/glob.rs:150 (GlobPatternBehavior::sh_glob, re-exported from lib.rs)
+- **Problem:** The public constructor has only an in-crate test consumer in the workspace, including fuzz/. Removing it changes the published semantic API; external consumers are unknown.
+- **Recommendation:** Owner decides: remove it or narrow it to pub(crate) if shuck-semantic has no external consumers, or keep it as supported API.
 - **Fix with:** deslop
 - **Effort:** S
 
