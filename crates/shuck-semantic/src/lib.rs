@@ -1,10 +1,22 @@
-#![warn(missing_docs)]
+#![warn(
+    missing_docs,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::redundant_clone
+)]
 #![cfg_attr(not(test), warn(clippy::unwrap_used))]
 
 //! Semantic analysis for shell scripts parsed by Shuck.
 //!
 //! The semantic model tracks scopes, bindings, references, control flow, and selected dataflow
 //! facts so higher-level crates can reason about shell behavior without re-traversing the AST.
+fn checked_index(index: usize) -> u32 {
+    match u32::try_from(index) {
+        Ok(index) => index,
+        Err(error) => panic!("semantic index exceeds u32: {error}"),
+    }
+}
+
 mod analysis;
 mod array_use;
 mod binding;
@@ -1416,7 +1428,11 @@ impl SemanticModel {
         self.ancestor_scopes(scope)
             .find_map(|scope_id| match &self.scope(scope_id).kind {
                 ScopeKind::Function(FunctionScopeKind::Named(names)) => Some(names.as_slice()),
-                _ => None,
+                ScopeKind::Function(FunctionScopeKind::Dynamic | FunctionScopeKind::Anonymous)
+                | ScopeKind::File
+                | ScopeKind::Subshell
+                | ScopeKind::CommandSubstitution
+                | ScopeKind::Pipeline => None,
             })
     }
 
@@ -1633,7 +1649,7 @@ impl SemanticModel {
             }
         }
 
-        let id = BindingId(self.bindings.len() as u32);
+        let id = BindingId(crate::checked_index(self.bindings.len()));
         self.bindings.push(Binding {
             id,
             name: provided.name.clone(),
@@ -2255,7 +2271,7 @@ fn build_semantic_model<'a>(
         indexer,
         observer,
         source_path,
-        shell_profile.clone(),
+        shell_profile,
         file_entry_contract_collector
             .as_mut()
             .map(|collector| &mut **collector as &mut dyn FileEntryContractCollector),
@@ -2425,7 +2441,9 @@ fn build_scope_at_segments(scopes: &[Scope], lookup: &ScopeLookup) -> Vec<(usize
 }
 
 fn build_references_sorted_by_start(references: &[Reference]) -> Vec<ReferenceId> {
-    let mut ids: Vec<ReferenceId> = (0..references.len() as u32).map(ReferenceId).collect();
+    let mut ids: Vec<ReferenceId> = (0..references.len())
+        .map(|index| ReferenceId(crate::checked_index(index)))
+        .collect();
     ids.sort_by_key(|id| references[id.index()].span.start.offset());
     ids
 }
@@ -2464,7 +2482,9 @@ fn reference_has_local_positional_reset(
 }
 
 fn build_bindings_sorted_by_start(bindings: &[Binding]) -> Vec<BindingId> {
-    let mut ids: Vec<BindingId> = (0..bindings.len() as u32).map(BindingId).collect();
+    let mut ids: Vec<BindingId> = (0..bindings.len())
+        .map(|index| BindingId(crate::checked_index(index)))
+        .collect();
     ids.sort_by_key(|id| bindings[id.index()].span.start.offset());
     ids
 }

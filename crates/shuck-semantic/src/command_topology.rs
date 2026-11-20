@@ -364,7 +364,7 @@ impl SemanticModel {
                 let RecordedCommandKind::List { first, rest } = command.kind else {
                     return None;
                 };
-                let command_id = CommandId(index as u32);
+                let command_id = CommandId(crate::checked_index(index));
                 if self.command_parent_id(command_id).is_some_and(|parent| {
                     matches!(
                         self.recorded_program.command(parent).kind,
@@ -440,7 +440,7 @@ impl SemanticModel {
                 let RecordedCommandKind::Pipeline { segments } = command.kind else {
                     return None;
                 };
-                let command_id = CommandId(index as u32);
+                let command_id = CommandId(crate::checked_index(index));
                 if self.command_parent_id(command_id).is_some_and(|parent| {
                     matches!(
                         self.recorded_program.command(parent).kind,
@@ -522,7 +522,7 @@ fn build_command_topology(model: &SemanticModel) -> CommandTopology {
     let program = model.recorded_program();
     let command_count = program.commands().len();
     let ids = (0..command_count)
-        .map(|index| CommandId(index as u32))
+        .map(|index| CommandId(crate::checked_index(index)))
         .collect::<Vec<_>>();
     let mut ids_by_syntax_span = FxHashMap::<SpanKey, SmallVec<[CommandId; 1]>>::default();
     let mut parent_ids = vec![None; command_count];
@@ -681,12 +681,12 @@ fn build_command_condition_contexts(
 ) -> Vec<CommandConditionContext> {
     let mut starts = vec![SmallVec::<[ConditionAssignment; 1]>::new(); command_count];
     let mut contexts = vec![CommandConditionContext::default(); command_count];
-    for id in (0..command_count).map(|index| CommandId(index as u32)) {
+    for id in (0..command_count).map(|index| CommandId(crate::checked_index(index))) {
         record_command_condition_starts(program, id, &mut starts);
     }
 
     let mut visited = vec![false; command_count];
-    for id in (0..command_count).map(|index| CommandId(index as u32)) {
+    for id in (0..command_count).map(|index| CommandId(crate::checked_index(index))) {
         if parent_ids[id.index()].is_none() {
             propagate_command_condition_contexts(
                 id,
@@ -698,7 +698,7 @@ fn build_command_condition_contexts(
             );
         }
     }
-    for id in (0..command_count).map(|index| CommandId(index as u32)) {
+    for id in (0..command_count).map(|index| CommandId(crate::checked_index(index))) {
         if !visited[id.index()] {
             propagate_command_condition_contexts(
                 id,
@@ -1131,7 +1131,7 @@ fn build_nested_region_depths(
     let mut depths = vec![0; command_count];
     let mut stack = Vec::new();
     for index in (0..command_count).rev() {
-        let id = CommandId(index as u32);
+        let id = CommandId(crate::checked_index(index));
         if parent_ids[id.index()].is_none() {
             stack.push((id, 0));
         }

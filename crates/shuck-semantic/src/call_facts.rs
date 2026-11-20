@@ -2567,7 +2567,7 @@ mod tests {
         index.insert(caller_path.clone(), caller);
         index.insert(conditional_path, facts("conditional_only() { :; }\n", &[]));
         index.insert(
-            a_path.clone(),
+            a_path,
             facts_with_positioned_sources("source b.sh\na_only() { :; }\n", &["/w/b.sh"]),
         );
         index.insert(

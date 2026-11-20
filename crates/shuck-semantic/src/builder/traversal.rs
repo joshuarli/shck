@@ -277,7 +277,7 @@ Command::Compound(CompoundCommand::Time(command)) => command
                 arg_count: command.args.len(),
             };
             self.call_sites
-                .entry(callee.clone())
+                .entry(callee)
                 .or_default()
                 .push(call_site);
             self.recorded_program.call_command_spans.insert(
@@ -894,7 +894,7 @@ CompoundCommand::Arithmetic(command) => {
 
 
     pub(super) fn push_scope(&mut self, kind: ScopeKind, parent: ScopeId, span: Span) -> ScopeId {
-        let id = ScopeId(self.scopes.len() as u32);
+        let id = ScopeId(crate::checked_index(self.scopes.len()));
         self.scopes.push(Scope {
             id,
             kind,

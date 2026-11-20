@@ -1017,7 +1017,13 @@ fn rename_span_for_binding(binding: &Binding) -> Span {
     match binding.origin {
         BindingOrigin::ParameterDefaultAssignment { target_span, .. }
         | BindingOrigin::ArithmeticAssignment { target_span, .. } => target_span,
-        _ => binding.span,
+        BindingOrigin::Assignment { .. }
+        | BindingOrigin::LoopVariable { .. }
+        | BindingOrigin::Imported { .. }
+        | BindingOrigin::FunctionDefinition { .. }
+        | BindingOrigin::BuiltinTarget { .. }
+        | BindingOrigin::Declaration { .. }
+        | BindingOrigin::Nameref { .. } => binding.span,
     }
 }
 
@@ -1088,7 +1094,7 @@ fn completion_is_blocked_by_region(indexer: &Indexer, offset: usize) -> bool {
 }
 
 fn completion_probe_is_blocked(indexer: &Indexer, offset: usize) -> bool {
-    let probe = TextSize::new(offset as u32);
+    let probe = TextSize::from_usize(offset);
     indexer.comment_index().is_comment(probe)
         || matches!(
             indexer.region_index().region_at(probe),
@@ -1151,7 +1157,7 @@ fn previous_char(source: &str, offset: usize) -> Option<(usize, char)> {
 fn declaration_operand_context(source: &str, indexer: &Indexer, word_start: usize) -> bool {
     let line = indexer
         .line_index()
-        .line_number(TextSize::new(word_start as u32));
+        .line_number(TextSize::from_usize(word_start));
     let Some(line_range) = indexer.line_index().line_range(line, source) else {
         return false;
     };
@@ -1492,7 +1498,14 @@ fn function_call_count_for_binding(model: &SemanticModel, binding: &Binding) -> 
 fn binding_hover_span(binding: &Binding) -> Span {
     match binding.origin {
         crate::BindingOrigin::ParameterDefaultAssignment { target_span, .. } => target_span,
-        _ => binding.span,
+        BindingOrigin::Assignment { .. }
+        | BindingOrigin::LoopVariable { .. }
+        | BindingOrigin::Imported { .. }
+        | BindingOrigin::FunctionDefinition { .. }
+        | BindingOrigin::BuiltinTarget { .. }
+        | BindingOrigin::Declaration { .. }
+        | BindingOrigin::Nameref { .. }
+        | BindingOrigin::ArithmeticAssignment { .. } => binding.span,
     }
 }
 
