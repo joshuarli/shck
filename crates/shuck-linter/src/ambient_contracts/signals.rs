@@ -60,6 +60,7 @@ pub(super) struct SourceSignals<'a> {
     mentioned_names: BTreeSet<&'a str>,
     assigned_names: BTreeSet<&'a str>,
     code_lines: Vec<&'a str>,
+    #[cfg(test)]
     zmodload_lines: Vec<&'a str>,
     has_probable_function_definition: bool,
     has_source_command: bool,
@@ -68,18 +69,21 @@ pub(super) struct SourceSignals<'a> {
 impl<'a> SourceSignals<'a> {
     fn new(source: &'a str) -> Self {
         let mut code_lines = Vec::new();
+        #[cfg(test)]
         let mut zmodload_lines = Vec::new();
         let mut has_probable_function_definition = false;
         let mut has_source_command = false;
 
+        #[cfg(test)]
         let source_mentions_zmodload = source.contains("zmodload");
         for line in source.lines() {
             let code = code_before_shell_comment(line);
             let trimmed = code.trim();
-            let trim_start = code.trim_start();
             code_lines.push(trimmed);
             has_probable_function_definition |= probable_function_definition(trimmed);
-            has_source_command |= source_command_line(trimmed);            if source_mentions_zmodload && code.contains("zmodload") {
+            has_source_command |= source_command_line(trimmed);
+            #[cfg(test)]
+            if source_mentions_zmodload && code.contains("zmodload") {
                 zmodload_lines.push(code);
             }
         }
@@ -89,9 +93,11 @@ impl<'a> SourceSignals<'a> {
             mentioned_names: collect_parameter_mentions(source),
             assigned_names: collect_assignment_names(source),
             code_lines,
+            #[cfg(test)]
             zmodload_lines,
             has_probable_function_definition,
-            has_source_command,        }
+            has_source_command,
+        }
     }
 
     pub(super) fn contains(&self, pattern: &str) -> bool {
@@ -120,6 +126,7 @@ impl<'a> SourceSignals<'a> {
         self.has_source_command
     }
 
+    #[cfg(test)]
     pub(super) fn loads_zsh_module(&self, module: &str) -> bool {
         self.zmodload_lines.iter().any(|code| code.contains(module))
     }
@@ -269,14 +276,6 @@ fn source_command_line(trimmed: &str) -> bool {
         || trimmed.starts_with("\\. ")
 }
 
-
-fn first_shell_command_segment(code: &str) -> &str {
-    ["&&", "||", ";", "|"]
-        .iter()
-        .filter_map(|separator| code.find(separator))
-        .min()
-        .map_or(code, |index| &code[..index])
-}
 
 struct FunctionDefinitionCandidate<'a> {
     rest: &'a str,

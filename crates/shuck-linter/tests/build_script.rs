@@ -193,42 +193,6 @@ contracts:
         assert!(error.contains("duplicate declarative contract id"));
     }
 
-    fn generate_declarative_contract_data_renders_runtime_descriptors() {
-        let tempdir = tempdir().unwrap();
-        let path = tempdir.path().join("tmux.yaml");
-        std::fs::write(
-            &path,
-            r#"
-version: 1
-contracts:
-  - id: zsh/oh-my-zsh/plugin/tmux
-    groups:
-      - zsh
-      - zsh/oh-my-zsh
-      - zsh/oh-my-zsh/plugin
-    label: Oh My Zsh tmux plugin
-    when:
-      type: zsh_plugin
-      framework: oh-my-zsh
-      plugin: tmux
-    effects:
-      consumes:
-        prefixes:
-          - ZSH_TMUX_
-"#,
-        )
-        .unwrap();
-
-        let contracts = load_declarative_contracts(tempdir.path()).unwrap();
-        let generated = generate_declarative_contract_data(&contracts);
-
-        assert!(generated.contains("static DECLARATIVE_CONTRACT_DATA"));
-        assert!(generated.contains("static DECLARATIVE_CONTRACTS"));
-        assert!(generated.contains("\"zsh/oh-my-zsh/plugin/tmux\""));
-        assert!(generated.contains("std::sync::OnceLock::new()"));
-        assert!(generated.contains("\"ZSH_TMUX_\""));
-    }
-
     fn metadata_row(code: &str, legacy_code: Option<&str>, aliases: &[&str]) -> RuleMetadataRow {
         RuleMetadataRow {
             code: code.to_owned(),

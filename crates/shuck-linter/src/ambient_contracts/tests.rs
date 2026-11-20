@@ -3,8 +3,8 @@ use std::path::Path;
 use shuck_indexer::Indexer;
 use shuck_parser::parser::Parser;
 use shuck_semantic::{
-    FileContract, FileEntryContractCollector, NoopTraversalObserver, PluginFramework,
-    PluginRequest, PluginRequestKind, SemanticBuildOptions, build_with_observer_with_options,
+    FileContract, FileEntryContractCollector, NoopTraversalObserver, SemanticBuildOptions,
+    build_with_observer_with_options,
 };
 use std::sync::Arc;
 
@@ -55,12 +55,6 @@ fn contract_for_optional_path_with_contracts(
     collector.finish()
 }
 
-fn request_contract_for(path: &Path, request: PluginRequest) -> FileContract {
-    ResolvedAmbientContracts::default()
-        .request_contracts_for_plugin(path, &request)
-        .requesting_file_contract
-}
-
 fn has_initialized_binding(contract: &FileContract, name: &str) -> bool {
     contract.provided_bindings.iter().any(|binding| {
         binding.name == name
@@ -75,31 +69,6 @@ fn has_ambient_binding(contract: &FileContract, name: &str) -> bool {
             && binding.file_entry_initialization
                 == shuck_semantic::FileEntryBindingInitialization::AmbientOnly
     })
-}
-
-fn has_consumed_prefix(contract: &FileContract, prefix: &str) -> bool {
-    contract
-        .externally_consumed_binding_prefixes
-        .iter()
-        .any(|consumed_prefix| consumed_prefix.as_str() == prefix)
-}
-
-fn has_consumed_name(contract: &FileContract, name: &str) -> bool {
-    contract
-        .externally_consumed_binding_names
-        .iter()
-        .any(|consumed_name| consumed_name.as_str() == name)
-}
-
-fn plugin_request(framework: PluginFramework, name: &str) -> PluginRequest {
-    PluginRequest {
-        framework,
-        kind: PluginRequestKind::Plugin,
-        name: name.to_owned(),
-        span: shuck_ast::Span::new(),
-        explicit: false,
-        root_hint: None,
-    }
 }
 
 #[test]

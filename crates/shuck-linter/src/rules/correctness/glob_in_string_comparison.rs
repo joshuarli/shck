@@ -50,9 +50,6 @@ pub fn glob_in_string_comparison(checker: &mut Checker) {
             }
 
             let word = right.word()?;
-            if false {
-                return None;
-            }
             if pattern_policy::word_expands_only_static_pattern_safe_literals(checker, word) {
                 return None;
             }
