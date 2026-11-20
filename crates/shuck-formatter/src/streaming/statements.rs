@@ -181,6 +181,8 @@ where
 
             self.format_stmt(stmt)?;
 
+            self.writer.end_minified_heredoc_command();
+
             if let Some(attachment) = attachments.as_ref() {
                 self.emit_trailing_comments_for_stmt(attachment.trailing_for(index));
             }
@@ -1038,6 +1040,7 @@ where
                 }
             }
             self.format_inline_stmt(stmt)?;
+            self.writer.end_minified_heredoc_command();
         }
         Ok(())
     }

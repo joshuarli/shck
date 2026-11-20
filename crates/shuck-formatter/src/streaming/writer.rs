@@ -25,6 +25,7 @@ pub(super) struct ShellWriter<S> {
     column: usize,
     line_indent_column: usize,
     line_start: bool,
+    heredoc_ended_command: bool,
     pending_heredocs: Vec<PendingHeredoc>,
     pending_comments: Vec<String> }
 
@@ -69,6 +70,7 @@ where
             column: 0,
             line_indent_column: 0,
             line_start: true,
+            heredoc_ended_command: false,
             pending_heredocs: Vec::new(),
             pending_comments: Vec::new() }
     }
@@ -132,6 +134,12 @@ where
     }
 
     pub(super) fn write_text(&mut self, text: &str) {
+        let text = if self.heredoc_ended_command {
+            self.heredoc_ended_command = false;
+            text.strip_prefix("; ").unwrap_or(text)
+        } else {
+            text
+        };
         if text.is_empty() {
             return;
         }
@@ -216,6 +224,13 @@ where
 
     pub(super) fn queue_heredoc(&mut self, heredoc: PendingHeredoc) {
         self.pending_heredocs.push(heredoc);
+    }
+
+    pub(super) fn end_minified_heredoc_command(&mut self) {
+        if self.options.minify() && !self.pending_heredocs.is_empty() {
+            self.newline();
+            self.heredoc_ended_command = true;
+        }
     }
 
     /// Queues a comment that sits inside a construct which is rendered on fewer

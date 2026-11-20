@@ -307,6 +307,10 @@ fn format_pending_file(
                 outcome.changed_path = Some(file.display_path.clone());
                 match mode {
                     FormatMode::Write => {
+                        if options.minify() {
+                            let dialect = options.resolve(&source, Some(&file.absolute_path)).dialect();
+                            validate_minified_output(&formatted, dialect)?;
+                        }
                         crate::fs_write::write_atomic(&file.absolute_path, formatted.as_bytes())
                             .map_err(|err| anyhow!("cannot write file: {err}"))?;
                     }
@@ -346,6 +350,14 @@ fn format_pending_file(
     Ok(outcome)
 }
 
+fn validate_minified_output(source: &str, dialect: shuck_parser::ShellDialect) -> Result<()> {
+    let parsed = shuck_parser::parser::Parser::with_dialect(source, dialect).parse();
+    if parsed.is_err() {
+        return Err(anyhow!("internal formatter error: rendered output does not parse: {}", parsed.strict_error()));
+    }
+    Ok(())
+}
+
 fn handle_format_outcome(
     outcome: PendingFormatOutcome,
     cache: &mut Option<PackageCache<FormatCacheData>>,
@@ -378,6 +390,14 @@ mod tests {
     use super::*;
     use crate::args::FileSelectionArgs;
     use shuck_config::ConfigArguments;
+
+    #[test]
+    fn rejects_invalid_minified_output_before_writing() {
+        let error = validate_minified_output("if true\n", shuck_parser::ShellDialect::Bash)
+            .unwrap_err();
+        assert!(error.to_string().contains("internal formatter error"));
+        assert!(validate_minified_output("echo ok\n", shuck_parser::ShellDialect::Bash).is_ok());
+    }
 
     fn format_args(no_cache: bool) -> FormatCommand {
         FormatCommand {

@@ -13,17 +13,10 @@ Open fleet finding: `rust-toolchain` expects nightly-2026-11-09 while the worksp
 
 Diagnose at `cc6d37ce` (macOS aarch64, `TMPDIR=$PWD/.work/tmp`) covered the 12 workspace crates through the ultrareview lenses, weighted to what a user hits: parser robustness, formatter semantics and idempotence, `--fix`, suppressions and config, cache staleness, `shuck run`, and exit codes. Builds: `cargo build -p shuck-cli` 2m36s and `--release` 3m18s. Evidence: 1600 randomized and mutated scripts through `check` with no panic and no hang; 32 construct fixtures through `format` in default plus nine option sets with no idempotence failure and no `bash -n` regression (none has a heredoc inside a compound, which DSLP-7 covers); 44 of the 45 safe-fix rule examples removed their diagnostic under `check --fix` (C103 withholds its fix for `-exec` arguments, as its tests intend); suppression, exit-code, and tar-extraction probes behaved as documented. Filed 7 findings: P1 DSLP-7, P1 DSLP-8, P2 DSLP-9, P2 DSLP-10, P3 DSLP-11, P3 DSLP-12, P4 DSLP-13. Not covered: watch mode end to end, `shuck install` network downloads, the full ShellCheck-compat flag surface, large-corpus and Full benchmark tiers, and the Nix-dependent `cargo shear`.
 
+DSLP-7 closed: minified heredocs now end before compound separators, with regression coverage and a pre-write parse check.
+
 ## Tickets
 
-
-### DSLP-7 · P1 · format --minify writes invalid shell for heredocs inside compounds
-
-- **Area:** deslop · diagnose · formatter
-- **Where:** crates/shuck-formatter/src/streaming/statements.rs:212 (flush only at sequence end) and :288 (per-statement heredoc queue); crates/shuck-formatter/src/lib.rs:155 format_file_ast_resolved (rendered output is never re-parsed); crates/shuck-cli/src/commands/format.rs:302 write path
-- **Problem:** shuck format --minify on a heredoc inside if, case, or a function exits 0 and overwrites the file with unparsable shell. Repro: printf '#!/bin/bash\nif true; then\ncat <<EOF\nbody\nEOF\nfi\necho after\n' > t.sh; target/release/shuck format --minify t.sh exits 0 and leaves 'if true; then cat <<EOF' / 'body' / 'EOF; fi; echo after'; bash -n t.sh exits 2 with 'here-document ... delimited by end-of-file'. A case body becomes 'cat <<EOF; case a in a) echo x' / 'body' / 'EOF; ;; esac'. Default and --simplify formatting keep these inputs valid; the only minify fixture (oracle-fixtures/minify.sh) has no heredoc.
-- **Recommendation:** Flush pending heredocs before writing any compound close or statement separator under minify/compact layout, then re-parse the rendered output before writing and fail as an internal error (or fall back to non-minified output) when it does not parse; add format_cases fixtures for a heredoc inside if, case, and a function under minify.
-- **Fix with:** refactor-rust
-- **Effort:** M
 
 ### DSLP-8 · P1 · check cache keeps stale diagnostics when a transitively sourced helper changes
 
