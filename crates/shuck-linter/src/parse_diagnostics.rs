@@ -21,8 +21,8 @@ use crate::{
     Violation,
 };
 
-pub struct ExtglobCase;
-pub struct ExtglobInCasePattern;
+pub(crate) struct ExtglobCase;
+pub(crate) struct ExtglobInCasePattern;
 
 impl Violation for ExtglobCase {
     fn rule() -> Rule {

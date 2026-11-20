@@ -20,7 +20,7 @@ use crate::{ExpansionContext, FactSpan, LinterFacts};
 type S001FunctionEventKey = Vec<usize>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum SafeValueQuery {
+pub(super) enum SafeValueQuery {
     Argv,
     RedirectTarget,
     NumericTestOperand,
@@ -36,14 +36,14 @@ enum FieldSafeBindingClass {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum S001QuoteExposure {
+pub(super) enum S001QuoteExposure {
     Unsafe,
     Empty,
     QuoteInertNonEmpty,
 }
 
 impl SafeValueQuery {
-    pub fn from_context(context: ExpansionContext) -> Option<Self> {
+    pub(super) fn from_context(context: ExpansionContext) -> Option<Self> {
         match context {
             ExpansionContext::CommandName
             | ExpansionContext::CommandArgument
@@ -95,7 +95,7 @@ impl SafeValueQuery {
     }
 }
 
-pub struct SafeValueIndex<'a> {
+pub(super) struct SafeValueIndex<'a> {
     semantic: &'a SemanticModel,
     analysis: &'a SemanticAnalysis<'a>,
     value_flow: RefCell<SemanticValueFlow<'a, 'a>>,
@@ -113,7 +113,7 @@ pub struct SafeValueIndex<'a> {
 }
 
 impl<'a> SafeValueIndex<'a> {
-    pub fn build(
+    pub(super) fn build(
         semantic: &'a SemanticModel,
         analysis: &'a SemanticAnalysis<'a>,
         facts: &'a LinterFacts<'a>,
@@ -159,7 +159,7 @@ impl<'a> SafeValueIndex<'a> {
         }
     }
 
-    pub fn part_is_safe(&mut self, part: &WordPart, span: Span, query: SafeValueQuery) -> bool {
+    pub(super) fn part_is_safe(&mut self, part: &WordPart, span: Span, query: SafeValueQuery) -> bool {
         if part_is_safe_special_parameter_access(part) {
             return true;
         }
@@ -223,7 +223,7 @@ impl<'a> SafeValueIndex<'a> {
         }
     }
 
-    pub fn word_is_safe(&mut self, word: &Word, query: SafeValueQuery) -> bool {
+    pub(super) fn word_is_safe(&mut self, word: &Word, query: SafeValueQuery) -> bool {
         if self.span_is_after_unconditional_inline_terminator(word.span) {
             return false;
         }
@@ -268,7 +268,7 @@ impl<'a> SafeValueIndex<'a> {
     }
 
     #[cfg(test)]
-    pub fn word_occurrence_is_safe(
+    pub(super) fn word_occurrence_is_safe(
         &mut self,
         fact: crate::WordOccurrenceRef<'_, 'a>,
         query: SafeValueQuery,
@@ -309,11 +309,11 @@ impl<'a> SafeValueIndex<'a> {
             .is_some_and(|fact| fact.safe_value_contains_special_parameter_slice())
     }
 
-    pub fn name_reference_is_safe(&mut self, name: &Name, at: Span, query: SafeValueQuery) -> bool {
+    pub(super) fn name_reference_is_safe(&mut self, name: &Name, at: Span, query: SafeValueQuery) -> bool {
         self.name_is_safe(name, at, query)
     }
 
-    pub fn part_s001_quote_exposure(
+    pub(super) fn part_s001_quote_exposure(
         &mut self,
         part: &WordPart,
         span: Span,
@@ -389,7 +389,7 @@ impl<'a> SafeValueIndex<'a> {
         }
     }
 
-    pub fn span_has_s001_function_unset_exposure(
+    pub(super) fn span_has_s001_function_unset_exposure(
         &mut self,
         span: Span,
         query: SafeValueQuery,
@@ -397,7 +397,7 @@ impl<'a> SafeValueIndex<'a> {
         query.is_field_context() && self.s001_reference_function_unset_before_first_call(span)
     }
 
-    pub fn part_has_s001_standalone_numeric_argv_exposure(
+    pub(super) fn part_has_s001_standalone_numeric_argv_exposure(
         &mut self,
         part: &WordPart,
         span: Span,
@@ -412,7 +412,7 @@ impl<'a> SafeValueIndex<'a> {
         self.s001_name_has_only_numeric_value_bindings(&name, span)
     }
 
-    pub fn part_has_s001_arithmetic_numeric_operand_exposure(
+    pub(super) fn part_has_s001_arithmetic_numeric_operand_exposure(
         &mut self,
         part: &WordPart,
         span: Span,
@@ -424,7 +424,7 @@ impl<'a> SafeValueIndex<'a> {
         self.s001_name_has_only_arithmetic_numeric_bindings(&name, span)
     }
 
-    pub fn part_is_safe_initializer_command_substitution_self_reference(
+    pub(super) fn part_is_safe_initializer_command_substitution_self_reference(
         &mut self,
         part: &WordPart,
         span: Span,
@@ -475,7 +475,7 @@ impl<'a> SafeValueIndex<'a> {
             })
     }
 
-    pub fn part_is_safe_initializer_command_substitution_static_setup_reference(
+    pub(super) fn part_is_safe_initializer_command_substitution_static_setup_reference(
         &mut self,
         part: &WordPart,
         span: Span,

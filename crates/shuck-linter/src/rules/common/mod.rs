@@ -1,1 +1,1 @@
-pub mod word;
+pub(crate) mod word;
