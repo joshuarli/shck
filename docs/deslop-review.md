@@ -1,6 +1,6 @@
 # Deslop completion review
 
-Intent: review the cumulative campaign changes for regressions, particularly parser limits, diagnostics, dependency caching, minification, checked conversions, dead-code removal, and benchmark entrypoints. Reviewed diff: `90c560d2cb767045c90550489534a552cc1be2ae..3e0a4e8f71ae7b1922e69b992ade7ec0964229d7`. Verdict: two demonstrated resource-limit defects remain. Previously filed DSLP-11 through DSLP-14 and DSLP-16 through DSLP-25 are excluded as requested.
+Intent: review the cumulative campaign changes for regressions, particularly parser limits, diagnostics, dependency caching, minification, checked conversions, dead-code removal, and benchmark entrypoints. Reviewed diff: `90c560d2cb767045c90550489534a552cc1be2ae..3e0a4e8f71ae7b1922e69b992ade7ec0964229d7`. Verdict: two demonstrated resource-limit defects remain. Previously filed SHCK-1 through SHCK-3 and SHCK-4 through DSLP-25 are excluded as requested.
 
 ## Findings
 
