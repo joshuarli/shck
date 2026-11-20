@@ -5,18 +5,14 @@ Deslop campaign backlog ([plan](https://github.com/laputa-systems/stuff/blob/mai
 
 ## Report
 
-Not started.
+Ground baseline at `2cacbda63ff32f45e0c6bfd99a25648faee9915f` (macOS aarch64, nightly-2026-09-15, `TMPDIR=$PWD/.work/tmp`): initial `make test` 214.39 s; warm `make test` 14.88 s, 5,944 passed and 18 ignored. Initial `make check` 164.18 s and warm retry 0.45 s both exited 2: Clippy passed, then Nix was unavailable for `cargo shear`; `check-scripts` did not run through that target. Independent `make check-scripts` passed.
+
+CI now runs `make test` for pushes and pull requests to main on `ubuntu-latest`, with the release workflow's pinned checkout and Rust cache actions. Linux CI has not run here. `gha-test-workflow` accepts this shape. Benchmark fixture upstream revisions are in `crates/shuck-benchmark/resources/manifest.json`; performance workload qualification remains DSLP-6.
+
+Open fleet finding: `rust-toolchain` expects nightly-2026-11-09 while the workspace pins nightly-2026-09-15; retain the workspace pin. Seeded fleet findings remain unverified here: rust-collections 118, audit-upgrades 22, x86-only 4, mdtool 4, gha-ubuntu 4. Large-corpus and Full benchmark tiers were not run.
 
 ## Tickets
 
-### DSLP-1 · P2 · Ground: baseline, boundaries, components, and CI test entry point
-
-- **Area:** deslop · ground
-- **Where:** AGENTS.md, Makefile, .github/workflows/
-- **Problem:** Base 90c560d; Rust 337k physical lines across 12 crates plus fuzz (crates/shuck-linter 172k, shuck-semantic 45k, shuck-parser 35k, shuck-formatter 33k, shuck-cli 25k, shuck-ast 6.9k, shuck-config 4.8k, shuck-indexer 4.4k, shuck-run 4.1k, shuck-benchmark 3.8k, shuck-discover 1.5k, shuck-cache 0.8k, fuzz 0.7k); timings not yet measured. Hard fork of ewhauser/shuck (18 local commits, 154k lines already removed); ShellCheck and shfmt are black-box oracles only, under the clean-room policy in docs/development.md. CI has only release.yml; no workflow runs `make test`. Open fleet lint findings: rust-collections 118, audit-upgrades 22, x86-only 4, mdtool 4, gha-ubuntu 4, rust-toolchain 1. Perf gate applies: rustybench harness in crates/shuck-benchmark.
-- **Recommendation:** Run the deslop Ground step. Over 50k lines, so Types, Tests and Dead code run per component: list the components (a crate or a subsystem of at most about 20k lines; split shuck-linter, shuck-semantic, shuck-parser, shuck-formatter and shuck-cli; group the small crates) in AGENTS.md or this ticket's close note. Accept: CI runs make test and is green, and AGENTS.md has a Verification section.
-- **Fix with:** deslop
-- **Effort:** M
 
 ### DSLP-2 · P2 · Diagnose: ultrareview into this backlog
 
@@ -32,7 +28,7 @@ Not started.
 - **Area:** deslop · types
 - **Where:** clippy and rustc lint configuration; Rust sources, per component
 - **Problem:** The strict-profile candidates in the deslop skill's tools reference have not been measured here. The parser already warns on `clippy::unwrap_used` outside tests.
-- **Recommendation:** Run the deslop Types step, one PR per component. Accept: clean at the adopted profile, escape hatches not increased, witnesses recorded.
+- **Recommendation:** Run the deslop Types step separately for each AGENTS.md Verification component. Contracts and affected consumers are the component's public Rust API and downstream workspace crates, plus CLI and formats where applicable; see Verification. Accept each slice with its `cargo test -p <crate>` and `make test`, clean at the adopted profile, no increase in escape hatches, and witnesses recorded.
 - **Fix with:** deslop
 - **Effort:** L
 
@@ -41,7 +37,7 @@ Not started.
 - **Area:** deslop · tests
 - **Where:** test suites and CI, per component
 - **Problem:** Coverage and mutation results are unmeasured; no deslop mutation lane exists.
-- **Recommendation:** Run the deslop Tests step, one PR per component. Accept: no undispositioned survivor in critical code, the test cost budget holds, and the lane is green where the tools are mirrored.
+- **Recommendation:** Run the deslop Tests step separately for each AGENTS.md Verification component. Contracts and consumers are the component's public Rust API and downstream workspace crates, plus CLI and formats where applicable; see Verification. Accept each slice with its `cargo test -p <crate>` and `make test`, no undispositioned survivor in critical code, the test cost budget, and a green lane where tools are mirrored.
 - **Fix with:** deslop
 - **Effort:** L
 
@@ -50,7 +46,7 @@ Not started.
 - **Area:** deslop · dead code
 - **Where:** whole repository, per component
 - **Problem:** No dead-code scan has run since the fork's own removals.
-- **Recommendation:** Run the deslop Dead code step, one PR per component. Accept: tools clean or allowlisted with reasons; walk-backs filed as Needs owner tickets.
+- **Recommendation:** Run the deslop Dead code step separately for each AGENTS.md Verification component. Contracts and consumers are the component's public Rust API and downstream workspace crates, plus CLI and formats where applicable; see Verification. Accept each slice with its `cargo test -p <crate>` and `make test`, tools clean or allowlisted with reasons, and walk-backs filed as Needs owner tickets.
 - **Fix with:** deslop
 - **Effort:** L
 

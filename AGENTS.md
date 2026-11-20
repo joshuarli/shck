@@ -16,6 +16,20 @@ cargo test -p shuck-linter -- test_name
 
 The workspace pins `nightly-2026-09-15` in `rust-toolchain.toml`. Fuzz targets use `cargo +nightly`.
 
+## Verification
+
+- `make test`: warm 14.88 s (macOS, 2026-11-19); workspace unit, integration and doc tests. `make check`: warm 0.45 s to failure (macOS, 2026-11-19); clippy passed, Nix unavailable before cargo shear and script checks. It protects lint, dependency usage and script checks; `make check-scripts` passed independently. No `make lint` target.
+- CLI flags, exit codes, JSON and config formats: `crates/shuck-cli/tests/integration_test.rs`; managed shell commands: `crates/shuck-cli/tests/run_cli.rs`.
+- Parser and linter Rust APIs: crate unit tests; supported API and consumers: [Rust API](docs/rust-api-compatibility.md). Formatter output: `crates/shuck-formatter/tests/format_cases.rs`. No network endpoint contract.
+- Performance: `crates/shuck-benchmark` rustybench workloads (vendored fixture revisions: `crates/shuck-benchmark/resources/manifest.json`); the tiered entrypoint and gate are unqualified (DSLP-6). Large corpus and Full tier are not Ground checks.
+- Components below partition Rust modules for Types, Tests and Dead code; ranges are inclusive initial letters of direct `.rs` files, with subdirectories separate. Include relevant tests and downstream workspace consumers; use `cargo test -p <crate>` and `make test` for acceptance (fuzz: `cargo test --manifest-path fuzz/Cargo.toml`).
+- Linter: `src` direct files plus root/tests; `facts` direct a-f, g-m, n-z; each of `facts/{command_options,tests,word_spans,words}`; `rules/correctness` direct a-f, g-m, n-s, t-z; `rules/style` direct a-m and n-z; `rules/style/unquoted_expansion`; `rules/{portability,performance,security,common}` plus direct `rules` files; `ambient_contracts` and `suppression`.
+- Semantic: `src` direct a-f, g-m, n-z; `builder`, `cfg`, `dataflow`, `plugins`, `source_closure`, and crate tests.
+- Parser: `src` direct plus `parser` direct; `parser/{commands,lexer,tests,word,words}`; examples and crate tests with the relevant subsystem.
+- Formatter: `src` direct plus `facts` and `visit`; `command` and `render_plan`; `streaming`; `word`; crate tests with the relevant subsystem.
+- CLI: `src` direct plus `cli`; `commands` direct; `commands/check`; `shellcheck_compat` and `shellcheck_runtime`; integration tests split by test file.
+- Small crates: `shuck-ast` + `shuck-indexer`; `shuck-config` + `shuck-discover` + `shuck-cache`; `shuck-run` + `shuck-benchmark` + `fuzz` (fuzz uses its own manifest).
+
 ## Hard invariants
 
 - Lint rules read facts from `crates/shuck-linter/src/facts/`; rule files do not walk the AST or call traversal helpers. See [linter layering](crates/shuck-linter/AGENTS.md).
