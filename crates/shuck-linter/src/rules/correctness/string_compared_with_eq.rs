@@ -372,7 +372,7 @@ source ./helper.sh
             &main,
             source,
             &LinterSettings::for_rule(Rule::StringComparedWithEq)
-                .with_analyzed_paths([main.clone(), helper.clone()]),
+                .with_analyzed_paths([main.clone(), helper]),
         );
 
         assert_eq!(

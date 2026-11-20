@@ -252,7 +252,7 @@ fn strict_parse_error(parse_result: &ParseResult) -> Option<AddIgnoreParseError>
         column,
     } = parse_result.strict_error();
     Some(AddIgnoreParseError {
-        message: message.clone(),
+        message,
         line,
         column,
     })

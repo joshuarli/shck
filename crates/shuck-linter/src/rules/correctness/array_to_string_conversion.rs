@@ -114,7 +114,7 @@ pub fn array_to_string_conversion(checker: &mut Checker) {
                 let prior = latest_array_history(&array_history, &name);
                 push_array_history(
                     &mut array_history,
-                    name.clone(),
+                    name,
                     ArrayHistoryState::from_binding(checker, binding, true, prior),
                 );
             }
@@ -1350,7 +1350,7 @@ entries=value
             &main,
             source,
             &LinterSettings::for_rule(Rule::ArrayToStringConversion)
-                .with_analyzed_paths([main.clone(), helper.clone()]),
+                .with_analyzed_paths([main.clone(), helper]),
         );
 
         assert!(diagnostics.is_empty(), "{diagnostics:#?}");

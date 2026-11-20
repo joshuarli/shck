@@ -4491,7 +4491,7 @@ fn static_slice_result_is_safe(
         }
         chars.len().saturating_sub(distance)
     } else {
-        offset as usize
+        offset.cast_unsigned()
     };
     if start > chars.len() {
         return false;

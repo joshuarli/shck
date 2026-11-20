@@ -55,7 +55,7 @@ impl<'a> Locator<'a> {
     /// lies on a UTF-8 char boundary.
     #[inline]
     pub fn position_at_offset_unchecked(&self, offset: usize) -> Position {
-        let line = self.line_index.line_number(TextSize::new(offset as u32));
+        let line = self.line_index.line_number(TextSize::from_usize(offset));
         let line_start = self
             .line_index
             .line_start(line)

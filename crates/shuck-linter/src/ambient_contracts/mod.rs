@@ -1,3 +1,10 @@
+#![warn(
+    clippy::redundant_clone,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::match_wildcard_for_single_variants
+)]
+
 //! Ambient contracts describe shell names that exist because a file runs inside
 //! a larger shell runtime rather than as a standalone script.
 //!

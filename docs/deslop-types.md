@@ -162,3 +162,17 @@ Escape-hatch counts are lexical occurrences in tracked formatter Rust files, inc
 | allow | unsafe | production-text unwrap/expect | numeric casts |
 | --- | --- | --- | --- |
 | 19 / 19 | 0 / 0 | 2 / 1 | 18 / 5 |
+
+## Linter rules and root component
+
+The rules, suppression, and ambient-contract modules enable `redundant_clone`, `cast_possible_truncation`, `cast_sign_loss`, and `match_wildcard_for_single_variants` for all targets. The 28 reported redundant clones in rules and suppression were removed. Source offsets in the checker, fixer, locator, and suppression directive use `TextSize::from_usize`; values too large for the AST offset now fail rather than wrap. The source traversal test uses checked conversion into a wider signed brace counter. The slice calculation converts a previously checked nonnegative offset without a sign-loss cast.
+
+The dialect inference decision names the four remaining shell dialects, so a new dialect requires a decision. The compiler witness adds a temporary `ShellDialect` variant and checks that the decision is non-exhaustive. The other wildcard leads select AST syntax: the fix helpers accept only static word parts, parse diagnostics visit only compound bodies and grouped patterns, and suppression recognizes only command forms that can open a body. Their fallback rejects or ignores all other syntax shapes.
+
+The arithmetic-fix iterator now carries its matching value through `next_if` instead of asserting after a peek. The remaining production assertions preserve construction invariants: continuation comment anchors follow a backslash; find and xargs commands have insertion points; find and grep pattern spans correspond to word facts; masked source retains UTF-8; ambient contract IDs and generated globs are valid and path signals exist for path-backed contracts. The pass-by-value diagnostic constructor is public and keeps its signature; the forwarding name is a small owned value already supplied by the caller, and the ambient test request is handed off for a single lookup.
+
+Escape-hatch counts are lexical occurrences in tracked linter Rust files outside `facts/` and `lib.rs`, including tests for allows, unsafe, and integer casts; unwrap/expect counts exclude test files and text after the first inline test module.
+
+| allow | unsafe | production-text unwrap/expect | numeric casts |
+| --- | --- | --- | --- |
+| 5 / 5 | 4 / 4 | 16 / 15 | 18 / 9 |

@@ -37,11 +37,7 @@ pub fn c_style_for_arithmetic_in_sh(checker: &mut Checker) {
             .copied()
         {
             let diagnostic = Diagnostic::new(CStyleForArithmeticInSh, span);
-            let diagnostic = if fix_facts
-                .peek()
-                .is_some_and(|fact| fact.diagnostic_span() == span)
-            {
-                let fact = fix_facts.next().expect("peeked arithmetic fix fact");
+            let diagnostic = if let Some(fact) = fix_facts.next_if(|fact| fact.diagnostic_span() == span) {
                 diagnostic.with_fix(Fix::unsafe_edit(Edit::replacement(
                     fact.replacement(source),
                     fact.replacement_span(),

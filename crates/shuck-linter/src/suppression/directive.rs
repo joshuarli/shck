@@ -93,8 +93,8 @@ fn normalized_comment<'a>(
     Some(NormalizedComment {
         text: &source[comment_start..line_end],
         range: TextRange::new(
-            TextSize::new(comment_start as u32),
-            TextSize::new(line_end as u32),
+            TextSize::from_usize(comment_start),
+            TextSize::from_usize(line_end),
         ),
         line: u32::try_from(comment.line).ok()?,
         is_own_line: is_horizontal_whitespace(&source[line_start..comment_start]),
