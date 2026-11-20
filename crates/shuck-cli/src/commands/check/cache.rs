@@ -32,7 +32,7 @@ impl CheckCacheSettings {
 
 impl CacheKey for CheckCacheSettings {
     fn cache_key(&self, state: &mut CacheKeyHasher) {
-        state.write_tag(b"check-cache-settings");
+        state.write_tag(b"check-cache-settings-transitive-sources-v2");
         self.effective.cache_key(state);
         self.analyzed_paths.cache_key(state);
         self.source_resolution_home.cache_key(state);
@@ -634,6 +634,51 @@ mod tests {
         assert_eq!(rerun.cache_misses, 1);
         assert_eq!(rerun.diagnostics.len(), 1);
         assert_eq!(rerun.diagnostics[0].path, PathBuf::from("second.sh"));
+    }
+
+    #[test]
+    fn source_closure_changes_invalidate_cached_diagnostics() {
+        let dir = tempdir().unwrap();
+        let root = dir.path();
+        let main = root.join("main.sh");
+        let direct = root.join("a.sh");
+        let leaf = root.join("b.sh");
+        fs::write(
+            &main,
+            "#!/bin/bash\n# shuck: source=a.sh lint=true\nsource ./a.sh\necho \"$b_var\"\n",
+        ).unwrap();
+        fs::write(&direct, "# shuck: source=b.sh lint=true\nsource ./b.sh\n").unwrap();
+        fs::write(&leaf, "b_var=1\n").unwrap();
+        let mut args = check_args(false);
+        args.paths = vec![main];
+        let cache = cache_root(root);
+        let run = |args: &CheckCommand| {
+            run_check_with_cwd(args, &ConfigArguments::default(), root, &cache).unwrap()
+        };
+        let first = run(&args);
+        assert_eq!(first.cache_misses, 1);
+        assert!(!diagnostic_codes(&first).contains(&"C006".to_owned()));
+        let unchanged = run(&args);
+        assert_eq!(unchanged.cache_hits, 1);
+        assert!(unchanged.dependency_paths.contains(&leaf));
+        fs::write(&leaf, "other=1\n").unwrap();
+        let mut no_cache = args.clone();
+        no_cache.no_cache = true;
+        let fresh = run(&no_cache);
+        assert!(fresh.diagnostics.iter().any(|diagnostic| {
+            diagnostic.path == Path::new("main.sh")
+                && matches!(&diagnostic.kind, DisplayedDiagnosticKind::Lint { code, .. } if code == "C006")
+        }));
+        let changed = run(&args);
+        assert_eq!(changed.cache_misses, 1);
+        assert_eq!(diagnostic_codes(&changed), diagnostic_codes(&fresh));
+        assert!(changed.dependency_paths.contains(&leaf));
+        fs::write(
+            &direct,
+            "# shuck: source=b.sh lint=true\nsource ./b.sh\n# changed\n",
+        ).unwrap();
+        let direct_changed = run(&args);
+        assert_eq!(direct_changed.cache_misses, 1);
     }
 
     #[test]

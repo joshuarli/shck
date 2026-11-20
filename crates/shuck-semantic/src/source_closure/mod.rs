@@ -1530,6 +1530,10 @@ fn resolve_helper_paths(
 ) -> HelperPathResolution {
     for candidate_path in candidate_path_variants(candidate) {
         if candidate_path.is_absolute() {
+            context
+                .dependency_paths
+                .borrow_mut()
+                .insert(candidate_path.clone());
             if candidate_path.is_file() {
                 return HelperPathResolution {
                     paths: vec![candidate_path],
@@ -1544,6 +1548,7 @@ fn resolve_helper_paths(
         };
 
         let direct = base_dir.join(&candidate_path);
+        context.dependency_paths.borrow_mut().insert(direct.clone());
         if direct.is_file() {
             return HelperPathResolution {
                 paths: vec![direct],
@@ -1574,7 +1579,10 @@ fn resolve_helper_paths(
         .source_path_resolver
         .into_iter()
         .flat_map(|resolver| resolver.resolve_candidate_paths(source_path, candidate))
-        .find(|path| path.is_file())
+        .find(|path| {
+            context.dependency_paths.borrow_mut().insert(path.clone());
+            path.is_file()
+        })
         .into_iter()
         .collect();
     HelperPathResolution {
@@ -1863,6 +1871,10 @@ fn summarize_helper_uncached(
             dependency_paths: RefCell::new(FxHashSet::default()),
         },
     );
+    context
+        .dependency_paths
+        .borrow_mut()
+        .extend(collected.dependency_paths.iter().cloned());
     semantic.apply_source_contracts(collected.clone());
     let analysis = semantic.analysis();
     let body_index = ScopeBodyIndex::new(&semantic, &collected.synthetic_reads);
