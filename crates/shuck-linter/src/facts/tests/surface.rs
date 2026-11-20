@@ -43,12 +43,18 @@ EOF
 cat <<-EOF
 \t'${USER}'
 EOF
+printf '%s' 'ordinary'
 ";
 
     with_facts(source, None, |_, facts| {
-        assert!(
-            facts.words().single_quoted_fragments().is_empty(),
-            "expected heredoc payload quotes to stay out of single-quoted shell fragments"
+        assert_eq!(
+            facts
+                .words()
+                .single_quoted_fragments()
+                .iter()
+                .map(|fragment| fragment.span().slice(source))
+                .collect::<Vec<_>>(),
+            vec!["'%s'", "'ordinary'"]
         );
     });
 }
@@ -579,10 +585,19 @@ fn ignores_unicode_smart_quotes_in_heredoc_payloads() {
 cat <<EOF
 q { quotes: \"“\" \"”\" \"‘\" \"’\"; }
 EOF
+echo “outside”
 ";
 
     with_facts(source, None, |_, facts| {
-        assert!(facts.words().unicode_smart_quote_spans().is_empty());
+        assert_eq!(
+            facts
+                .words()
+                .unicode_smart_quote_spans()
+                .iter()
+                .map(|span| span.slice(source))
+                .collect::<Vec<_>>(),
+            vec!["“", "”"]
+        );
     });
 }
 
