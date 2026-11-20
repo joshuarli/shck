@@ -2625,3 +2625,55 @@ fn linted_source_targets_share_the_complete_analyzed_path_set() {
         "a followed file should recognize sibling followed targets as analyzed: {stdout}"
     );
 }
+
+#[test]
+fn nesting_limit_reports_one_parse_error() {
+    let dir = tempdir().unwrap();
+    for (opener, closer) in [("if true; then\n", "fi\n"), ("while true; do\n", "done\n"), ("for x in a; do\n", "done\n")] {
+        for depth in [99, 150] {
+            if cfg!(debug_assertions) && depth == 99 {
+                continue;
+            }
+            let body = if opener.starts_with("for ") { ": \"$x\"\n" } else { ":\n" };
+            let source = format!("{}{}{}", opener.repeat(depth), body, closer.repeat(depth));
+            let path = dir.path().join("nested.sh");
+            fs::write(&path, source).unwrap();
+            assert!(ProcessCommand::new("bash").arg("-n").arg(&path).status().unwrap().success());
+            let output = run_check_output(dir.path(), &["check", "--no-cache", "nested.sh"]);
+            let text = stdout_string(&output);
+            if depth == 99 {
+                assert!(output.status.success(), "{text}");
+                assert!(text.is_empty(), "{text}");
+            } else {
+                assert!(!output.status.success());
+                assert_eq!(text.matches("parse error").count(), 1, "{text}");
+                assert!(text.contains("nesting too deep"), "{text}");
+                assert!(!text.contains("C016"), "{text}");
+            }
+        }
+    }
+}
+
+#[test]
+fn nesting_limit_is_reported_alongside_lint_diagnostics() {
+    let dir = tempdir().unwrap();
+    let source = format!("echo $value\n{}:\n{}", "if true; then\n".repeat(150), "fi\n".repeat(150));
+    fs::write(dir.path().join("nested.sh"), source).unwrap();
+    let output = run_check_output(dir.path(), &["check", "--no-cache", "nested.sh"]);
+    let text = stdout_string(&output);
+    assert!(text.contains("nesting too deep"), "{text}");
+    assert!(text.contains("C006"), "{text}");
+    assert!(!text.contains("C016"), "{text}");
+}
+
+#[test]
+fn operator_chain_limit_is_reported_alongside_lint_diagnostics() {
+    let dir = tempdir().unwrap();
+    let source = format!("echo $value\n{}a\n", "a | ".repeat(2_000));
+    fs::write(dir.path().join("nested.sh"), source).unwrap();
+    let output = run_check_output(dir.path(), &["check", "--no-cache", "nested.sh"]);
+    let text = stdout_string(&output);
+    assert!(!output.status.success());
+    assert!(text.contains("pipeline too long"), "{text}");
+    assert!(text.contains("C006"), "{text}");
+}

@@ -18,7 +18,7 @@
 //! let result = Parser::new("echo hello\n").parse();
 //! match result.status {
 //!     ParseStatus::Clean => assert!(result.diagnostics.is_empty()),
-//!     ParseStatus::Recovered | ParseStatus::Fatal => {}
+//!     ParseStatus::Recovered | ParseStatus::Fatal | ParseStatus::LimitExceeded => {}
 //! }
 //! let _file = &result.file;
 //! ```

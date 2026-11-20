@@ -17,6 +17,10 @@ DSLP-7 closed: minified heredocs now end before compound separators, with regres
 
 DSLP-9 closed: parse-diagnostic enrichment precomputes per-line state; existing fixture diagnostics match the baseline.
 
+DSLP-10 closed: parser depth-limit errors survive recovery and are reported without cascading closing-keyword diagnostics.
+
+DSLP-15 closed: full output shares a line index across diagnostics for each source.
+
 ## Tickets
 
 ### DSLP-3 · P2 · Types: strict profile and typing findings
@@ -54,24 +58,6 @@ DSLP-9 closed: parse-diagnostic enrichment precomputes per-line state; existing 
 - **Recommendation:** Run the bench-pyramid skill as the deslop Bench step on the existing harness. Never run the Full tier. Accept: `make bench`, `bench-check` and `bench-list` work with tier and workload selectors and a preflight; gaps are filed as tickets ranked by the risk of a missed regression.
 - **Fix with:** bench-pyramid
 - **Effort:** M
-
-### DSLP-10 · P2 · nesting past the parser depth limit floods false C016 errors on valid scripts
-
-- **Area:** deslop · diagnose · parser diagnostics
-- **Where:** crates/shuck-parser/src/parser/limits.rs:35 and :137 (depth limit 100); crates/shuck-linter/src/parse_diagnostics.rs:1662 stray_closing_keyword_spans and :1499 if_missing_then_span; docs/architecture.md:40 claims exhausted limits produce a fatal result
-- **Problem:** A valid script nested deeper than 100 control blocks produces one false C016 'this control keyword has no matching opener' per recovered line and never reports that the nesting limit was hit. Repro: python3 -c "open('if150.sh','w').write('if true; then\n'*150+':\n'+'fi\n'*150)"; bash -n if150.sh exits 0; target/release/shuck check --no-cache if150.sh exits 1 with 102 error[C016] diagnostics, the first pointing at the 'then' on line 101. 99 nested ifs produce 0 diagnostics and 101 produce 102; while and for nesting behave the same, and the same happens on a .bash file. No diagnostic mentions the depth limit.
-- **Recommendation:** Surface the recorded resource-limit error (for example 'AST nesting too deep') and suppress the recovery-derived parse-rule diagnostics that follow from it; do not treat 'then'/'do' as stray closing keywords when the opener was dropped by the depth cap.
-- **Fix with:** refactor-rust
-- **Effort:** M
-
-### DSLP-15 · P2 · default check output rebuilds a line index per diagnostic
-
-- **Area:** deslop · linter performance
-- **Where:** crates/shuck-cli/src/commands/check_output.rs:1098 (full renderer)
-- **Problem:** After DSLP-9 made parse-diagnostic enrichment linear, `shuck check --no-cache` with the default full output still scales quadratically because the renderer rebuilds a line index for each diagnostic. Release medians on a loaded host: 4x more `then` lines (8,000 to 32,000) took 14.0x longer and 4x more nested ifs took 12.2x longer with default output, while `--output-format concise` grew 2.5x and 2.1x. Error-dense inputs of a few hundred KB still take seconds to render.
-- **Recommendation:** Build the line index once per file and share it across that file's diagnostics in the full renderer; confirm byte-identical output on the linter fixtures and measure the 4x scaling ratio again.
-- **Fix with:** refactor-rust
-- **Effort:** S
 
 ### DSLP-11 · P3 · config files silently ignore unknown keys that --config rejects
 

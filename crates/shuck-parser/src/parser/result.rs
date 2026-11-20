@@ -14,6 +14,11 @@ pub enum ParseStatus {
     Recovered,
     /// The parse stopped after a terminal error.
     Fatal,
+    /// The parse stopped because it exceeded a resource limit.
+    ///
+    /// The AST covers only the commands before the limit, so diagnostics derived from its
+    /// shape after that point are unreliable.
+    LimitExceeded,
 }
 
 /// Additional parser-owned facts that are useful to downstream consumers.
