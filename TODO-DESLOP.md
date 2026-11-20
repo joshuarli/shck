@@ -17,20 +17,13 @@ DSLP-7 closed: minified heredocs now end before compound separators, with regres
 
 DSLP-9 closed: parse-diagnostic enrichment precomputes per-line state; existing fixture diagnostics match the baseline.
 
+DSLP-3 closed: every component has a Types slice (#6 to #10, #13, #15, #18, #20); dispositions are in docs/deslop-types.md.
+
 DSLP-10 closed: parser depth-limit errors survive recovery and are reported without cascading closing-keyword diagnostics.
 
 DSLP-15 closed: full output shares a line index across diagnostics for each source.
 
 ## Tickets
-
-### DSLP-3 · P2 · Types: strict profile and typing findings
-
-- **Area:** deslop · types
-- **Where:** clippy and rustc lint configuration; Rust sources, per component
-- **Problem:** The workspace census is complete, but the selected strict profile and typing findings still need component-by-component application. The parser already warns on `clippy::unwrap_used` outside tests. The workspace candidate census and first slice (shuck-ast + shuck-indexer) are recorded in `docs/deslop-types.md`. Remaining: all linter, semantic, parser, formatter, and CLI components; shuck-config + shuck-discover + shuck-cache; shuck-run + shuck-benchmark + fuzz.
-- **Recommendation:** Run the deslop Types step separately for each AGENTS.md Verification component. Contracts and affected consumers are the component's public Rust API and downstream workspace crates, plus CLI and formats where applicable; see Verification. Accept each slice with its `cargo test -p <crate>` and `make test`, clean at the adopted profile, no increase in escape hatches, and witnesses recorded.
-- **Fix with:** deslop
-- **Effort:** L
 
 ### DSLP-4 · P2 · Tests: coverage, boundary gaps, mutation
 
