@@ -554,7 +554,7 @@ pub(crate) fn build_escaped_dash_command_name_spans(
                 return None;
             }
 
-            let marker_text_size = TextSize::from(marker_offset as u32);
+            let marker_text_size = TextSize::from_usize(marker_offset);
             if region_index.is_heredoc(marker_text_size) || region_index.is_quoted(marker_text_size)
             {
                 return None;
@@ -617,7 +617,7 @@ pub(crate) fn build_comment_double_quote_nesting_spans(
             let comment_offset = source_line.offset + comment_start;
             if indexer
                 .region_index()
-                .is_heredoc(TextSize::from(comment_offset as u32))
+                .is_heredoc(TextSize::from_usize(comment_offset))
             {
                 return None;
             }

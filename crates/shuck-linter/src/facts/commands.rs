@@ -1458,7 +1458,7 @@ pub(crate) fn build_stmt_span_index(commands: &[CommandFact<'_>]) -> StmtSpanInd
         index
             .entry(FactSpan::new(command.stmt().span))
             .or_default()
-            .push(position as u32);
+            .push(u32::try_from(position).unwrap_or_else(|_| panic!("command position must fit in u32")));
     }
     index
 }

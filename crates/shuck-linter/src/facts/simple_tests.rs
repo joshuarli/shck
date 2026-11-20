@@ -646,7 +646,9 @@ pub(crate) fn simple_test_operator_family(
                 SimpleTestOperatorFamily::Other,
                 simple_test_binary_operator_family,
             ),
-        _ => SimpleTestOperatorFamily::Other,
+        SimpleTestShape::Empty | SimpleTestShape::Truthy | SimpleTestShape::Other => {
+            SimpleTestOperatorFamily::Other
+        }
     }
 }
 

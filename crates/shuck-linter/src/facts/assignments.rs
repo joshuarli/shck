@@ -2102,14 +2102,9 @@ pub(crate) fn parameter_is_plain_access_to_name(
     parameter: &ParameterExpansion,
     name: &Name,
 ) -> bool {
-    match &parameter.syntax {
+    matches!(&parameter.syntax,
         ParameterExpansionSyntax::Bourne(BourneParameterExpansion::Access { reference })
-            if reference.subscript.is_none() =>
-        {
-            &reference.name == name
-        }
-        _ => false,
-    }
+            if reference.subscript.is_none() && &reference.name == name)
 }
 
 pub(crate) fn push_fact_span(

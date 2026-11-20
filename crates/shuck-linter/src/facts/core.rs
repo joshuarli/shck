@@ -78,10 +78,7 @@ impl WordOccurrenceId {
 
 #[inline]
 fn fact_id_index_to_u32(index: usize, kind: &'static str) -> u32 {
-    if index > u32::MAX as usize {
-        fact_id_index_overflow(kind);
-    }
-    index as u32
+    u32::try_from(index).unwrap_or_else(|_| fact_id_index_overflow(kind))
 }
 
 #[cold]

@@ -633,7 +633,7 @@ fn parse_shell_arithmetic_integer_value(text: &str) -> Option<i128> {
         if !(2..=64).contains(&base) || digits.is_empty() {
             return None;
         }
-        parse_arithmetic_digits(digits, base as u32)?
+        parse_arithmetic_digits(digits, u32::try_from(base).ok()?)?
     } else if let Some(digits) = unsigned
         .strip_prefix("0x")
         .or_else(|| unsigned.strip_prefix("0X"))

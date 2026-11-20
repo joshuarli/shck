@@ -176,3 +176,19 @@ Escape-hatch counts are lexical occurrences in tracked linter Rust files outside
 | allow | unsafe | production-text unwrap/expect | numeric casts |
 | --- | --- | --- | --- |
 | 5 / 5 | 4 / 4 | 16 / 15 | 18 / 9 |
+
+## Linter facts component
+
+The facts module enables `redundant_clone`, `cast_possible_truncation`, `cast_sign_loss`, and `match_wildcard_for_single_variants` for all targets. Source offsets in brace and comment facts now use `TextSize::from_usize`; command positions and fact IDs use checked `u32` conversions. Arithmetic bases are checked before conversion after their 2–64 range check. Valid inputs retain their representation; oversized offsets or indices now fail instead of wrapping. The shared AST oversized text-size test covers the offset boundary.
+
+The owned `ConditionalNodeFact` regex selection and `SimpleTestShape` operator-family dispatch now name every variant. The other production wildcard leads select syntax shapes from the AST: commands, words, arithmetic and conditional expressions, parameter operations and expansions. Their fallback intentionally rejects a different shape or applies shared handling; a new AST shape does not automatically belong to the selected subset. The single-variant parameter-syntax probes use `matches!` for the same selective behavior. Test matches reject unexpected fixture shapes, including future ones. The enum wildcard lint remains disabled for these intentional selections.
+
+The production assertions in arrays, commands and substitutions retain the cache and command-index construction invariants. The backtick and surface scanners retain assertions that cursor advancement stays on UTF-8 character boundaries and within a nonempty remainder. Nested arithmetic scanning requires semantic artifacts supplied by its caller. The pass-by-value leads are small input and scratch bundles handed into a single fact-building operation; borrowing them would not avoid allocation or a clone. There were no redundant clone leads in this component.
+
+Escape-hatch counts are lexical occurrences in tracked facts Rust files, including tests for `allow`, `unsafe`, and numeric casts. Production unwrap/expect excludes test files and text after the first inline `#[cfg(test)]` in each file.
+
+| allow | unsafe | production-text unwrap/expect | numeric casts |
+| --- | --- | --- | --- |
+| 14 / 14 | 0 / 0 | 12 / 12 | 17 / 8 |
+
+Adding a temporary variant to each of `ConditionalNodeFact` and `SimpleTestShape` made `cargo check -p shuck-linter --lib` fail with E0004 at both changed matches. The variants were removed after the check. Existing linter fixtures and workspace tests exercise the retained facts and diagnostics.

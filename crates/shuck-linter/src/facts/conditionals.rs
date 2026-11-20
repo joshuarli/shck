@@ -275,7 +275,10 @@ impl<'a> ConditionalFact<'a> {
             {
                 Some(fact)
             }
-            _ => None,
+            ConditionalNodeFact::BareWord(_)
+            | ConditionalNodeFact::Unary(_)
+            | ConditionalNodeFact::Binary(_)
+            | ConditionalNodeFact::Other(_) => None,
         })
     }
 }

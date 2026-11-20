@@ -59,7 +59,7 @@ pub(crate) fn build_literal_brace_spans(
         &mut scratch,
     );
     spans.retain(|span| {
-        !region_index.is_expansion_brace_edge(TextSize::new(span.start.offset() as u32))
+        !region_index.is_expansion_brace_edge(TextSize::from_usize(span.start.offset()))
     });
     spans.sort_by_key(|span| (span.start.offset(), span.end.offset()));
     spans.dedup_by_key(|span| (span.start.offset(), span.end.offset()));
@@ -1388,8 +1388,8 @@ pub(crate) fn runtime_shell_dynamic_brace_exclusion(
     let mut end_offset = part.span.end.offset() - word_base_offset;
 
     let part_range = TextRange::new(
-        TextSize::new(part.span.start.offset() as u32),
-        TextSize::new(part.span.end.offset() as u32),
+        TextSize::from_usize(part.span.start.offset()),
+        TextSize::from_usize(part.span.end.offset()),
     );
     if let Some(pair) = region_index.first_dollar_brace_pair_in(part_range) {
         let pair_end_relative = pair.end().to_u32() as usize - word_base_offset;
