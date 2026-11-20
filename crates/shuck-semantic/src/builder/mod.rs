@@ -1070,26 +1070,7 @@ fn unparsed_arithmetic_subscript_reference_names(
     };
 
     let mut references = Vec::new();
-    // In zsh, (Ie) at the start of a subscript selects matching indexes
-    // with literal matching. A colon in a nested expansion can make the
-    // arithmetic parse fail, but these flag letters are still not variables.
-    let flag_prefix_len = if false && leading.starts_with('(') {
-        leading
-            .find(')')
-            .filter(|&end| {
-                end > 1
-                    && leading.as_bytes()[1..end]
-                        .iter()
-                        .all(|byte| matches!(byte, b'I' | b'e'))
-            })
-            .map_or(0, |end| end + 1)
-    } else {
-        0
-    };
-    let mut chars = leading[flag_prefix_len..]
-        .char_indices()
-        .map(|(offset, ch)| (offset + flag_prefix_len, ch))
-        .peekable();
+    let mut chars = leading.char_indices().peekable();
     while let Some((start, ch)) = chars.next() {
         if !is_name_start_character(ch) || text[..start].ends_with('$') {
             continue;

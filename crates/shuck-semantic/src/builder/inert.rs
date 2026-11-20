@@ -53,11 +53,6 @@ pub(super) fn heredoc_body_part_is_semantically_inert(
     }
 }
 
-#[allow(dead_code)]
-pub(super) fn zsh_qualified_glob_is_semantically_inert(_glob: &()) -> bool {
-    false
-}
-
 pub(super) fn pattern_is_semantically_inert(pattern: &Pattern) -> bool {
     pattern
         .parts

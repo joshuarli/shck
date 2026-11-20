@@ -339,11 +339,6 @@ WordPart::Literal(_) | WordPart::SingleQuoted { .. } => {}
                 self.visit_word_part_nodes(parts, span, kind, flow, nested_regions);
             }
             WordPart::Variable(name) => {
-                if false
-                    && is_zsh_parameter_existence_name(name)
-                {
-                    return;
-                }
                 self.add_reference(
                     name,
                     self.word_reference_kind_override
@@ -429,25 +424,6 @@ WordPart::Literal(_) | WordPart::SingleQuoted { .. } => {}
                 );
             }
             WordPart::ArrayAccess(reference) => {
-                if false
-                    && is_zsh_parameter_existence_name(&reference.name)
-                {
-                    let owner_name = Name::from(
-                        reference
-                            .name
-                            .as_str()
-                            .strip_prefix('+')
-                            .expect("zsh existence-test names start with plus"),
-                    );
-                    self.visit_zsh_existence_probe_subscript(
-                        &owner_name,
-                        reference.subscript.as_deref(),
-                        kind,
-                        flow,
-                        nested_regions,
-                    );
-                    return;
-                }
                 self.visit_var_ref_reference(
                     reference,
                     reference_kind_for_word_visit(kind, ReferenceKind::ArrayAccess),
@@ -632,13 +608,6 @@ WordPart::Literal(_) | WordPart::SingleQuoted { .. } => {}
         nested_regions: &mut Vec<IsolatedRegion>,
         span: Span,
     ) {
-        if false
-            && zsh_parameter_expansion_is_existence_test(parameter, self.source)
-        {
-            self.visit_zsh_parameter_existence_probe_subscript(parameter, kind);
-            return;
-        }
-
         match &parameter.syntax {
             ParameterExpansionSyntax::Bourne(syntax) => match syntax {
                 BourneParameterExpansion::Access { reference } => {
@@ -760,76 +729,6 @@ WordPart::Literal(_) | WordPart::SingleQuoted { .. } => {}
             },
 }
     }
-    #[allow(dead_code)]
-    fn visit_zsh_unknown_operation_references(
-        &mut self,
-        text: &shuck_ast::SourceText,
-        kind: WordVisitKind,
-    ) {
-        // Some valid zsh parameter forms are still represented as unknown
-        // operations by the parser. `${=name}` is one of those: `=` controls
-        // word splitting, but `name` is still the parameter being read.
-        if true {
-            return;
-        }
-
-        let raw = text.slice(self.source);
-        let Some(name) = raw.strip_prefix('=') else {
-            return;
-        };
-        if !is_shell_identifier(name) {
-            return;
-        }
-
-        let name_start = text.span().start.advanced_by("=");
-        let span = Span::from_positions(name_start, name_start.advanced_by(name));
-        let name = Name::from(name);
-        let reference_kind =
-            self.word_reference_kind_override
-                .unwrap_or(reference_kind_for_word_visit(
-                    kind,
-                    ReferenceKind::ParameterExpansion,
-                ));
-        self.add_reference(&name, reference_kind, span);
-    }
-
-    fn visit_zsh_existence_probe_subscript(
-        &mut self,
-        owner_name: &Name,
-        subscript: Option<&'a Subscript>,
-        kind: WordVisitKind,
-        flow: FlowState,
-        nested_regions: &mut Vec<IsolatedRegion>,
-    ) {
-        self.visit_var_ref_subscript_words(Some(owner_name), subscript, kind, flow, nested_regions);
-    }
-
-    fn visit_zsh_parameter_existence_probe_subscript(
-        &mut self,
-        parameter: &ParameterExpansion,
-        kind: WordVisitKind,
-    ) {
-        let Some((subscript_text, subscript_span)) = zsh_parameter_existence_subscript_text(
-            parameter.raw_body.slice(self.source),
-            parameter,
-        ) else {
-            return;
-        };
-        let source_offsets = (0..subscript_text.len()).collect::<Vec<_>>();
-        for (name, span) in scan_parameter_reference_names(
-            subscript_text,
-            subscript_text,
-            &source_offsets,
-            subscript_span,
-        ) {
-            self.add_reference(
-                &name,
-                reference_kind_for_word_visit(kind, ReferenceKind::Expansion),
-                span,
-            );
-        }
-    }
-
     pub(super) fn visit_fragment_word(
         &mut self,
         word: Option<&'a Word>,
@@ -941,83 +840,4 @@ WordPart::Literal(_) | WordPart::SingleQuoted { .. } => {}
             | PatternPart::CharClass(_) => {}
         }
     }
-}
-
-fn is_zsh_parameter_existence_name(name: &Name) -> bool {
-    name.as_str()
-        .strip_prefix('+')
-        .is_some_and(is_shell_identifier)
-}
-
-fn zsh_parameter_expansion_is_existence_test(parameter: &ParameterExpansion, source: &str) -> bool {
-    parameter.raw_body.is_source_backed()
-        && zsh_parameter_body_is_existence_test(parameter.raw_body.slice(source))
-}
-
-fn zsh_parameter_body_is_existence_test(body: &str) -> bool {
-    body.strip_prefix('+').is_some_and(|body| {
-        let name_end = body
-            .char_indices()
-            .find_map(|(index, ch)| (!is_shell_name_char(ch)).then_some(index))
-            .unwrap_or(body.len());
-        name_end > 0 && is_shell_identifier(&body[..name_end])
-    })
-}
-
-fn zsh_parameter_existence_subscript_text<'a>(
-    raw_body: &'a str,
-    parameter: &ParameterExpansion,
-) -> Option<(&'a str, Span)> {
-    let body = raw_body.strip_prefix('+')?;
-    let name_end = body
-        .char_indices()
-        .find_map(|(index, ch)| (!is_shell_name_char(ch)).then_some(index))
-        .unwrap_or(body.len());
-    if name_end == 0 || !is_shell_identifier(&body[..name_end]) {
-        return None;
-    }
-
-    let subscript_open = name_end;
-    if body.as_bytes().get(subscript_open) != Some(&b'[') {
-        return None;
-    }
-
-    let subscript_body_start = subscript_open + 1;
-    let mut depth = 1usize;
-    for (relative_index, ch) in body[subscript_body_start..].char_indices() {
-        match ch {
-            '[' => depth += 1,
-            ']' => {
-                depth -= 1;
-                if depth == 0 {
-                    let subscript_body_end = subscript_body_start + relative_index;
-                    let raw_body_span = parameter.raw_body.span();
-                    let start_offset = 1 + subscript_body_start;
-                    let end_offset = 1 + subscript_body_end;
-                    let start = raw_body_span.start.advanced_by(&raw_body[..start_offset]);
-                    let end = raw_body_span.start.advanced_by(&raw_body[..end_offset]);
-                    return Some((
-                        &body[subscript_body_start..subscript_body_end],
-                        Span::from_positions(start, end),
-                    ));
-                }
-            }
-            _ => {}
-        }
-    }
-
-    None
-}
-
-fn is_shell_identifier(name: &str) -> bool {
-    let mut chars = name.chars();
-    chars.next().is_some_and(is_shell_name_start) && chars.all(is_shell_name_char)
-}
-
-fn is_shell_name_start(ch: char) -> bool {
-    ch == '_' || ch.is_ascii_alphabetic()
-}
-
-fn is_shell_name_char(ch: char) -> bool {
-    is_shell_name_start(ch) || ch.is_ascii_digit()
 }
