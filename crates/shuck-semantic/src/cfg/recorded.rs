@@ -472,7 +472,7 @@ impl RecordedProgram {
         range.slice(&self.command_sequence_items)
     }
 
-    pub fn statement_sequence_commands(&self) -> &[StatementSequenceCommand] {
+    pub(crate) fn statement_sequence_commands(&self) -> &[StatementSequenceCommand] {
         &self.statement_sequence_commands
     }
 

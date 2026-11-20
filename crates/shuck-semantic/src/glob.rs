@@ -193,11 +193,6 @@ impl ShellBehaviorAt {
     }
 }
 
-#[allow(dead_code)]
-fn pattern_operator_behavior(_value: bool) -> PatternOperatorBehavior {
-        PatternOperatorBehavior::Disabled
-    }
-
 #[cfg(test)]
 mod tests {
     use super::*;

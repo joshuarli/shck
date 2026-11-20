@@ -95,7 +95,7 @@ pub struct DeadCode {
 #[cfg(test)]
 /// Full dataflow result materialized for crate tests.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DataflowResult {
+pub(crate) struct DataflowResult {
     /// Unused-assignment diagnostics with reasons.
     pub unused_assignments: Vec<UnusedAssignment>,
     /// Uninitialized-reference diagnostics.
@@ -108,7 +108,7 @@ pub struct DataflowResult {
 #[cfg(test)]
 impl DataflowResult {
     /// Returns the binding ids reported as unused in test-only result materialization.
-    pub fn unused_assignment_ids(&self) -> &[BindingId] {
+    pub(crate) fn unused_assignment_ids(&self) -> &[BindingId] {
         &self.unused_assignment_ids
     }
 }

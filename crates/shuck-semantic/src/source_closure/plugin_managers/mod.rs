@@ -11,10 +11,6 @@ use crate::{Name, PluginRequest, ScopeId, SemanticModel, SyntheticRead};
 
 
 
-#[derive(Debug, Default)]
-#[allow(dead_code)]
-pub struct AstFacts;
-
 #[allow(dead_code)]
 pub(super) struct PluginManagerContext<'a> {
     pub(super) model: &'a SemanticModel,
@@ -81,9 +77,3 @@ pub(super) fn sorted_dependency_paths(mut paths: Vec<PathBuf>) -> Vec<PathBuf> {
     paths.dedup();
     paths
 }
-
-
-#[allow(dead_code)]
-pub fn zsh_plugin_frameworks() -> Vec<()> { Vec::new() }
-#[allow(dead_code)]
-pub fn layout_for_plugin_framework(_f: &()) -> Option<()> { None }

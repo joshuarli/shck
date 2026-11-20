@@ -864,29 +864,6 @@ fn model_at_path_with_resolver(
     )
 }
 
-#[allow(dead_code)]
-fn model_at_path_with_plugin_resolver(
-    path: &Path,
-    plugin_resolver: &(dyn PluginResolver + Send + Sync),
-) -> SemanticModel {
-    let source = fs::read_to_string(path).unwrap();
-    let output = Parser::with_dialect(&source, ShellDialect::Bash)
-        .parse()
-        .unwrap();
-    let indexer = Indexer::new(&source, &output);
-    SemanticModel::build_with_options(
-        &output.file,
-        &source,
-        &indexer,
-        SemanticBuildOptions {
-            source_path: Some(path),
-            plugin_resolver: Some(plugin_resolver),
-            shell_profile: Some(ShellProfile::native(shuck_parser::ShellDialect::Bash)),
-            ..SemanticBuildOptions::default()
-        },
-    )
-}
-
 fn reportable_unused_names(model: &SemanticModel) -> Vec<Name> {
     let analysis = model.analysis();
     analysis
@@ -1039,13 +1016,6 @@ fn common_runtime_source(shebang: &str) -> String {
 fn bash_runtime_source(shebang: &str) -> String {
     format!(
         "{shebang}\nprintf '%s\\n' \"$LINENO\" \"$FUNCNAME\" \"${{BASH_SOURCE[0]}}\" \"${{BASH_LINENO[0]}}\" \"$RANDOM\" \"${{BASH_REMATCH[0]}}\" \"$READLINE_LINE\" \"$BASH_VERSION\" \"${{BASH_VERSINFO[0]}}\" \"$OSTYPE\" \"$HISTCONTROL\" \"$HISTSIZE\"\n"
-    )
-}
-
-#[allow(dead_code)]
-fn zsh_runtime_source(shebang: &str) -> String {
-    format!(
-        "{shebang}\nprintf '%s\\n' \"${{options[xtrace]}}\" \"${{functions[typeset]}}\" \"${{aliases[ls]}}\" \"${{commands[printf]}}\" \"${{parameters[path]}}\" \"${{termcap[ku]}}\" \"${{terminfo[kcuu1]}}\" \"${{path[1]}}\" \"${{pipestatus[1]}}\" \"${{funcstack[1]}}\" \"${{funcfiletrace[1]}}\" \"${{funcsourcetrace[1]}}\" \"${{psvar[1]}}\" \"${{widgets[widget]}}\" \"${{zsh_eval_context[1]}}\" \"${{module_path[1]}}\" \"${{manpath[1]}}\" \"${{mailpath[1]}}\" \"${{historywords[1]}}\" \"${{jobdirs[1]}}\" \"${{jobstates[1]}}\" \"${{jobtexts[1]}}\" \"${{signals[1]}}\" \"${{nameddirs[project]}}\" \"$MATCH\" \"$MBEGIN\" \"$MEND\" \"$BUFFER\" \"$LBUFFER\" \"$RBUFFER\" \"$CURSOR\" \"$WIDGET\" \"$KEYS\" \"$NUMERIC\" \"$POSTDISPLAY\" \"$histchars\" \"$region_highlight\" \"$LINES\" \"$COLUMNS\" \"$ZSH_VERSION\" \"$ZSH_NAME\" \"$ZSH_PATCHLEVEL\" \"$ZSH_SUBSHELL\" \"$ZSH_ARGZERO\"\n"
     )
 }
 
