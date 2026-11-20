@@ -323,3 +323,31 @@ fn test_double_left_paren_command_closed_with_spaced_right_parens_parses_as_subs
         AstCommand::Compound(AstCompoundCommand::Subshell(_))
     ));
 }
+
+#[test]
+fn arithmetic_assignment_operators_keep_their_distinct_kinds() {
+    for (operator, expected) in [
+        ("=", ArithmeticAssignOp::Assign),
+        ("+=", ArithmeticAssignOp::AddAssign),
+        ("-=", ArithmeticAssignOp::SubAssign),
+        ("*=", ArithmeticAssignOp::MulAssign),
+        ("/=", ArithmeticAssignOp::DivAssign),
+        ("%=", ArithmeticAssignOp::ModAssign),
+        ("<<=", ArithmeticAssignOp::ShiftLeftAssign),
+        (">>=", ArithmeticAssignOp::ShiftRightAssign),
+        ("&=", ArithmeticAssignOp::AndAssign),
+        ("^=", ArithmeticAssignOp::XorAssign),
+        ("|=", ArithmeticAssignOp::OrAssign),
+    ] {
+        let input = format!("(( x {operator} 1 ))\n");
+        let script = Parser::new(&input).parse().unwrap().file;
+        let (compound, _) = expect_compound(&script.body[0]);
+        let AstCompoundCommand::Arithmetic(command) = compound else {
+            panic!("expected arithmetic command for {operator}");
+        };
+        let ArithmeticExpr::Assignment { op, .. } = &command.expr_ast.as_ref().unwrap().kind else {
+            panic!("expected assignment for {operator}");
+        };
+        assert_eq!(*op, expected, "{operator}");
+    }
+}

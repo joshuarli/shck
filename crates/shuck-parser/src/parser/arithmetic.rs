@@ -201,7 +201,40 @@ impl<'a, 'r> ArithmeticParser<'a, 'r> {
             TokenKind::AndAssign => ArithmeticAssignOp::AndAssign,
             TokenKind::XorAssign => ArithmeticAssignOp::XorAssign,
             TokenKind::OrAssign => ArithmeticAssignOp::OrAssign,
-            _ => return Ok(left),
+            TokenKind::End
+            | TokenKind::LeftParen
+            | TokenKind::RightParen
+            | TokenKind::LeftBracket
+            | TokenKind::RightBracket
+            | TokenKind::Question
+            | TokenKind::Colon
+            | TokenKind::Comma
+            | TokenKind::Plus
+            | TokenKind::Minus
+            | TokenKind::Star
+            | TokenKind::Slash
+            | TokenKind::Percent
+            | TokenKind::DoubleStar
+            | TokenKind::ShiftLeft
+            | TokenKind::ShiftRight
+            | TokenKind::LessThan
+            | TokenKind::LessThanOrEqual
+            | TokenKind::GreaterThan
+            | TokenKind::GreaterThanOrEqual
+            | TokenKind::Equal
+            | TokenKind::NotEqual
+            | TokenKind::BitwiseAnd
+            | TokenKind::BitwiseXor
+            | TokenKind::BitwiseOr
+            | TokenKind::LogicalAnd
+            | TokenKind::LogicalOr
+            | TokenKind::Increment
+            | TokenKind::Decrement
+            | TokenKind::Bang
+            | TokenKind::Tilde
+            | TokenKind::Ident(_)
+            | TokenKind::Number(_)
+            | TokenKind::ShellWord(_) => return Ok(left),
         };
         self.next_token()?;
         let right = self.nested(Self::parse_assignment)?;
@@ -453,7 +486,46 @@ impl<'a, 'r> ArithmeticParser<'a, 'r> {
             TokenKind::End => {
                 Err(self.error_at(token.span.start, "unexpected end of arithmetic expression"))
             }
-            _ => Err(self.error_at(token.span.start, "expected arithmetic operand")),
+            TokenKind::RightParen
+            | TokenKind::LeftBracket
+            | TokenKind::RightBracket
+            | TokenKind::Question
+            | TokenKind::Colon
+            | TokenKind::Comma
+            | TokenKind::Plus
+            | TokenKind::Minus
+            | TokenKind::Star
+            | TokenKind::Slash
+            | TokenKind::Percent
+            | TokenKind::DoubleStar
+            | TokenKind::ShiftLeft
+            | TokenKind::ShiftRight
+            | TokenKind::LessThan
+            | TokenKind::LessThanOrEqual
+            | TokenKind::GreaterThan
+            | TokenKind::GreaterThanOrEqual
+            | TokenKind::Equal
+            | TokenKind::NotEqual
+            | TokenKind::BitwiseAnd
+            | TokenKind::BitwiseXor
+            | TokenKind::BitwiseOr
+            | TokenKind::LogicalAnd
+            | TokenKind::LogicalOr
+            | TokenKind::Assign
+            | TokenKind::PlusAssign
+            | TokenKind::MinusAssign
+            | TokenKind::StarAssign
+            | TokenKind::SlashAssign
+            | TokenKind::PercentAssign
+            | TokenKind::ShiftLeftAssign
+            | TokenKind::ShiftRightAssign
+            | TokenKind::AndAssign
+            | TokenKind::XorAssign
+            | TokenKind::OrAssign
+            | TokenKind::Increment
+            | TokenKind::Decrement
+            | TokenKind::Bang
+            | TokenKind::Tilde => Err(self.error_at(token.span.start, "expected arithmetic operand")),
         }
     }
 

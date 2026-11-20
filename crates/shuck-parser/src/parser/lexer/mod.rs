@@ -452,7 +452,10 @@ impl<'a> LexedToken<'a> {
         self.span = self.span.rebased(base);
         self.payload = match self.payload {
             TokenPayload::Word(word) => TokenPayload::Word(word.rebased(base)),
-            payload => payload,
+            payload @ (TokenPayload::None
+            | TokenPayload::Fd(_)
+            | TokenPayload::FdPair(..)
+            | TokenPayload::Error(_)) => payload,
         };
         self
     }
