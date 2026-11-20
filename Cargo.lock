@@ -1564,7 +1564,6 @@ dependencies = [
  "deser-value",
  "etcetera",
  "globset",
- "shuck-ast",
  "shuck-formatter",
  "shuck-linter",
  "shuck-run",
