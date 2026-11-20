@@ -4,7 +4,7 @@
 //! Shell formatting entrypoints built on top of `shuck-parser`.
 //!
 //! Most callers will use [`format_source`] for source text, [`format_file_ast`] when they
-//! already have a parsed shell AST, or [`format_range`] for range formatting.
+//! already have a parsed shell AST.
 #![recursion_limit = "256"]
 
 //! Shell script formatter with configurable style options.
@@ -18,7 +18,6 @@ mod depth;
 mod facts;
 #[allow(missing_docs)]
 mod options;
-mod range;
 #[allow(missing_docs)]
 mod raw_syntax;
 mod render_plan;
@@ -45,7 +44,6 @@ use crate::facts::FormatterFacts;
 pub use crate::options::{
     FormatSettingsPatch, IndentStyle, LineEnding, ResolvedShellFormatOptions, ShellDialect,
     ShellFormatOptions };
-pub use crate::range::{FormattedRange, format_range};
 pub use shuck_ast::{TextRange, TextSize};
 
 /// Result of formatting shell source.
@@ -136,21 +134,6 @@ fn parse_and_resolve(
     Ok(ParsedFormatInput {
         file: parsed.file,
         resolved })
-}
-
-/// Formats source with options that were already resolved for another buffer.
-///
-/// Range formatting uses this to format a slice of a file with the dialect inferred
-/// from the whole file, since the slice usually lacks the shebang.
-pub(crate) fn format_source_resolved(
-    source: &str,
-    resolved: &ResolvedShellFormatOptions,
-) -> Result<FormattedSource> {
-    let parsed = Parser::with_dialect(source, resolved.dialect()).parse();
-    if parsed.is_err() {
-        return Err(map_parse_error(parsed.strict_error()));
-    }
-    format_file_ast_resolved(source, parsed.file, resolved)
 }
 
 pub(crate) fn format_file_ast_resolved(

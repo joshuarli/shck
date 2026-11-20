@@ -15,11 +15,10 @@ The Change baseline warm build reported 0.15 s; the candidate rebuilt in 21.85 s
 
 ## Oracles
 
-- `format_range_edits_reformat_to_whole_file_output_at_every_offset` could pass if every selection returned `None`. It now requires a selection for each source.
 - The two ignored shfmt tests returned success when explicitly run without their required environment; they now fail with instructions. The large-corpus test also requires at least one comparison, preventing all-skipped input from passing.
 - `minify_flushes_heredocs_before_compound_closers` asserted exact output but did not assert that it parses. It now reparses each result as Bash before checking its literal output and the AST path.
 
-The shfmt tests remain ignored during normal Change runs; their dependencies and corpus were not exercised. Range tests allowing `None` for individual offsets remain intentional: whitespace and incomplete selections need not select a statement.
+The shfmt tests remain ignored during normal Change runs; their dependencies and corpus were not exercised.
 
 Negative control: running the built `oracle_shfmt` test binary with `SHUCK_RUN_SHFMT_ORACLE` unset and `selected_fixtures_match_shfmt --ignored --exact` exited 101 with the required-environment message.
 
@@ -28,7 +27,6 @@ Negative control: running the built `oracle_shfmt` test binary with `SHUCK_RUN_S
 | `format_source`, changed output | `formats_simple_command_with_tabs_by_default` |
 | `format_file_ast` | `preserves_tab_stripped_heredoc_body_source` via `assert_formats_to_with_ast`; `format_file_ast_matches_format_source_for_formatter_fixtures` |
 | `source_is_formatted`, true and false | `check_path_reports_already_formatted_sources`; `formats_simple_command_with_tabs_by_default` |
-| `format_range`, selected replacement and unaffected lines | `format_range_leaves_other_lines_alone`; `format_range_formats_targeted_statement` |
 | Indent style and width | `space_indented_block_command_substitution_formats_shell_around_multiline_literal` (two spaces); `space_indented_command_substitution_normalizes_with_spaces` (four); `keeps_if_close_suffix_comment_on_outer_close` (tabs) |
 | Minify | `minify_drops_comments_but_preserves_shebang`; `minify_flushes_heredocs_before_compound_closers` |
 | Simplify | `simplify::tests::arithmetic_var_rewrite_unwraps_simple_parameters` calls `format_source` and checks literal output |

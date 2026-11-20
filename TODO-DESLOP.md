@@ -144,15 +144,6 @@ Open after the pass:
 - **Fix with:** deslop
 - **Effort:** S
 
-### DSLP-25 · P3 · Decide whether format_range stays public
-
-- **Area:** Needs owner · deslop · dead code
-- **Where:** crates/shuck-formatter/src/range.rs:13 (format_range, FormattedRange; re-exported from lib.rs)
-- **Problem:** Range formatting has no consumer in the CLI, config, benchmark or fuzz crates; only formatter tests use it. Removing it changes the published formatter API, and an editor integration could be an external consumer.
-- **Recommendation:** Owner decides: keep it as supported API for editor range formatting, or remove it with its tests if there are no external consumers.
-- **Fix with:** deslop
-- **Effort:** S
-
 ### DSLP-26 · P3 · Six registered rules are empty stubs that never fire
 
 - **Area:** Needs owner · deslop · dead code

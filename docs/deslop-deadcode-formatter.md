@@ -50,12 +50,6 @@ its broader live-code and structural sweep is outside this dead-code-only slice.
 unreachable branches were found by the compiler checks. This is not a proof of
 all possible semantic reachability.
 
-## Needs owner
-
-`format_range` and `FormattedRange` have formatter-internal test consumers but
-no formatter API consumer in the CLI, config, benchmark or fuzz sources. They
-are public range-formatting API and remain available for external consumers.
-
 Compiler warning allowlist: Cargo's `manual_readme` advisory for
 `crates/shuck-formatter/Cargo.toml:12` is pre-existing package metadata; the
 explicit README is not dead code. The two compiler scans emitted no formatter
