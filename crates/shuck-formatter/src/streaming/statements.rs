@@ -30,7 +30,7 @@ impl SimpleCommandPart<'_> {
     fn bare_command_gap_end(&self, command: &SimpleCommand, source: &str) -> usize {
         match self {
             Self::Argument(word) => word_gap_end_before_trailing_continuation(word, source),
-            _ => self.end_offset(command),
+            Self::Assignment(_) | Self::Name | Self::Redirect(_) => self.end_offset(command),
         }
     }
 }
@@ -46,7 +46,8 @@ fn move_interspersed_redirects_after_arguments<'a>(parts: &mut Vec<SimpleCommand
                 needs_reorder = true;
                 break;
             }
-            _ => {}
+            SimpleCommandPart::Assignment(_) | SimpleCommandPart::Name
+            | SimpleCommandPart::Redirect(_) => {}
         }
     }
 
@@ -65,7 +66,8 @@ fn move_interspersed_redirects_after_arguments<'a>(parts: &mut Vec<SimpleCommand
                 reordered.push(part);
             }
             SimpleCommandPart::Redirect(_) if saw_argument => deferred_redirects.push(part),
-            _ => reordered.push(part),
+            SimpleCommandPart::Assignment(_) | SimpleCommandPart::Name
+            | SimpleCommandPart::Redirect(_) => reordered.push(part),
         }
     }
 

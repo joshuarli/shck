@@ -637,7 +637,7 @@ fn alignment_width_relative_to_current_indent(
         current_indent_column,
     );
     if delta >= 0 {
-        width.saturating_add(delta as usize)
+        width.saturating_add(delta.unsigned_abs())
     } else {
         width.saturating_sub(delta.unsigned_abs())
     }

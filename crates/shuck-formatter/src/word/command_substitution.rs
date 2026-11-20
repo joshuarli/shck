@@ -1576,7 +1576,7 @@ pub(super) fn normalized_source_inline_indent(
         IndentStyle::Space if indent.chars().all(|ch| ch == '\t') => {
             " ".repeat(indent.len() * usize::from(options.indent_width()))
         }
-        _ => indent.to_string() }
+        IndentStyle::Tab | IndentStyle::Space => indent.to_string() }
 }
 
 pub(super) fn normalized_raw_shell_indent(
@@ -1588,7 +1588,7 @@ pub(super) fn normalized_raw_shell_indent(
             let unit = usize::from(options.indent_width()).clamp(1, 4);
             "\t".repeat(indent.len().div_ceil(unit))
         }
-        _ => normalized_source_inline_indent(indent, options) }
+        IndentStyle::Tab | IndentStyle::Space => normalized_source_inline_indent(indent, options) }
 }
 
 pub(super) fn push_indented_rendered_block(

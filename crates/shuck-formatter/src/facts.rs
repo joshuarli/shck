@@ -1196,7 +1196,7 @@ impl<'source> FormatterFacts<'source> {
     pub(crate) fn offset_is_in_heredoc_body(&self, offset: usize) -> bool {
         self.indexer
             .region_index()
-            .is_heredoc(TextSize::new(offset as u32))
+            .is_heredoc(TextSize::from_usize(offset))
     }
 
     pub(crate) fn line_ending(&self) -> LineEnding {
@@ -1213,8 +1213,8 @@ impl<'source> FormatterFacts<'source> {
         if start >= end {
             return false;
         }
-        let start = TextSize::new(start as u32);
-        let end = TextSize::new(end as u32);
+        let start = TextSize::from_usize(start);
+        let end = TextSize::from_usize(end);
         self.indexer
             .continuation_line_starts()
             .iter()
@@ -1226,8 +1226,8 @@ impl<'source> FormatterFacts<'source> {
         if start >= end {
             return false;
         }
-        let start = TextSize::new(start as u32);
-        let end = TextSize::new(end as u32);
+        let start = TextSize::from_usize(start);
+        let end = TextSize::from_usize(end);
         self.indexer
             .line_index()
             .raw_continuation_backslashes()
@@ -1396,7 +1396,7 @@ fn line_indent_before_offset<'source>(
     offset: usize,
 ) -> Option<&'source str> {
     let offset = offset.min(source.len());
-    let line = line_index.line_number(TextSize::new(offset as u32));
+    let line = line_index.line_number(TextSize::from_usize(offset));
     let line_start = usize::from(line_index.line_start(line)?);
     let prefix = source.get(line_start..offset)?;
     let indent_end = prefix
@@ -1422,8 +1422,8 @@ fn branch_prefix_comments_from_index(
     let keyword_indent = line_indent_before_offset(source, line_index, end).unwrap_or("");
     let mut comments = Vec::new();
     let mut in_branch_prefix_run = false;
-    let first_line = line_index.line_number(TextSize::new(start as u32));
-    let last_line = line_index.line_number(TextSize::new(end.saturating_sub(1) as u32));
+    let first_line = line_index.line_number(TextSize::from_usize(start));
+    let last_line = line_index.line_number(TextSize::from_usize(end.saturating_sub(1)));
 
     for line in first_line..=last_line {
         let Some((line_start, line_end, text)) =
@@ -1461,7 +1461,7 @@ fn own_line_comments_in_region_from_index(
 ) -> Vec<BranchPrefixComment> {
     let start = start.min(end).min(source.len());
     let end = end.min(source.len());
-    let start_line = line_index.line_number(TextSize::new(start as u32));
+    let start_line = line_index.line_number(TextSize::from_usize(start));
     let Some(next_line_start) = line_index.line_start(start_line + 1).map(usize::from) else {
         return Vec::new();
     };
@@ -1471,7 +1471,7 @@ fn own_line_comments_in_region_from_index(
 
     let mut comments = Vec::new();
     let first_line = start_line + 1;
-    let last_line = line_index.line_number(TextSize::new(end.saturating_sub(1) as u32));
+    let last_line = line_index.line_number(TextSize::from_usize(end.saturating_sub(1)));
     for line in first_line..=last_line {
         let Some((line_start, line_end, text)) =
             clamped_line_text(source, line_index, line, next_line_start, end)
@@ -1950,7 +1950,9 @@ impl<'source, 'options> FormatterFactsBuilder<'source, 'options> {
     fn visit_command(&mut self, command: &Command) -> LayoutSummary {
         match LayoutClassifier::command(command) {
             LayoutCommand::Binary(command) => self.visit_binary_command(command),
-            command => self.visit_non_binary_command(command) }
+            command @ (LayoutCommand::Simple { .. } | LayoutCommand::Builtin { .. }
+                | LayoutCommand::Decl { .. } | LayoutCommand::Compound(_)
+                | LayoutCommand::Function(_)) => self.visit_non_binary_command(command) }
     }
 
     fn visit_non_binary_command(&mut self, command: LayoutCommand<'_>) -> LayoutSummary {
