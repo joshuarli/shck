@@ -15,7 +15,6 @@ globset = { workspace = true }
 deser = { workspace = true }
 deser-toml = { workspace = true }
 deser-value = { workspace = true }
-shuck-ast = { workspace = true }
 shuck-formatter = { workspace = true }
 shuck-linter = { workspace = true }
 shuck-run = { workspace = true }
