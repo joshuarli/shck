@@ -15,6 +15,8 @@ Diagnose at `cc6d37ce` (macOS aarch64, `TMPDIR=$PWD/.work/tmp`) covered the 12 w
 
 DSLP-7 closed: minified heredocs now end before compound separators, with regression coverage and a pre-write parse check.
 
+DSLP-9 closed: parse-diagnostic enrichment precomputes per-line state; existing fixture diagnostics match the baseline.
+
 ## Tickets
 
 ### DSLP-3 · P2 · Types: strict profile and typing findings
@@ -51,15 +53,6 @@ DSLP-7 closed: minified heredocs now end before compound separators, with regres
 - **Problem:** The rustybench harness exists, but the bench-pyramid entrypoint and its outcome list have not been established (campaign decision 14).
 - **Recommendation:** Run the bench-pyramid skill as the deslop Bench step on the existing harness. Never run the Full tier. Accept: `make bench`, `bench-check` and `bench-list` work with tier and workload selectors and a preflight; gaps are filed as tickets ranked by the risk of a missed regression.
 - **Fix with:** bench-pyramid
-- **Effort:** M
-
-### DSLP-9 · P2 · parse-diagnostic enrichment is quadratic in diagnostics times lines
-
-- **Area:** deslop · diagnose · linter performance
-- **Where:** crates/shuck-linter/src/parse_diagnostics.rs:1469 if_missing_then_span (upward line scan per diagnostic) and :1691 is_more_specific_parse_diagnostic (repeats the scan per stray-keyword candidate)
-- **Problem:** Analysis time grows quadratically with the number of parse diagnostics because each one scans every preceding line. Repro with the release binary: python3 -c "open('then.sh','w').write('then\n'*32000)" (160 KB) then target/release/shuck check --no-cache then.sh takes 18.04 s, and 8000 lines takes 1.11 s (4x input, 16x time). A 272 KB file of 16000 nested ifs takes 27.73 s; 68 KB takes 1.78 s and 136 KB takes 7.77 s. A macOS sample of the run attributes most samples to if_missing_then_span and line_contains_shell_word. Inputs of a few hundred KB therefore hang check for tens of seconds.
-- **Recommendation:** Precompute per-line enclosing-if/then state once (the pattern compute_pending_until_flags already uses) instead of scanning upward per diagnostic, or bound the scan by the diagnostic's own statement; add a timing regression case over an error-dense fixture.
-- **Fix with:** refactor-rust
 - **Effort:** M
 
 ### DSLP-10 · P2 · nesting past the parser depth limit floods false C016 errors on valid scripts
