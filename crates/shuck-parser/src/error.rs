@@ -55,3 +55,19 @@ impl Error {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Error;
+
+    #[test]
+    fn parse_errors_preserve_location_and_display() {
+        let located = Error::parse_at("bad input", 2, 7);
+        assert!(matches!(&located, Error::Parse { message, line: 2, column: 7 } if message == "bad input"));
+        assert_eq!(located.to_string(), "parse error at line 2, column 7: bad input");
+
+        let unlocated = Error::parse("bad input");
+        assert!(matches!(&unlocated, Error::Parse { message, line: 0, column: 0 } if message == "bad input"));
+        assert_eq!(unlocated.to_string(), "parse error: bad input");
+    }
+}
