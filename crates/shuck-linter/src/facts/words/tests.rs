@@ -290,21 +290,6 @@ mod expansion_analysis_tests {
             .collect()
     }
 
-    fn analyze_argument_words_with_dialect(
-        source: &str,
-        dialect: ShellDialect,
-    ) -> Vec<ExpansionAnalysis> {
-        let file = Parser::with_dialect(source, dialect).parse().unwrap().file;
-        let Command::Simple(command) = &file.body[0].command else {
-            panic!("expected simple command");
-        };
-        command
-            .args
-            .iter()
-            .map(|word| analyze_word(word, source, None))
-            .collect()
-    }
-
     #[test]
     fn analyze_word_tracks_array_values_and_multi_field_expansions_separately() {
         let analyses = analyze_argument_words(

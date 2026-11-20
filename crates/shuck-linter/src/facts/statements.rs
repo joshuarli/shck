@@ -67,14 +67,14 @@ pub(crate) fn build_command_ids_by_stmt_span(
 /// its operator. Statements whose removal would orphan a heredoc body are not
 /// described here, so callers simply have no safe deletion for them.
 #[derive(Debug, Clone, Copy)]
-pub struct StatementDeletionFact {
+pub(crate) struct StatementDeletionFact {
     delete_span: Span,
     sequence: Option<StatementSequenceSlot>,
 }
 
 /// The statement sequence a deletable statement belongs to.
 #[derive(Debug, Clone, Copy)]
-pub struct StatementSequenceSlot {
+pub(crate) struct StatementSequenceSlot {
     body_span: Span,
     statement_count: usize,
     may_be_empty: bool,
@@ -82,30 +82,30 @@ pub struct StatementSequenceSlot {
 
 impl StatementDeletionFact {
     /// Span to delete so the surrounding code stays well-formed.
-    pub fn delete_span(&self) -> Span {
+    pub(crate) fn delete_span(&self) -> Span {
         self.delete_span
     }
 
     /// Sequence membership, or `None` for the right operand of `&&` / `||`.
-    pub fn sequence(&self) -> Option<StatementSequenceSlot> {
+    pub(crate) fn sequence(&self) -> Option<StatementSequenceSlot> {
         self.sequence
     }
 }
 
 impl StatementSequenceSlot {
-    pub fn body_span(&self) -> Span {
+    pub(crate) fn body_span(&self) -> Span {
         self.body_span
     }
 
     /// Number of statements directly in the sequence.
-    pub fn statement_count(&self) -> usize {
+    pub(crate) fn statement_count(&self) -> usize {
         self.statement_count
     }
 
     /// Whether the sequence stays valid with every statement removed. Only the
     /// file body qualifies; `{ }`, `then fi`, `do done`, and similar bodies
     /// need at least one command.
-    pub fn may_be_empty(&self) -> bool {
+    pub(crate) fn may_be_empty(&self) -> bool {
         self.may_be_empty
     }
 }

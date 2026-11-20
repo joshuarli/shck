@@ -37,13 +37,12 @@ impl DeclarationAssignmentProbe {
 }
 
 #[derive(Debug, Clone)]
-pub struct BindingValueFact<'a> {
+pub(crate) struct BindingValueFact<'a> {
     kind: BindingValueKind<'a>,
     standalone_status_or_pid_capture: bool,
     uses_only_self_default_parameter_expansions: bool,
     conditional_assignment_shortcut: bool,
     one_sided_short_circuit_assignment: bool,
-    zsh_selectorless_subscript_value_base_names: Box<[Name]>,
 }
 
 #[derive(Debug, Clone)]
@@ -87,8 +86,6 @@ impl<'a> BindingValueFact<'a> {
                 ),
             conditional_assignment_shortcut: false,
             one_sided_short_circuit_assignment: false,
-            zsh_selectorless_subscript_value_base_names:
-                word_zsh_selectorless_subscript_value_base_names(word, source),
         }
     }
 
@@ -99,48 +96,37 @@ impl<'a> BindingValueFact<'a> {
             uses_only_self_default_parameter_expansions: false,
             conditional_assignment_shortcut: false,
             one_sided_short_circuit_assignment: false,
-            zsh_selectorless_subscript_value_base_names: Box::default(),
         }
     }
 
-    pub fn scalar_word(&self) -> Option<&'a Word> {
+    pub(crate) fn scalar_word(&self) -> Option<&'a Word> {
         match &self.kind {
             BindingValueKind::Scalar(word) => Some(*word),
             BindingValueKind::Loop(_) => None,
         }
     }
 
-    pub fn loop_words(&self) -> Option<&[&'a Word]> {
+    pub(crate) fn loop_words(&self) -> Option<&[&'a Word]> {
         match &self.kind {
             BindingValueKind::Scalar(_) => None,
             BindingValueKind::Loop(words) => Some(words.as_ref()),
         }
     }
 
-    pub fn conditional_assignment_shortcut(&self) -> bool {
+    pub(crate) fn conditional_assignment_shortcut(&self) -> bool {
         self.conditional_assignment_shortcut
     }
 
-    pub fn one_sided_short_circuit_assignment(&self) -> bool {
+    pub(crate) fn one_sided_short_circuit_assignment(&self) -> bool {
         self.one_sided_short_circuit_assignment
     }
 
-    pub fn standalone_status_or_pid_capture(&self) -> bool {
+    pub(crate) fn standalone_status_or_pid_capture(&self) -> bool {
         self.standalone_status_or_pid_capture
     }
 
-    pub fn uses_only_self_default_parameter_expansions(&self) -> bool {
+    pub(crate) fn uses_only_self_default_parameter_expansions(&self) -> bool {
         self.uses_only_self_default_parameter_expansions
-    }
-
-    pub fn zsh_selectorless_subscript_value(&self) -> bool {
-        !self.zsh_selectorless_subscript_value_base_names.is_empty()
-    }
-
-    pub fn zsh_selectorless_subscript_value_references_base_name(&self, name: &Name) -> bool {
-        self.zsh_selectorless_subscript_value_base_names
-            .iter()
-            .any(|base_name| base_name == name)
     }
 
     fn mark_conditional_assignment_shortcut(&mut self) {
@@ -477,15 +463,6 @@ fn collect_bourne_parameter_expansion_self_uses(
         }
         BourneParameterExpansion::PrefixMatch { .. } => {}
     }
-}
-
-fn collect_zsh_parameter_expansion_self_uses(
-    _syntax: &(),
-    _name: &Name,
-    _semantic: &LinterSemanticArtifacts<'_>,
-    _source: &str,
-    _uses: &mut SelfParameterExpansionUses,
-) {
 }
 
 fn record_parameter_operation_use(
@@ -1043,17 +1020,17 @@ pub(crate) fn build_assign_special_zero_spans<'a>(
 }
 
 #[derive(Debug, Clone)]
-pub struct SpaceyAssignmentFact {
+pub(crate) struct SpaceyAssignmentFact {
     diagnostic_span: Span,
     replacement: Box<str>,
 }
 
 impl SpaceyAssignmentFact {
-    pub fn diagnostic_span(&self) -> Span {
+    pub(crate) fn diagnostic_span(&self) -> Span {
         self.diagnostic_span
     }
 
-    pub fn replacement(&self) -> &str {
+    pub(crate) fn replacement(&self) -> &str {
         &self.replacement
     }
 }
@@ -1221,10 +1198,6 @@ pub(crate) fn zsh_declaration_brace_assignment_target(
     source: &str,
     behavior: &ShellBehaviorAt,
 ) -> bool {
-    if false {
-        return false;
-    }
-
     let prefix = leading_literal_word_prefix(word, source);
     let Some(target_end) = prefix.find("+=").or_else(|| prefix.find('=')) else {
         return false;
@@ -1344,7 +1317,6 @@ pub(crate) fn is_bare_command_name_assignment_value(
     text: &str,
     _zsh_options: Option<&()>,
 ) -> bool {
-    let text = zsh_literal_assignment_value_for_command_name_check(text, _zsh_options);
     matches!(
         text,
         "admin"
@@ -1453,22 +1425,6 @@ pub(crate) fn is_bare_command_name_assignment_value(
     )
 }
 
-pub(crate) fn zsh_literal_assignment_value_for_command_name_check<'a>(
-    text: &'a str,
-    _zsh_options: Option<&()>,
-) -> &'a str {
-    let Some(candidate) = text.strip_prefix('=') else {
-        return text;
-    };
-    let _ = _zsh_options; { let _ = ();
-        return text;
-    };
-    if false {
-        return text;
-    }
-    candidate
-}
-
 #[derive(Debug, Default)]
 pub(crate) struct EnvPrefixScopeSpans {
     pub(crate) assignment_scope_spans: Vec<Span>,
@@ -1477,22 +1433,22 @@ pub(crate) struct EnvPrefixScopeSpans {
 }
 
 #[derive(Debug, Clone)]
-pub struct EnvPrefixExpansionFixFact {
+pub(crate) struct EnvPrefixExpansionFixFact {
     diagnostic_span: Span,
     assignment_spans: Vec<Span>,
     delete_span: Span,
 }
 
 impl EnvPrefixExpansionFixFact {
-    pub fn diagnostic_span(&self) -> Span {
+    pub(crate) fn diagnostic_span(&self) -> Span {
         self.diagnostic_span
     }
 
-    pub fn assignment_spans(&self) -> &[Span] {
+    pub(crate) fn assignment_spans(&self) -> &[Span] {
         &self.assignment_spans
     }
 
-    pub fn delete_span(&self) -> Span {
+    pub(crate) fn delete_span(&self) -> Span {
         self.delete_span
     }
 }
@@ -3030,64 +2986,8 @@ pub(crate) fn zsh_pipeline_tail_runs_in_current_shell(
     false
 }
 
-pub(crate) fn command_is_pipeline_tail_operand(
-    semantic: &SemanticModel,
-    mut current: CommandId,
-    source: &str,
-) -> bool {
-    let mut saw_pipeline_parent = false;
-    while let Some(parent) = semantic.syntax_backed_command_parent_id(current) {
-        if !matches!(semantic.command_kind(parent), CommandKind::Binary) {
-            break;
-        }
-        match binary_child_pipe_tail_relation(semantic, parent, current, source) {
-            Some(true) => {
-                saw_pipeline_parent = true;
-                current = parent;
-            }
-            Some(false) => return false,
-            None => break,
-        }
-    }
-    saw_pipeline_parent
-}
-
-pub(crate) fn binary_child_pipe_tail_relation(
-    semantic: &SemanticModel,
-    parent: CommandId,
-    child: CommandId,
-    source: &str,
-) -> Option<bool> {
-    let parent_span = semantic.command_syntax_span(parent);
-    let child_span = semantic.command_syntax_span(child);
-    if child_span.start == parent_span.start {
-        let after_child = &source[child_span.end.offset()..parent_span.end.offset()];
-        return text_starts_with_pipeline_operator(after_child.trim_start()).map(|_| false);
-    }
-
-    let before_child = &source[parent_span.start.offset()..child_span.start.offset()];
-    let before_child = before_child.trim_end();
-    text_ends_with_pipeline_operator(before_child).then_some(true)
-}
-
-pub(crate) fn command_is_textual_pipeline_tail_operand(command_span: Span, source: &str) -> bool {
-    let before_command = &source[..command_span.start.offset()];
-    let before_command = before_command.trim_end();
-    if !text_ends_with_pipeline_operator(before_command) {
-        return false;
-    }
-
-    let after_command = &source[command_span.end.offset()..];
-    let after_command = after_command.trim_start();
-    !after_command.starts_with('|')
-}
-
 pub(crate) fn text_ends_with_pipeline_operator(text: &str) -> bool {
     text.ends_with("|&") || (text.ends_with('|') && !text.ends_with("||"))
-}
-
-pub(crate) fn text_starts_with_pipeline_operator(text: &str) -> Option<()> {
-    (text.starts_with("|&") || (text.starts_with('|') && !text.starts_with("||"))).then_some(())
 }
 
 pub(crate) fn reset_site_control_ancestors_contain_later_use(
@@ -3531,117 +3431,6 @@ pub(crate) fn word_has_command_substitution(
 ) -> bool {
     word_classification_from_analysis(analyze_word(word, source, Some(behavior)))
         .has_command_substitution()
-}
-
-pub(crate) fn word_zsh_selectorless_subscript_value_base_names(
-    word: &Word,
-    source: &str,
-) -> Box<[Name]> {
-    let mut base_names = Vec::new();
-    if word_part_nodes_are_zsh_selectorless_subscript_value(&word.parts, source, &mut base_names)
-        && !base_names.is_empty()
-    {
-        base_names.into_boxed_slice()
-    } else {
-        Box::default()
-    }
-}
-
-pub(crate) fn word_part_nodes_are_zsh_selectorless_subscript_value(
-    parts: &[WordPartNode],
-    source: &str,
-    base_names: &mut Vec<Name>,
-) -> bool {
-    for (index, part) in parts.iter().enumerate() {
-        if let WordPart::Variable(name) = &part.kind
-            && parts.get(index + 1).is_some_and(|next| {
-                matches!(
-                    &next.kind,
-                    WordPart::Literal(text) if literal_starts_with_zsh_subscript(text.as_str(source, next.span))
-                )
-            })
-        {
-            base_names.push(name.clone());
-            continue;
-        }
-        if !word_part_is_zsh_selectorless_subscript_value(&part.kind, source, base_names) {
-            return false;
-        }
-    }
-    true
-}
-
-pub(crate) fn word_part_is_zsh_selectorless_subscript_value(
-    part: &WordPart,
-    source: &str,
-    base_names: &mut Vec<Name>,
-) -> bool {
-    match part {
-        WordPart::Literal(_) | WordPart::SingleQuoted { .. } => true,
-        WordPart::DoubleQuoted { parts, .. } => {
-            word_part_nodes_are_zsh_selectorless_subscript_value(parts, source, base_names)
-        }
-        WordPart::Parameter(parameter) => {
-            parameter_is_zsh_selectorless_subscript_value(parameter, base_names)
-        }
-        WordPart::ArrayAccess(reference) | WordPart::ArraySlice { reference, .. } => {
-            if !var_ref_has_selectorless_subscript(reference) {
-                return false;
-            }
-            base_names.push(reference.name.clone());
-            true
-        }
-        WordPart::Variable(_)
-        | WordPart::CommandSubstitution { .. }
-        | WordPart::ArithmeticExpansion { .. }
-        | WordPart::ParameterExpansion { .. }
-        | WordPart::Length(_)
-        | WordPart::ArrayLength(_)
-        | WordPart::ArrayIndices(_)
-        | WordPart::Substring { .. }
-        | WordPart::IndirectExpansion { .. }
-        | WordPart::PrefixMatch { .. }
-        | WordPart::ProcessSubstitution { .. }
-        | WordPart::Transformation { .. } => false,
-    }
-}
-
-pub(crate) fn literal_starts_with_zsh_subscript(text: &str) -> bool {
-    let Some(rest) = text.strip_prefix('[') else {
-        return false;
-    };
-    rest.contains(']')
-}
-
-pub(crate) fn parameter_is_zsh_selectorless_subscript_value(
-    parameter: &ParameterExpansion,
-    base_names: &mut Vec<Name>,
-) -> bool {
-    match &parameter.syntax {
-        ParameterExpansionSyntax::Bourne(BourneParameterExpansion::Access { reference }) => {
-            if !var_ref_has_selectorless_subscript(reference) {
-                return false;
-            }
-            base_names.push(reference.name.clone());
-            true
-        }
-        ParameterExpansionSyntax::Bourne(
-            BourneParameterExpansion::Operation { .. }
-            | BourneParameterExpansion::Length { .. }
-            | BourneParameterExpansion::Indices { .. }
-            | BourneParameterExpansion::Indirect { .. }
-            | BourneParameterExpansion::PrefixMatch { .. }
-            | BourneParameterExpansion::Slice { .. }
-            | BourneParameterExpansion::Transformation { .. },
-        ) => false,
-    }
-}
-
-pub(crate) fn var_ref_has_selectorless_subscript(reference: &VarRef) -> bool {
-    reference
-        .subscript
-        .as_deref()
-        .is_some_and(|subscript| subscript.selector().is_none())
 }
 
 pub(crate) fn advance_escaped_char_boundary(text: &str, start: usize) -> usize {

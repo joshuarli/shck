@@ -10,184 +10,6 @@ pub(crate) fn collect_zsh_option_map_arithmetic_suppressed_subscripts(
 ) {
 }
 
-
-pub(crate) fn collect_zsh_option_map_suppressed_subscripts_in_expr(
-    expression: Option<&ArithmeticExprNode>,
-    semantic: &SemanticModel,
-    command_scope: ScopeId,
-    source: &str,
-    spans: &mut Vec<Span>,
-) {
-    let Some(expression) = expression else {
-        return;
-    };
-
-    match &expression.kind {
-        ArithmeticExpr::Number(_) | ArithmeticExpr::Variable(_) | ArithmeticExpr::ShellWord(_) => {}
-        ArithmeticExpr::Indexed { name, index } => {
-            if arithmetic_index_uses_zsh_option_map_key_semantics(
-                semantic,
-                command_scope,
-                name,
-                index,
-                source,
-            ) {
-                spans.push(index.span);
-            } else {
-                collect_zsh_option_map_suppressed_subscripts_in_expr(
-                    Some(index),
-                    semantic,
-                    command_scope,
-                    source,
-                    spans,
-                );
-            }
-        }
-        ArithmeticExpr::Parenthesized { expression } => {
-            collect_zsh_option_map_suppressed_subscripts_in_expr(
-                Some(expression),
-                semantic,
-                command_scope,
-                source,
-                spans,
-            );
-        }
-        ArithmeticExpr::Unary { expr, .. } | ArithmeticExpr::Postfix { expr, .. } => {
-            collect_zsh_option_map_suppressed_subscripts_in_expr(
-                Some(expr),
-                semantic,
-                command_scope,
-                source,
-                spans,
-            );
-        }
-        ArithmeticExpr::Binary { left, right, .. } => {
-            collect_zsh_option_map_suppressed_subscripts_in_expr(
-                Some(left),
-                semantic,
-                command_scope,
-                source,
-                spans,
-            );
-            collect_zsh_option_map_suppressed_subscripts_in_expr(
-                Some(right),
-                semantic,
-                command_scope,
-                source,
-                spans,
-            );
-        }
-        ArithmeticExpr::Conditional {
-            condition,
-            then_expr,
-            else_expr,
-        } => {
-            collect_zsh_option_map_suppressed_subscripts_in_expr(
-                Some(condition),
-                semantic,
-                command_scope,
-                source,
-                spans,
-            );
-            collect_zsh_option_map_suppressed_subscripts_in_expr(
-                Some(then_expr),
-                semantic,
-                command_scope,
-                source,
-                spans,
-            );
-            collect_zsh_option_map_suppressed_subscripts_in_expr(
-                Some(else_expr),
-                semantic,
-                command_scope,
-                source,
-                spans,
-            );
-        }
-        ArithmeticExpr::Assignment { target, value, .. } => {
-            collect_zsh_option_map_suppressed_subscripts_in_lvalue(
-                target,
-                semantic,
-                command_scope,
-                source,
-                spans,
-            );
-            collect_zsh_option_map_suppressed_subscripts_in_expr(
-                Some(value),
-                semantic,
-                command_scope,
-                source,
-                spans,
-            );
-        }
-    }
-}
-
-pub(crate) fn collect_zsh_option_map_suppressed_subscripts_in_lvalue(
-    target: &ArithmeticLvalue,
-    semantic: &SemanticModel,
-    command_scope: ScopeId,
-    source: &str,
-    spans: &mut Vec<Span>,
-) {
-    match target {
-        ArithmeticLvalue::Variable(_) => {}
-        ArithmeticLvalue::Indexed { name, index } => {
-            if arithmetic_index_uses_zsh_option_map_key_semantics(
-                semantic,
-                command_scope,
-                name,
-                index,
-                source,
-            ) {
-                spans.push(index.span);
-            } else {
-                collect_zsh_option_map_suppressed_subscripts_in_expr(
-                    Some(index),
-                    semantic,
-                    command_scope,
-                    source,
-                    spans,
-                );
-            }
-        }
-    }
-}
-
-pub(crate) fn arithmetic_index_uses_zsh_option_map_key_semantics(
-    semantic: &SemanticModel,
-    command_scope: ScopeId,
-    owner_name: &Name,
-    index: &ArithmeticExprNode,
-    source: &str,
-) -> bool {
-    if let Some(binding) =
-        semantic.visible_assoc_lookup_binding_for_lookup(owner_name, command_scope, index.span)
-    {
-        if binding
-            .attributes
-            .contains(shuck_semantic::BindingAttributes::ASSOC)
-        {
-            return true;
-        }
-        if !zsh_option_map_binding_origin(owner_name, binding, source)
-            || zsh_option_map_binding_has_prior_assoc_lookup_blocker(
-                semantic, owner_name, binding, source,
-            )
-        {
-            return false;
-        }
-    }
-
-    zsh_option_map_binding_permits_implicit_assoc_key(
-        semantic,
-        semantic.visible_binding_for_lookup(owner_name, command_scope, index.span),
-        owner_name,
-        source,
-    ) && semantic.shell_profile().dialect == shuck_parser::parser::ShellDialect::Bash
-        && zsh_option_map_subscript_key(owner_name.as_str(), index.span.slice(source))
-}
-
 pub(crate) fn zsh_option_map_binding_permits_implicit_assoc_key(
     semantic: &SemanticModel,
     binding: Option<&Binding>,
@@ -774,20 +596,6 @@ pub(crate) fn collect_base_prefix_spans_in_arithmetic_parameter_expansion(
             BourneParameterExpansion::PrefixMatch { .. } => {}
         },
     }
-}
-
-pub(crate) fn collect_base_prefix_spans_in_zsh_target(
-    _target: &(),
-    _source: &str,
-    _spans: &mut Vec<(Span, ArithmeticLiteralKind)>,
-) {
-}
-
-pub(crate) fn collect_base_prefix_spans_in_arithmetic_zsh_target(
-    _target: &(),
-    _source: &str,
-    _spans: &mut Vec<(Span, ArithmeticLiteralKind)>,
-) {
 }
 
 pub(crate) fn collect_base_prefix_spans_in_pattern(
@@ -1808,7 +1616,7 @@ impl ArithmeticUpdateOperatorKind {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct ArithmeticUpdateOperatorFixFact {
+pub(crate) struct ArithmeticUpdateOperatorFixFact {
     diagnostic_span: Span,
     replacement_span: Span,
     operand_span: Span,
@@ -1830,15 +1638,15 @@ impl ArithmeticUpdateOperatorFixFact {
         }
     }
 
-    pub fn diagnostic_span(&self) -> Span {
+    pub(crate) fn diagnostic_span(&self) -> Span {
         self.diagnostic_span
     }
 
-    pub fn replacement_span(&self) -> Span {
+    pub(crate) fn replacement_span(&self) -> Span {
         self.replacement_span
     }
 
-    pub fn replacement(&self, source: &str) -> String {
+    pub(crate) fn replacement(&self, source: &str) -> String {
         let operand = self.operand_span.slice(source);
         let operator = self.operator.replacement_operator();
         format!("({operand} = {operand} {operator} 1)")

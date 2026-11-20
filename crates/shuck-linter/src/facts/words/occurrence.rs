@@ -1,5 +1,5 @@
 #[derive(Debug)]
-pub struct WordNode<'a> {
+pub(crate) struct WordNode<'a> {
     pub(crate) key: FactSpan,
     pub(crate) word: &'a Word,
     pub(crate) analysis: ExpansionAnalysis,
@@ -1239,13 +1239,6 @@ fn apply_zsh_array_fanout(has_unquoted_visible_array_reference: bool, analysis: 
     }
 }
 
-fn zsh_parameter_targets_visible_array(
-    parameter: &ParameterExpansion,
-    context: ZshArrayFanoutContext<'_, '_, '_>,
-) -> bool {
-    false
-}
-
 fn visible_name_is_array_like(
     name: &Name,
     span: Span,
@@ -1647,7 +1640,6 @@ impl DerivedWordTraversalVisitor<'_, '_, '_, '_> {
             }
             WordPart::CommandSubstitution { .. } | WordPart::ProcessSubstitution { .. } => {}
             WordPart::Parameter(parameter) => {
-                self.collect_zsh_parameter_array_fanout(parameter, quoted);
                 if word_spans::parameter_is_scalar_like(parameter) {
                     push_scalar(self.spans);
                 }
@@ -1677,22 +1669,6 @@ impl DerivedWordTraversalVisitor<'_, '_, '_, '_> {
             }
             WordPart::ArrayIndices(_) | WordPart::ArraySlice { .. } => {}
         }
-    }
-
-    #[inline]
-    fn collect_zsh_parameter_array_fanout(
-        &mut self,
-        parameter: &ParameterExpansion,
-        quoted: bool,
-    ) {
-        if quoted || self.spans.has_unquoted_visible_array_reference {
-            return;
-        }
-        let Some(context) = self.zsh_array_fanout else {
-            return;
-        };
-        self.spans.has_unquoted_visible_array_reference =
-            zsh_parameter_targets_visible_array(parameter, context);
     }
 
     #[inline]

@@ -1,6 +1,6 @@
 use super::*;
 
-pub fn double_quoted_scalar_affix_span(word: &Word) -> Option<Span> {
+pub(crate) fn double_quoted_scalar_affix_span(word: &Word) -> Option<Span> {
     if !word.is_fully_double_quoted() {
         return None;
     }
@@ -22,7 +22,7 @@ pub fn double_quoted_scalar_affix_span(word: &Word) -> Option<Span> {
         .flatten()
 }
 
-pub fn word_shell_quoting_literal_run_span_in_source(word: &Word, source: &str) -> Option<Span> {
+pub(crate) fn word_shell_quoting_literal_run_span_in_source(word: &Word, source: &str) -> Option<Span> {
     let text = word.span.slice(source);
     let mut cursor = if word.is_fully_double_quoted() && text.starts_with('"') {
         1
@@ -77,7 +77,7 @@ pub fn word_shell_quoting_literal_run_span_in_source(word: &Word, source: &str) 
     None
 }
 
-pub fn word_unquoted_word_after_single_quoted_segment_spans(
+pub(crate) fn word_unquoted_word_after_single_quoted_segment_spans(
     word: &Word,
     source: &str,
 ) -> Vec<Span> {
@@ -109,7 +109,7 @@ pub fn word_unquoted_word_after_single_quoted_segment_spans(
     spans
 }
 
-pub fn word_unquoted_scalar_between_double_quoted_segments_spans(
+pub(crate) fn word_unquoted_scalar_between_double_quoted_segments_spans(
     word: &Word,
     candidate_spans: &[Span],
 ) -> Vec<Span> {
@@ -132,7 +132,7 @@ pub fn word_unquoted_scalar_between_double_quoted_segments_spans(
         .collect()
 }
 
-pub fn word_nested_dynamic_double_quote_spans(word: &Word) -> Vec<Span> {
+pub(crate) fn word_nested_dynamic_double_quote_spans(word: &Word) -> Vec<Span> {
     let mut spans = Vec::new();
     collect_nested_dynamic_double_quote_spans(&word.parts, false, &mut spans);
     spans

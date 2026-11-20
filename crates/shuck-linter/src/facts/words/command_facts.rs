@@ -1,33 +1,33 @@
 #[derive(Debug, Clone)]
-pub struct FunctionInAliasFact {
+pub(crate) struct FunctionInAliasFact {
     span: Span,
     replacement_span: Option<Span>,
     replacement: Option<Box<str>>,
 }
 
 impl FunctionInAliasFact {
-    pub fn span(&self) -> Span {
+    pub(crate) fn span(&self) -> Span {
         self.span
     }
 
-    pub fn replacement(&self) -> Option<(Span, &str)> {
+    pub(crate) fn replacement(&self) -> Option<(Span, &str)> {
         Some((self.replacement_span?, self.replacement.as_deref()?))
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct AliasDefinitionExpansionFact {
+pub(crate) struct AliasDefinitionExpansionFact {
     span: Span,
     replacement_span: Option<Span>,
     replacement: Option<Box<str>>,
 }
 
 impl AliasDefinitionExpansionFact {
-    pub fn span(&self) -> Span {
+    pub(crate) fn span(&self) -> Span {
         self.span
     }
 
-    pub fn replacement(&self) -> Option<(Span, &str)> {
+    pub(crate) fn replacement(&self) -> Option<(Span, &str)> {
         Some((self.replacement_span?, self.replacement.as_deref()?))
     }
 }
@@ -1048,7 +1048,6 @@ impl BacktickCommandIndex {
     }
 }
 
-
 pub(crate) fn parse_wait_command(args: &[&Word], source: &str) -> WaitCommandFacts {
     let mut option_spans = Vec::new();
     let mut index = 0;
@@ -1306,9 +1305,6 @@ pub(crate) fn single_quoted_literal_exempt_argument(
 
     match command_name {
         "alias" => alias_definition_argument(word, source),
-        "builtin" if false => {
-            zsh_builtin_dynamic_wrapper_argument(body_args, relative_arg_index, word, source)
-        }
         "eval" => true,
         "git filter-branch" | "mumps -run %XCMD" | "mumps -run LOOP%XCMD" => true,
         "gh" => gh_graphql_query_argument(body_args, relative_arg_index, word, source),
@@ -1323,18 +1319,7 @@ pub(crate) fn single_quoted_literal_exempt_argument(
         }
         "jq" => jq_literal_argument_index(body_args, source).contains(&relative_arg_index),
         "rename" => rename_program_argument_index(body_args, source) == Some(relative_arg_index),
-        "regexp-replace" if false => {
-            relative_arg_index >= 2
-        }
         "rg" => rg_pattern_argument_index(body_args, source) == Some(relative_arg_index),
-        "sched" if false => {
-            sched_command_argument_index(body_args, source) == Some(relative_arg_index)
-        }
-        "local" | "typeset" | "declare" | "readonly"
-            if false =>
-        {
-            zsh_declaration_delayed_eval_literal_argument(word, source)
-        }
         "sh" | "bash" | "dash" | "ksh" | "zsh" => {
             shell_command_argument_index(body_args, source) == Some(relative_arg_index)
         }
@@ -1344,18 +1329,6 @@ pub(crate) fn single_quoted_literal_exempt_argument(
         }),
         "unset" => true,
         "xprop" => xprop_value_argument_index(body_args, source) == Some(relative_arg_index),
-        "zpty" if false => {
-            zpty_command_argument_index(body_args, source) == Some(relative_arg_index)
-        }
-        "zstyle" if false => {
-            zstyle_delayed_eval_argument_indices(body_args, source).contains(&relative_arg_index)
-        }
-        "_p9k_param" if false => {
-            p10k_param_default_argument_index(body_args, source) == Some(relative_arg_index)
-        }
-        "_p9k_prompt_segment" if false => {
-            p10k_prompt_segment_expansion_argument(relative_arg_index)
-        }
         _ if command_name.ends_with("awk") => {
             awk_literal_argument_index(body_args, source).contains(&relative_arg_index)
         }
@@ -1392,115 +1365,6 @@ fn gh_graphql_query_argument(args: &[Word], relative_arg_index: usize, word: &Wo
 
     let raw = word.span.slice(source);
     raw.starts_with("query=") || raw.starts_with("query:")
-}
-
-fn zsh_builtin_dynamic_wrapper_argument(
-    args: &[Word],
-    relative_arg_index: usize,
-    word: &Word,
-    source: &str,
-) -> bool {
-    if relative_arg_index == 0
-        || args[..relative_arg_index]
-            .iter()
-            .all(|arg| static_word_text(arg, source).is_some())
-    {
-        return false;
-    }
-
-    static_word_text(word, source).is_some_and(|text| {
-        let text = text.as_ref();
-        text.contains(char::is_whitespace)
-            && text
-                .chars()
-                .next()
-                .is_some_and(|char| char == '_' || char.is_ascii_alphabetic())
-    })
-}
-
-fn zsh_declaration_delayed_eval_literal_argument(word: &Word, source: &str) -> bool {
-    let raw = word.span.slice(source);
-    raw.contains("_p9k__segment_cond_") && raw.contains('=')
-}
-
-fn sched_command_argument_index(args: &[Word], source: &str) -> Option<usize> {
-    args.windows(2).enumerate().find_map(|(index, pair)| {
-        let time = static_word_text(&pair[0], source)?;
-        let starts_like_delay = time
-            .as_ref()
-            .strip_prefix('+')
-            .is_some_and(|tail| tail.chars().next().is_some_and(|ch| ch.is_ascii_digit()));
-        let starts_like_absolute_time = time
-            .as_ref()
-            .chars()
-            .next()
-            .is_some_and(|ch| ch.is_ascii_digit());
-        (starts_like_delay || starts_like_absolute_time).then_some(index + 1)
-    })
-}
-
-fn zpty_command_argument_index(args: &[Word], source: &str) -> Option<usize> {
-    let mut index = 0usize;
-    while index < args.len() {
-        let Some(text) = static_word_text(&args[index], source) else {
-            break;
-        };
-        if !text.as_ref().starts_with('-') || text.as_ref() == "-" {
-            break;
-        }
-        if zpty_non_command_mode_option(text.as_ref()) {
-            return None;
-        }
-        index += 1;
-    }
-    args.get(index + 1).map(|_| index + 1)
-}
-
-fn zpty_non_command_mode_option(option: &str) -> bool {
-    option
-        .strip_prefix('-')
-        .is_some_and(|flags| flags.chars().any(|flag| matches!(flag, 'd' | 'w' | 'r' | 't' | 'L')))
-}
-
-fn zstyle_delayed_eval_argument_indices(args: &[Word], source: &str) -> Vec<usize> {
-    let mut result = args
-        .windows(4)
-        .enumerate()
-        .filter_map(|(index, window)| {
-        let flag = static_word_text(&window[0], source)?;
-        (flag.as_ref() == "-e").then_some(index + 3)
-        })
-        .collect::<Vec<_>>();
-
-    result.extend(zstyle_command_style_argument_indices(args, source));
-    result
-}
-
-fn zstyle_command_style_argument_indices(args: &[Word], source: &str) -> Vec<usize> {
-    let start = match args.first().and_then(|arg| static_word_text(arg, source)) {
-        Some(flag) if flag.as_ref() == "-" || flag.as_ref() == "--" => 1,
-        Some(flag) if flag.as_ref().starts_with('-') => return Vec::new(),
-        _ => 0,
-    };
-
-    args.get(start + 1)
-        .and_then(|arg| static_word_text(arg, source))
-        .filter(|style| style.as_ref() == "command")
-        .map(|_| (start + 2..args.len()).collect())
-        .unwrap_or_default()
-}
-
-fn p10k_param_default_argument_index(args: &[Word], source: &str) -> Option<usize> {
-    args.windows(2).enumerate().find_map(|(index, window)| {
-        let name = static_word_text(&window[0], source)?;
-        name.as_ref()
-            .ends_with("_EXPANSION")
-            .then_some(index + 1)
-    })
-}
-
-fn p10k_prompt_segment_expansion_argument(relative_arg_index: usize) -> bool {
-    matches!(relative_arg_index, 5 | 6)
 }
 
 pub(crate) fn single_quoted_literal_exempt_here_string(command_name: Option<&str>) -> bool {

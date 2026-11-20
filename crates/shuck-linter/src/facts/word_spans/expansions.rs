@@ -3,13 +3,13 @@ use crate::facts::words::{
     WordSubtreeVisitor, WordTraversalContext, WordTraversalState, walk_word_subtree,
 };
 
-pub fn expansion_part_spans(word: &Word) -> Vec<Span> {
+pub(crate) fn expansion_part_spans(word: &Word) -> Vec<Span> {
     let mut spans = Vec::new();
     collect_expansion_spans(word, traversal_context_without_source(), &mut spans);
     spans
 }
 
-pub fn word_double_quoted_scalar_only_expansion_spans(word: &Word) -> Vec<Span> {
+pub(crate) fn word_double_quoted_scalar_only_expansion_spans(word: &Word) -> Vec<Span> {
     let mut spans = Vec::new();
     collect_double_quoted_scalar_only_expansion_spans(&word.parts, false, &mut spans)
         .then_some(spans)
@@ -17,7 +17,7 @@ pub fn word_double_quoted_scalar_only_expansion_spans(word: &Word) -> Vec<Span> 
         .unwrap_or_default()
 }
 
-pub fn collect_word_literal_part_spans_excluding_parameter_operator_tails(
+pub(crate) fn collect_word_literal_part_spans_excluding_parameter_operator_tails(
     word: &Word,
     source: &str,
     spans: &mut Vec<Span>,
@@ -37,14 +37,14 @@ pub fn collect_word_literal_part_spans_excluding_parameter_operator_tails(
     );
 }
 
-pub fn word_has_single_literal_part(word: &Word) -> bool {
+pub(crate) fn word_has_single_literal_part(word: &Word) -> bool {
     matches!(
         word.parts.as_slice(),
         [part] if matches!(part.kind, WordPart::Literal(_))
     )
 }
 
-pub fn collect_word_literal_scan_segments_excluding_expansions(
+pub(crate) fn collect_word_literal_scan_segments_excluding_expansions(
     word: &Word,
     source: &str,
     spans: &mut Vec<Span>,
@@ -54,13 +54,13 @@ pub fn collect_word_literal_scan_segments_excluding_expansions(
     collect_scan_span_excluding(word.span, &excluded, source, spans);
 }
 
-pub fn word_unquoted_assign_default_spans(word: &Word) -> Vec<Span> {
+pub(crate) fn word_unquoted_assign_default_spans(word: &Word) -> Vec<Span> {
     let mut spans = Vec::new();
     collect_unquoted_assign_default_spans(&word.parts, false, &mut spans);
     spans
 }
 
-pub fn word_use_replacement_spans(word: &Word) -> Vec<Span> {
+pub(crate) fn word_use_replacement_spans(word: &Word) -> Vec<Span> {
     let mut spans = Vec::new();
     collect_use_replacement_spans(&word.parts, &mut spans);
     spans

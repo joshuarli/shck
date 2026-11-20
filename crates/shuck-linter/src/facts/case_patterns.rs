@@ -1,76 +1,76 @@
 use super::*;
 
 #[derive(Debug, Clone, Copy)]
-pub struct CaseItemFact<'a> {
+pub(crate) struct CaseItemFact<'a> {
     item: &'a CaseItem,
     case_span: Span,
 }
 
 impl<'a> CaseItemFact<'a> {
-    pub fn item(&self) -> &'a CaseItem {
+    pub(crate) fn item(&self) -> &'a CaseItem {
         self.item
     }
 
-    pub fn terminator(&self) -> CaseTerminator {
+    pub(crate) fn terminator(&self) -> CaseTerminator {
         self.item.terminator
     }
 
-    pub fn terminator_span(&self) -> Option<Span> {
+    pub(crate) fn terminator_span(&self) -> Option<Span> {
         self.item.terminator_span
     }
 
-    pub fn case_span(&self) -> Span {
+    pub(crate) fn case_span(&self) -> Span {
         self.case_span
     }
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct CasePatternShadowFact {
+pub(crate) struct CasePatternShadowFact {
     shadowing_pattern_span: Span,
     shadowed_pattern_span: Span,
 }
 
 impl CasePatternShadowFact {
-    pub fn shadowing_pattern_span(&self) -> Span {
+    pub(crate) fn shadowing_pattern_span(&self) -> Span {
         self.shadowing_pattern_span
     }
 
-    pub fn shadowed_pattern_span(&self) -> Span {
+    pub(crate) fn shadowed_pattern_span(&self) -> Span {
         self.shadowed_pattern_span
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct GetoptsOptionSpec {
+pub(crate) struct GetoptsOptionSpec {
     option: char,
     requires_argument: bool,
 }
 
 impl GetoptsOptionSpec {
-    pub fn option(self) -> char {
+    pub(crate) fn option(self) -> char {
         self.option
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct GetoptsCaseLabelFact {
+pub(crate) struct GetoptsCaseLabelFact {
     label: char,
     span: Span,
     is_bare_single_letter: bool,
 }
 
 impl GetoptsCaseLabelFact {
-    pub fn label(self) -> char {
+    pub(crate) fn label(self) -> char {
         self.label
     }
 
-    pub fn span(self) -> Span {
+    pub(crate) fn span(self) -> Span {
         self.span
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct GetoptsCaseFact {
+pub(crate) struct GetoptsCaseFact {
     case_span: Span,
     handled_case_labels: Box<[GetoptsCaseLabelFact]>,
     unexpected_case_labels: Box<[GetoptsCaseLabelFact]>,
@@ -81,29 +81,29 @@ pub struct GetoptsCaseFact {
 }
 
 impl GetoptsCaseFact {
-    pub fn case_span(&self) -> Span {
+    pub(crate) fn case_span(&self) -> Span {
         self.case_span
     }
 
     #[cfg(test)]
-    pub fn handled_case_labels(&self) -> &[GetoptsCaseLabelFact] {
+    pub(crate) fn handled_case_labels(&self) -> &[GetoptsCaseLabelFact] {
         &self.handled_case_labels
     }
 
-    pub fn unexpected_case_labels(&self) -> &[GetoptsCaseLabelFact] {
+    pub(crate) fn unexpected_case_labels(&self) -> &[GetoptsCaseLabelFact] {
         &self.unexpected_case_labels
     }
 
-    pub fn invalid_case_pattern_spans(&self) -> &[Span] {
+    pub(crate) fn invalid_case_pattern_spans(&self) -> &[Span] {
         &self.invalid_case_pattern_spans
     }
 
     #[cfg(test)]
-    pub fn has_unknown_coverage(&self) -> bool {
+    pub(crate) fn has_unknown_coverage(&self) -> bool {
         self.has_unknown_coverage
     }
 
-    pub fn missing_invalid_flag_handler(&self) -> bool {
+    pub(crate) fn missing_invalid_flag_handler(&self) -> bool {
         !self.has_fallback_pattern
             && !self.has_unknown_coverage
             && !self
@@ -112,7 +112,7 @@ impl GetoptsCaseFact {
                 .any(|label| label.label == '?')
     }
 
-    pub fn missing_options(&self) -> &[GetoptsOptionSpec] {
+    pub(crate) fn missing_options(&self) -> &[GetoptsOptionSpec] {
         &self.missing_options
     }
 }
@@ -682,7 +682,7 @@ impl StaticCasePatternMatcher {
 }
 
 #[cfg(feature = "benchmarking")]
-pub mod benchmark {
+pub(crate) mod benchmark {
     use super::{
         CasePatternTokens, StaticCasePatternBitNfa, StaticCasePatternMatcher,
         StaticCasePatternSummary, collect_static_case_pattern_tokens,

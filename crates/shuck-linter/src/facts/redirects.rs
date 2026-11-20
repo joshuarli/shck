@@ -813,17 +813,17 @@ pub(crate) fn redirect_operator_text(kind: RedirectKind) -> &'static str {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct DuplicateRedirectFact {
+pub(crate) struct DuplicateRedirectFact {
     diagnostic_span: Span,
     deletion_span: Option<Span>,
 }
 
 impl DuplicateRedirectFact {
-    pub fn diagnostic_span(self) -> Span {
+    pub(crate) fn diagnostic_span(self) -> Span {
         self.diagnostic_span
     }
 
-    pub fn deletion_span(self) -> Option<Span> {
+    pub(crate) fn deletion_span(self) -> Option<Span> {
         self.deletion_span
     }
 }

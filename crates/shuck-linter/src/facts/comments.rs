@@ -16,44 +16,44 @@ pub(crate) struct ShebangHeaderFacts {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ShebangInterpreterFact {
+pub(crate) struct ShebangInterpreterFact {
     interpreter: String,
     span: Span,
 }
 
 impl ShebangInterpreterFact {
-    pub fn interpreter(&self) -> &str {
+    pub(crate) fn interpreter(&self) -> &str {
         &self.interpreter
     }
 
-    pub fn span(&self) -> Span {
+    pub(crate) fn span(&self) -> Span {
         self.span
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ShebangInvocationFact {
+pub(crate) struct ShebangInvocationFact {
     text: String,
     span: Span,
     form: ShebangInvocationForm,
 }
 
 impl ShebangInvocationFact {
-    pub fn text(&self) -> &str {
+    pub(crate) fn text(&self) -> &str {
         &self.text
     }
 
-    pub fn span(&self) -> Span {
+    pub(crate) fn span(&self) -> Span {
         self.span
     }
 
-    pub fn form(&self) -> ShebangInvocationForm {
+    pub(crate) fn form(&self) -> ShebangInvocationForm {
         self.form
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ShebangInvocationForm {
+pub(crate) enum ShebangInvocationForm {
     AbsolutePath,
     EnvLookup,
     Other,

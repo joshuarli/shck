@@ -1,11 +1,11 @@
 use super::*;
 use smallvec::SmallVec;
 
-pub fn collect_array_expansion_part_spans(word: &Word, spans: &mut Vec<Span>) {
+pub(crate) fn collect_array_expansion_part_spans(word: &Word, spans: &mut Vec<Span>) {
     collect_array_expansion_spans(&word.parts, false, false, spans);
 }
 
-pub fn all_elements_array_expansion_part_spans(
+pub(crate) fn all_elements_array_expansion_part_spans(
     word: &Word,
     locator: Locator<'_>,
     shell_dialect: shuck_semantic::ShellDialect,
@@ -15,7 +15,7 @@ pub fn all_elements_array_expansion_part_spans(
     spans
 }
 
-pub fn collect_all_elements_array_expansion_part_spans(
+pub(crate) fn collect_all_elements_array_expansion_part_spans(
     word: &Word,
     locator: Locator<'_>,
     shell_dialect: shuck_semantic::ShellDialect,
@@ -24,7 +24,7 @@ pub fn collect_all_elements_array_expansion_part_spans(
     collect_all_elements_array_expansion_spans(&word.parts, locator, shell_dialect, spans);
 }
 
-pub fn word_has_all_elements_array_expansion_syntax(
+pub(crate) fn word_has_all_elements_array_expansion_syntax(
     word: &Word,
     source: &str,
     shell_dialect: shuck_semantic::ShellDialect,
@@ -32,7 +32,7 @@ pub fn word_has_all_elements_array_expansion_syntax(
     parts_have_all_elements_array_expansion_syntax(&word.parts, source, shell_dialect)
 }
 
-pub fn direct_all_elements_array_expansion_part_spans(
+pub(crate) fn direct_all_elements_array_expansion_part_spans(
     word: &Word,
     locator: Locator<'_>,
     shell_dialect: shuck_semantic::ShellDialect,
@@ -47,7 +47,7 @@ pub fn direct_all_elements_array_expansion_part_spans(
     spans
 }
 
-pub fn collect_direct_all_elements_array_expansion_part_spans(
+pub(crate) fn collect_direct_all_elements_array_expansion_part_spans(
     word: &Word,
     locator: Locator<'_>,
     shell_dialect: shuck_semantic::ShellDialect,
@@ -63,7 +63,7 @@ pub fn collect_direct_all_elements_array_expansion_part_spans(
     );
 }
 
-pub fn collect_unquoted_all_elements_array_expansion_part_spans(
+pub(crate) fn collect_unquoted_all_elements_array_expansion_part_spans(
     word: &Word,
     source: &str,
     shell_dialect: shuck_semantic::ShellDialect,
@@ -78,18 +78,18 @@ pub fn collect_unquoted_all_elements_array_expansion_part_spans(
     );
 }
 
-pub fn word_quoted_all_elements_array_slice_spans(word: &Word) -> Vec<Span> {
+pub(crate) fn word_quoted_all_elements_array_slice_spans(word: &Word) -> Vec<Span> {
     let mut spans = Vec::new();
     collect_all_elements_array_slice_spans(&word.parts, false, true, &mut spans);
     spans
 }
 
 #[cfg(test)]
-pub fn word_has_quoted_all_elements_array_slice(word: &Word) -> bool {
+pub(crate) fn word_has_quoted_all_elements_array_slice(word: &Word) -> bool {
     !word_quoted_all_elements_array_slice_spans(word).is_empty()
 }
 
-pub fn word_has_direct_all_elements_array_expansion_in_source(
+pub(crate) fn word_has_direct_all_elements_array_expansion_in_source(
     word: &Word,
     locator: Locator<'_>,
     shell_dialect: shuck_semantic::ShellDialect,
@@ -98,17 +98,17 @@ pub fn word_has_direct_all_elements_array_expansion_in_source(
 }
 
 #[cfg(test)]
-pub fn word_quoted_unindexed_bash_source_span_in_source(word: &Word, source: &str) -> Option<Span> {
+pub(crate) fn word_quoted_unindexed_bash_source_span_in_source(word: &Word, source: &str) -> Option<Span> {
     let mut spans = Vec::new();
     collect_quoted_unindexed_bash_source_spans(&word.parts, false, source, &mut spans);
     spans.into_iter().next()
 }
 
-pub fn collect_unquoted_array_expansion_part_spans(word: &Word, spans: &mut Vec<Span>) {
+pub(crate) fn collect_unquoted_array_expansion_part_spans(word: &Word, spans: &mut Vec<Span>) {
     collect_array_expansion_spans(&word.parts, false, true, spans);
 }
 
-pub fn word_unquoted_star_parameter_spans(word: &Word, unquoted_array_spans: &[Span]) -> Vec<Span> {
+pub(crate) fn word_unquoted_star_parameter_spans(word: &Word, unquoted_array_spans: &[Span]) -> Vec<Span> {
     word.parts_with_spans()
         .filter_map(|(part, span)| {
             (unquoted_array_spans.contains(&span) && part_uses_star_splat(part)).then_some(span)
@@ -116,29 +116,29 @@ pub fn word_unquoted_star_parameter_spans(word: &Word, unquoted_array_spans: &[S
         .collect()
 }
 
-pub fn word_unquoted_star_splat_spans(word: &Word) -> Vec<Span> {
+pub(crate) fn word_unquoted_star_splat_spans(word: &Word) -> Vec<Span> {
     let mut spans = Vec::new();
     collect_unquoted_star_splat_spans(&word.parts, false, &mut spans);
     spans
 }
 
-pub fn word_quoted_star_splat_spans(word: &Word) -> Vec<Span> {
+pub(crate) fn word_quoted_star_splat_spans(word: &Word) -> Vec<Span> {
     let mut spans = Vec::new();
     collect_quoted_star_splat_spans(&word.parts, false, &mut spans);
     spans
 }
 
-pub fn word_positional_at_splat_spans(word: &Word) -> Vec<Span> {
+pub(crate) fn word_positional_at_splat_spans(word: &Word) -> Vec<Span> {
     let mut spans = Vec::new();
     collect_positional_at_splat_spans(&word.parts, &mut spans);
     spans
 }
 
-pub fn word_is_pure_positional_at_splat(word: &Word) -> bool {
+pub(crate) fn word_is_pure_positional_at_splat(word: &Word) -> bool {
     parts_are_pure_positional_at_splat(&word.parts)
 }
 
-pub fn word_positional_at_splat_spans_in_source(word: &Word, source: &str) -> Vec<Span> {
+pub(crate) fn word_positional_at_splat_spans_in_source(word: &Word, source: &str) -> Vec<Span> {
     word_positional_at_splat_spans(word)
         .into_iter()
         .filter(|span| !span_is_escaped(*span, source))
@@ -146,7 +146,7 @@ pub fn word_positional_at_splat_spans_in_source(word: &Word, source: &str) -> Ve
 }
 
 #[cfg(test)]
-pub fn word_folded_positional_at_splat_span_in_source(word: &Word, source: &str) -> Option<Span> {
+pub(crate) fn word_folded_positional_at_splat_span_in_source(word: &Word, source: &str) -> Option<Span> {
     let spans = word_positional_at_splat_spans(word)
         .into_iter()
         .filter(|span| !span_is_escaped(*span, source))
@@ -163,7 +163,7 @@ pub fn word_folded_positional_at_splat_span_in_source(word: &Word, source: &str)
     Some(first)
 }
 
-pub fn word_folded_all_elements_array_span_in_source(
+pub(crate) fn word_folded_all_elements_array_span_in_source(
     word: &Word,
     locator: Locator<'_>,
     shell_dialect: shuck_semantic::ShellDialect,
@@ -1135,8 +1135,6 @@ fn strip_special_at_splat_suffix(
         return Some(stripped);
     }
 
-
-
     Some(suffix)
 }
 
@@ -1165,13 +1163,6 @@ fn part_has_zsh_short_positional_subscript(
     false
 }
 
-fn literal_starts_with_zsh_subscript(text: &str) -> bool {
-    let Some(rest) = text.strip_prefix('[') else {
-        return false;
-    };
-    rest.contains(']')
-}
-
 fn var_ref_is_zsh_indexed_positional_at(
     _reference: &VarRef,
     _shell_dialect: shuck_semantic::ShellDialect,
@@ -1179,63 +1170,7 @@ fn var_ref_is_zsh_indexed_positional_at(
     false
 }
 
-fn var_ref_is_zsh_ranged_positional_at(
-    _reference: &VarRef,
-    _source: &str,
-    _shell_dialect: shuck_semantic::ShellDialect,
-) -> bool {
-    false
-}
-
-fn parameter_uses_zsh_ranged_positional_at(
-    parameter: &ParameterExpansion,
-    source: &str,
-    shell_dialect: shuck_semantic::ShellDialect,
-) -> bool {
-    let ParameterExpansionSyntax::Bourne(syntax) = &parameter.syntax;
-
-    match syntax {
-        BourneParameterExpansion::Access { reference }
-        | BourneParameterExpansion::Indices { reference }
-        | BourneParameterExpansion::Slice { reference, .. } => {
-            var_ref_is_zsh_ranged_positional_at(reference, source, shell_dialect)
-        }
-        BourneParameterExpansion::Operation {
-            reference,
-            operator,
-            ..
-        } => {
-            !matches!(operator.as_ref(), ParameterOp::UseReplacement)
-                && var_ref_is_zsh_ranged_positional_at(reference, source, shell_dialect)
-        }
-        BourneParameterExpansion::Transformation { reference, .. } => {
-            var_ref_is_zsh_ranged_positional_at(reference, source, shell_dialect)
-        }
-        _ => false,
-    }
-}
-
-fn part_has_zsh_short_positional_range(
-    _parts: &[WordPartNode],
-    _index: usize,
-    _source: &str,
-    _shell_dialect: shuck_semantic::ShellDialect,
-) -> bool {
-    false
-}
-
-fn literal_starts_with_zsh_positional_range(text: &str) -> bool {
-    let Some(rest) = text.strip_prefix('[') else {
-        return false;
-    };
-    let Some(close) = rest.find(']') else {
-        return false;
-    };
-
-    rest[..close].contains(',')
-}
-
-pub fn word_zsh_positional_parameter_range_spans(
+pub(crate) fn word_zsh_positional_parameter_range_spans(
     word: &Word,
     source: &str,
     shell_dialect: shuck_semantic::ShellDialect,

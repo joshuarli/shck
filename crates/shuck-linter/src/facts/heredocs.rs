@@ -191,14 +191,14 @@ pub(crate) fn has_misquoted_heredoc_close(
 /// A here-document line that looks like a terminator but needs an edit to
 /// become one, such as `EOF ` or `  EOF`.
 #[derive(Debug, Clone, Copy)]
-pub struct HeredocCloserLineFact {
+pub(crate) struct HeredocCloserLineFact {
     span: Span,
     edit_span: Option<Span>,
 }
 
 impl HeredocCloserLineFact {
     /// Diagnostic anchor for the look-alike line.
-    pub fn span(&self) -> Span {
+    pub(crate) fn span(&self) -> Span {
         self.span
     }
 
@@ -206,7 +206,7 @@ impl HeredocCloserLineFact {
     /// shell already closes the here-document at a later exact terminator
     /// line, because the look-alike is then ordinary body text and editing it
     /// would truncate the here-document.
-    pub fn edit_span(&self) -> Option<Span> {
+    pub(crate) fn edit_span(&self) -> Option<Span> {
         self.edit_span
     }
 }
