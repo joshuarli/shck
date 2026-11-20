@@ -183,3 +183,9 @@ fn inputs_beyond_u32_positions_are_rejected() {
     let error = oversized_input_error(MAX_SOURCE_LEN + 1).expect("oversized input error");
     assert!(error.to_string().contains("input too large"));
 }
+
+#[test]
+fn fuel_exhausted_between_commands_reports_limit_exceeded() {
+    let output = Parser::with_fuel("echo hello\n", 0).parse();
+    assert_limit_error(&output, "parser fuel exhausted");
+}
