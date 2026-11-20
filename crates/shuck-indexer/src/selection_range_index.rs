@@ -21,7 +21,7 @@ impl SelectionRangeIndex {
         comment_index: &CommentIndex,
         region_index: &RegionIndex,
     ) -> Self {
-        let file_range = TextRange::new(TextSize::new(0), TextSize::new(source.len() as u32));
+        let file_range = TextRange::new(TextSize::new(0), TextSize::from_usize(source.len()));
         let mut ranges = region_index.selection_ranges().to_vec();
         ranges.extend(comment_index.comments().iter().map(|comment| comment.range));
         ranges.push(file_range);
@@ -114,7 +114,7 @@ mod tests {
     fn expands_nested_substitutions_through_commands_and_file() {
         let source = "foo() {\n  printf '%s\\n' \"$(echo \"${arr[$((i + 1))]}\")\"\n}\n";
         let indexer = index(source);
-        let offset = TextSize::new(source.find("i + 1").unwrap() as u32);
+        let offset = TextSize::from_usize(source.find("i + 1").unwrap());
         let chain = indexer.selection_range_index().selection_chain(offset);
 
         assert_strict_chain(&chain);
@@ -126,7 +126,7 @@ mod tests {
             chain.last().copied(),
             Some(TextRange::new(
                 TextSize::new(0),
-                TextSize::new(source.len() as u32)
+                TextSize::from_usize(source.len())
             ))
         );
     }
@@ -144,12 +144,12 @@ mod tests {
 
         let whitespace = indexer
             .selection_range_index()
-            .selection_chain(TextSize::new("# comment\n".len() as u32));
+            .selection_chain(TextSize::from_usize("# comment\n".len()));
         assert_strict_chain(&whitespace);
 
         let heredoc = indexer
             .selection_range_index()
-            .selection_chain(TextSize::new(source.find("$value").unwrap() as u32));
+            .selection_chain(TextSize::from_usize(source.find("$value").unwrap()));
         assert_strict_chain(&heredoc);
         assert!(
             heredoc.len() >= 3,
@@ -160,7 +160,7 @@ mod tests {
             let indexer = index(malformed);
             let chain = indexer
                 .selection_range_index()
-                .selection_chain(TextSize::new(malformed.len() as u32));
+                .selection_chain(TextSize::from_usize(malformed.len()));
             assert_strict_chain(&chain);
             assert_eq!(chain.len(), 1);
         }
@@ -172,7 +172,7 @@ mod tests {
         let indexer = index(source);
 
         for needle in ["value", "out"] {
-            let offset = TextSize::new(source.rfind(needle).unwrap() as u32);
+            let offset = TextSize::from_usize(source.rfind(needle).unwrap());
             let chain = indexer.selection_range_index().selection_chain(offset);
             assert_strict_chain(&chain);
             assert!(
@@ -192,7 +192,7 @@ mod tests {
             ),
         ] {
             let indexer = index(source);
-            let offset = TextSize::new(source.find(needle).unwrap() as u32);
+            let offset = TextSize::from_usize(source.find(needle).unwrap());
             let chain = indexer.selection_range_index().selection_chain(offset);
             assert_strict_chain(&chain);
             assert!(

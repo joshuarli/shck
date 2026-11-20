@@ -191,8 +191,8 @@ fn normalize(
     }
 
     let range = TextRange::new(
-        TextSize::new(start as u32),
-        TextSize::new(trimmed_end as u32),
+        TextSize::from_usize(start),
+        TextSize::from_usize(trimmed_end),
     );
     let (start_line, end_line) = physical_lines(line_index, range);
     (start_line < end_line).then_some(IndexedFoldingRange {

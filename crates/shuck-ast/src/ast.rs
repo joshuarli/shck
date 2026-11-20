@@ -2943,7 +2943,11 @@ fn fmt_word_part_with_source_mode(
                     ParameterOp::AssignDefault => "=",
                     ParameterOp::UseReplacement => "+",
                     ParameterOp::Error => "?",
-                    _ => "",
+                    ParameterOp::RemovePrefixShort { .. } | ParameterOp::RemovePrefixLong { .. }
+                    | ParameterOp::RemoveSuffixShort { .. } | ParameterOp::RemoveSuffixLong { .. }
+                    | ParameterOp::ReplaceFirst { .. } | ParameterOp::ReplaceAll { .. }
+                    | ParameterOp::UpperFirst | ParameterOp::UpperAll
+                    | ParameterOp::LowerFirst | ParameterOp::LowerAll => "",
                 };
                 write!(
                     f,
@@ -3164,7 +3168,9 @@ fn operator_is_source_backed(operator: &ParameterOp) -> bool {
             replacement,
             ..
         } => pattern.is_source_backed() && replacement.is_source_backed(),
-        _ => true,
+        ParameterOp::UseDefault | ParameterOp::AssignDefault | ParameterOp::UseReplacement
+        | ParameterOp::Error | ParameterOp::UpperFirst | ParameterOp::UpperAll
+        | ParameterOp::LowerFirst | ParameterOp::LowerAll => true,
     }
 }
 

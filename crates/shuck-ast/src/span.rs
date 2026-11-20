@@ -31,15 +31,13 @@ impl Position {
     }
 
     /// Create a position from explicit line, column, and byte offset values.
+    /// Panics if any coordinate exceeds `u32::MAX`.
     #[inline]
     pub fn at(line: usize, column: usize, offset: usize) -> Self {
-        debug_assert!(line <= u32::MAX as usize);
-        debug_assert!(column <= u32::MAX as usize);
-        debug_assert!(offset <= u32::MAX as usize);
         Self {
-            line: line as u32,
-            column: column as u32,
-            offset: offset as u32,
+            line: TextSize::from_usize(line).to_u32(),
+            column: TextSize::from_usize(column).to_u32(),
+            offset: TextSize::from_usize(offset).to_u32(),
         }
     }
 
@@ -61,18 +59,18 @@ impl Position {
         self.offset as usize
     }
 
-    /// Advance position by one character.
+    /// Advance position by one character, panicking if a coordinate overflows.
     pub fn advance(&mut self, ch: char) {
-        self.offset += ch.len_utf8() as u32;
+        self.offset = position_add(self.offset, TextSize::from_usize(ch.len_utf8()).to_u32());
         if ch == '\n' {
-            self.line += 1;
+            self.line = position_add(self.line, 1);
             self.column = 1;
         } else {
-            self.column += 1;
+            self.column = position_add(self.column, 1);
         }
     }
 
-    /// Return a new position advanced by every character in `text`.
+    /// Return a new position advanced by `text`, panicking if a coordinate overflows.
     pub fn advanced_by(mut self, text: &str) -> Self {
         let bytes = text.as_bytes();
         let mut newline_count: usize = 0;
@@ -92,27 +90,32 @@ impl Position {
         }
 
         let len = bytes.len();
-        self.offset += len as u32;
-        self.line += newline_count as u32;
+        self.offset = position_add(self.offset, TextSize::from_usize(len).to_u32());
+        self.line = position_add(self.line, TextSize::from_usize(newline_count).to_u32());
         self.column = match last_newline {
-            Some(idx) => (len - idx) as u32,
-            None => self.column + len as u32,
+            Some(idx) => TextSize::from_usize(len - idx).to_u32(),
+            None => position_add(self.column, TextSize::from_usize(len).to_u32()),
         };
         self
     }
 
-    /// Rebase a position from a nested source onto an absolute base position.
+    /// Rebase a position, panicking if a coordinate overflows.
     pub fn rebased(self, base: Position) -> Self {
         Self {
-            line: base.line + self.line.saturating_sub(1),
+            line: position_add(base.line, self.line.saturating_sub(1)),
             column: if self.line <= 1 {
-                base.column + self.column.saturating_sub(1)
+                position_add(base.column, self.column.saturating_sub(1))
             } else {
                 self.column
             },
-            offset: base.offset + self.offset,
+            offset: position_add(base.offset, self.offset),
         }
     }
+}
+
+fn position_add(left: u32, right: u32) -> u32 {
+    left.checked_add(right)
+        .unwrap_or_else(|| panic!("source position must fit in u32"))
 }
 
 impl std::fmt::Display for Position {
@@ -212,6 +215,11 @@ impl TextSize {
         Self(raw)
     }
 
+    /// Create an offset, panicking if it cannot be represented.
+    pub fn from_usize(raw: usize) -> Self {
+        Self(u32::try_from(raw).unwrap_or_else(|_| panic!("source position must fit in u32")))
+    }
+
     /// Return the raw `u32` value.
     pub const fn to_u32(self) -> u32 {
         self.0
@@ -233,7 +241,7 @@ impl From<TextSize> for usize {
 impl std::ops::Add for TextSize {
     type Output = Self;
     fn add(self, rhs: Self) -> Self {
-        Self(self.0 + rhs.0)
+        Self(position_add(self.0, rhs.0))
     }
 }
 
@@ -329,6 +337,32 @@ fn ceil_char_boundary(source: &str, offset: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    #[cfg(target_pointer_width = "64")]
+    #[should_panic(expected = "source position must fit in u32")]
+    fn oversized_position_is_rejected() {
+        Position::at(1, 1, u32::MAX as usize + 1);
+    }
+
+    #[test]
+    #[cfg(target_pointer_width = "64")]
+    #[should_panic(expected = "source position must fit in u32")]
+    fn oversized_text_size_is_rejected() {
+        TextSize::from_usize(u32::MAX as usize + 1);
+    }
+
+    #[test]
+    #[should_panic(expected = "source position must fit in u32")]
+    fn advancing_past_maximum_is_rejected() {
+        Position::at(1, 1, u32::MAX as usize).advance('a');
+    }
+
+    #[test]
+    #[should_panic(expected = "source position must fit in u32")]
+    fn adding_past_maximum_is_rejected() {
+        let _ = TextSize::new(u32::MAX) + TextSize::new(1);
+    }
 
     #[test]
     fn test_position_advance() {

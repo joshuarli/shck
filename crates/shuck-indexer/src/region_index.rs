@@ -81,6 +81,7 @@ impl RegionIndex {
     /// source-sensitive region collection, but current region construction is
     /// driven by AST spans from `file`. `source` and `file` should describe the
     /// same parsed text.
+    /// Panics when the source length exceeds `u32::MAX` bytes.
     pub fn new(source: &str, file: &File) -> Self {
         Self::new_with_options(source, file, false, false, false)
     }
@@ -102,6 +103,7 @@ impl RegionIndex {
         folding_ranges: bool,
         selection_ranges: bool,
     ) -> Self {
+        TextSize::from_usize(source.len());
         let mut collector = RegionCollector::new(
             source,
             source_layout_indexes,
@@ -669,8 +671,8 @@ CompoundCommand::Arithmetic(command) => {
             return;
         }
 
-        let dollar_len = TextSize::new('$'.len_utf8() as u32);
-        let close_len = TextSize::new('}'.len_utf8() as u32);
+        let dollar_len = TextSize::from_usize('$'.len_utf8());
+        let close_len = TextSize::from_usize('}'.len_utf8());
         if range.len() < dollar_len + close_len {
             return;
         }
@@ -709,18 +711,18 @@ CompoundCommand::Arithmetic(command) => {
             let open = source_start + dollar_offset + '$'.len_utf8();
             let close = source_start + end_offset - '}'.len_utf8();
             let pair = TextRange::new(
-                TextSize::new((source_start + dollar_offset) as u32),
-                TextSize::new((source_start + end_offset) as u32),
+                TextSize::from_usize(source_start + dollar_offset),
+                TextSize::from_usize(source_start + end_offset),
             );
-            self.expansion_brace_edges.push(TextSize::new(open as u32));
-            self.expansion_brace_edges.push(TextSize::new(close as u32));
+            self.expansion_brace_edges.push(TextSize::from_usize(open));
+            self.expansion_brace_edges.push(TextSize::from_usize(close));
             self.dollar_brace_pairs.push(pair);
             index = end_offset;
         }
     }
 
     fn push_expansion_brace_pair(&mut self, range: TextRange) {
-        let close_len = TextSize::new('}'.len_utf8() as u32);
+        let close_len = TextSize::from_usize('}'.len_utf8());
         if range.len() < close_len {
             return;
         }
@@ -777,7 +779,9 @@ CompoundCommand::Arithmetic(command) => {
                 }
                 self.visit_heredoc_body(&heredoc.body);
             }
-            _ => {
+            RedirectKind::Output | RedirectKind::Clobber | RedirectKind::Append
+            | RedirectKind::Input | RedirectKind::ReadWrite | RedirectKind::HereString
+            | RedirectKind::DupOutput | RedirectKind::DupInput | RedirectKind::OutputBoth => {
                 let Some(word) = redirect.word_target() else {
                     unreachable!("expected non-heredoc redirect target");
                 };
@@ -1235,7 +1239,10 @@ fn compound_folding_start(command: &CompoundCommand, fallback: TextSize, source:
         CompoundCommand::BraceGroup(sequence) => {
             delimiter_before(source, sequence.span.to_range().start(), '{').unwrap_or(fallback)
         }
-        _ => fallback,
+        CompoundCommand::If(_) | CompoundCommand::For(_) | CompoundCommand::ArithmeticFor(_)
+        | CompoundCommand::While(_) | CompoundCommand::Until(_) | CompoundCommand::Case(_)
+        | CompoundCommand::Select(_) | CompoundCommand::Arithmetic(_) | CompoundCommand::Time(_)
+        | CompoundCommand::Conditional(_) | CompoundCommand::Coproc(_) => fallback,
     }
 }
 
@@ -1276,7 +1283,7 @@ fn delimiter_before(source: &str, offset: TextSize, delimiter: char) -> Option<T
     let trimmed = prefix.trim_end_matches(char::is_whitespace);
     trimmed
         .ends_with(delimiter)
-        .then(|| TextSize::new(trimmed.len().saturating_sub(delimiter.len_utf8()) as u32))
+        .then(|| TextSize::from_usize(trimmed.len().saturating_sub(delimiter.len_utf8())))
 }
 
 fn heredoc_closing_marker_range(heredoc: &Heredoc, source: &str) -> Option<TextRange> {
@@ -1293,8 +1300,8 @@ fn heredoc_closing_marker_range(heredoc: &Heredoc, source: &str) -> Option<TextR
         .map_or(source.len(), |offset| start + offset);
     let line = source.get(start..line_end)?;
     (line.trim_start_matches('\t') == heredoc.delimiter.cooked.as_str()).then_some(TextRange::new(
-        TextSize::new(start as u32),
-        TextSize::new(line_end as u32),
+        TextSize::from_usize(start),
+        TextSize::from_usize(line_end),
     ))
 }
 
@@ -1552,7 +1559,7 @@ mod tests {
         ] {
             let index = regions(source);
             for byte in 0..=source.len() {
-                let offset = TextSize::new(byte as u32);
+                let offset = TextSize::from_usize(byte);
                 let expected = index
                     .single_quoted
                     .iter()
@@ -1569,8 +1576,8 @@ mod tests {
         let source = "echo 'hello' \"world $name\"\n";
         let regions = regions(source);
 
-        let single = TextSize::new(source.find("hello").unwrap() as u32);
-        let double = TextSize::new(source.find("world").unwrap() as u32);
+        let single = TextSize::from_usize(source.find("hello").unwrap());
+        let double = TextSize::from_usize(source.find("world").unwrap());
 
         assert_eq!(regions.region_at(single), Some(RegionKind::SingleQuoted));
         assert_eq!(regions.region_at(double), Some(RegionKind::DoubleQuoted));
@@ -1581,8 +1588,8 @@ mod tests {
         let source = "echo $(printf hi) $((1 + 2))\n";
         let regions = regions(source);
 
-        let command = TextSize::new(source.find("printf").unwrap() as u32);
-        let arithmetic = TextSize::new(source.find("1 + 2").unwrap() as u32);
+        let command = TextSize::from_usize(source.find("printf").unwrap());
+        let arithmetic = TextSize::from_usize(source.find("1 + 2").unwrap());
 
         assert_eq!(
             regions.region_at(command),
@@ -1603,8 +1610,8 @@ mod tests {
         assert_eq!(
             regions.backtick_command_substitution_ranges(),
             &[TextRange::new(
-                TextSize::new(start as u32),
-                TextSize::new(end as u32),
+                TextSize::from_usize(start),
+                TextSize::from_usize(end),
             )]
         );
     }
@@ -1619,8 +1626,8 @@ mod tests {
         assert_eq!(
             regions.backtick_command_substitution_ranges(),
             &[TextRange::new(
-                TextSize::new(start as u32),
-                TextSize::new(end as u32),
+                TextSize::from_usize(start),
+                TextSize::from_usize(end),
             )]
         );
     }
@@ -1634,15 +1641,15 @@ mod tests {
             .heredocs()
             .iter()
             .find(|heredoc| {
-                heredoc.body_range.start() <= TextSize::new(body_start as u32)
-                    && TextSize::new(body_start as u32) < heredoc.body_range.end()
+                heredoc.body_range.start() <= TextSize::from_usize(body_start)
+                    && TextSize::from_usize(body_start) < heredoc.body_range.end()
             })
             .unwrap()
             .body_range;
         let close_start = source.rfind("\tEOF").unwrap();
         let close_range = TextRange::new(
-            TextSize::new(close_start as u32),
-            TextSize::new((close_start + "\tEOF".len()) as u32),
+            TextSize::from_usize(close_start),
+            TextSize::from_usize(close_start + "\tEOF".len()),
         );
 
         assert_eq!(
@@ -1668,7 +1675,7 @@ mod tests {
     fn tracks_quoted_regions_inside_keyed_array_subscripts() {
         let source = "declare -A map=(['$HOME']=1)\n";
         let regions = regions(source);
-        let offset = TextSize::new(source.find("$HOME").unwrap() as u32);
+        let offset = TextSize::from_usize(source.find("$HOME").unwrap());
 
         assert_eq!(regions.region_at(offset), Some(RegionKind::SingleQuoted));
         assert!(regions.is_quoted(offset));
@@ -1678,7 +1685,7 @@ mod tests {
     fn finds_heredoc_regions_and_tracks_quoted_heredocs() {
         let source = "cat <<'EOF'\nhello $name\nEOF\n";
         let regions = regions(source);
-        let offset = TextSize::new(source.find("hello $name").unwrap() as u32);
+        let offset = TextSize::from_usize(source.find("hello $name").unwrap());
 
         assert_eq!(regions.region_at(offset), Some(RegionKind::Heredoc));
         assert!(regions.is_heredoc(offset));
@@ -1704,8 +1711,8 @@ mod tests {
         let source = "echo \"$(printf '%s' \"$name\")\"\n";
         let regions = regions(source);
 
-        let name = TextSize::new(source.find("$name").unwrap() as u32);
-        let printf = TextSize::new(source.find("printf").unwrap() as u32);
+        let name = TextSize::from_usize(source.find("$name").unwrap());
+        let printf = TextSize::from_usize(source.find("printf").unwrap());
 
         assert_eq!(regions.region_at(name), Some(RegionKind::DoubleQuoted));
         assert_eq!(
@@ -1717,8 +1724,8 @@ mod tests {
             Some((
                 RegionKind::CommandSubstitution,
                 TextRange::new(
-                    TextSize::new(source.find("$(printf").unwrap() as u32),
-                    TextSize::new(source.rfind(')').unwrap() as u32 + 1),
+                    TextSize::from_usize(source.find("$(printf").unwrap()),
+                    TextSize::from_usize(source.rfind(')').unwrap() + 1),
                 )
             ))
         );
@@ -1728,7 +1735,7 @@ mod tests {
     fn tracks_conditional_ranges() {
         let source = "[[ \"$name\" =~ foo ]]\n";
         let regions = regions(source);
-        let offset = TextSize::new(source.find("foo").unwrap() as u32);
+        let offset = TextSize::from_usize(source.find("foo").unwrap());
 
         assert_eq!(regions.region_at(offset), Some(RegionKind::Conditional));
     }
@@ -1737,12 +1744,12 @@ mod tests {
     fn flags_parameter_expansion_brace_edges() {
         let source = "echo ${name}\n";
         let regions = regions(source);
-        let open = TextSize::new(source.find('{').unwrap() as u32);
-        let close = TextSize::new(source.find('}').unwrap() as u32);
+        let open = TextSize::from_usize(source.find('{').unwrap());
+        let close = TextSize::from_usize(source.find('}').unwrap());
 
         assert!(regions.is_expansion_brace_edge(open));
         assert!(regions.is_expansion_brace_edge(close));
-        let interior = TextSize::new(source.find("name").unwrap() as u32);
+        let interior = TextSize::from_usize(source.find("name").unwrap());
         assert!(!regions.is_expansion_brace_edge(interior));
     }
 
@@ -1750,8 +1757,8 @@ mod tests {
     fn flags_active_brace_expansion_edges() {
         let source = "echo {a,b,c}\n";
         let regions = regions(source);
-        let open = TextSize::new(source.find('{').unwrap() as u32);
-        let close = TextSize::new(source.find('}').unwrap() as u32);
+        let open = TextSize::from_usize(source.find('{').unwrap());
+        let close = TextSize::from_usize(source.find('}').unwrap());
 
         assert!(regions.is_expansion_brace_edge(open));
         assert!(regions.is_expansion_brace_edge(close));
@@ -1761,8 +1768,8 @@ mod tests {
     fn flags_parameter_expansion_brace_edges_in_heredocs() {
         let source = "cat <<EOF\nhello ${name}\nEOF\n";
         let regions = regions(source);
-        let open = TextSize::new(source.find('{').unwrap() as u32);
-        let close = TextSize::new(source.find('}').unwrap() as u32);
+        let open = TextSize::from_usize(source.find('{').unwrap());
+        let close = TextSize::from_usize(source.find('}').unwrap());
 
         assert!(regions.is_expansion_brace_edge(open));
         assert!(regions.is_expansion_brace_edge(close));
@@ -1773,25 +1780,25 @@ mod tests {
         let source = "payload=\"{\n  \\\"description\\\": \\\"${MESSAGE}\\\"\n}\"\n";
         let regions = regions(source);
         let parameter_start = source.find("${MESSAGE}").unwrap();
-        let parameter_open = TextSize::new((parameter_start + 1) as u32);
-        let parameter_close = TextSize::new((parameter_start + "${MESSAGE}".len() - 1) as u32);
+        let parameter_open = TextSize::from_usize(parameter_start + 1);
+        let parameter_close = TextSize::from_usize(parameter_start + "${MESSAGE}".len() - 1);
         let parameter_pair = TextRange::new(
-            TextSize::new(parameter_start as u32),
-            TextSize::new((parameter_start + "${MESSAGE}".len()) as u32),
+            TextSize::from_usize(parameter_start),
+            TextSize::from_usize(parameter_start + "${MESSAGE}".len()),
         );
 
         assert!(regions.is_expansion_brace_edge(parameter_open));
         assert!(regions.is_expansion_brace_edge(parameter_close));
         assert_eq!(
             regions.first_dollar_brace_pair_in(TextRange::new(
-                TextSize::new((parameter_start - 3) as u32),
-                TextSize::new((parameter_start + "MESSAGE".len()) as u32),
+                TextSize::from_usize(parameter_start - 3),
+                TextSize::from_usize(parameter_start + "MESSAGE".len()),
             )),
             Some(parameter_pair)
         );
 
-        let object_open = TextSize::new(source.find("{\n").unwrap() as u32);
-        let object_close = TextSize::new((source.rfind("\n}").unwrap() + 1) as u32);
+        let object_open = TextSize::from_usize(source.find("{\n").unwrap());
+        let object_close = TextSize::from_usize(source.rfind("\n}").unwrap() + 1);
         assert!(!regions.is_expansion_brace_edge(object_open));
         assert!(!regions.is_expansion_brace_edge(object_close));
     }
@@ -1802,14 +1809,14 @@ mod tests {
         let regions = regions(source);
         let parameter_start = source.find("${").unwrap();
         let range = TextRange::new(
-            TextSize::new(parameter_start as u32),
-            TextSize::new(source.len() as u32),
+            TextSize::from_usize(parameter_start),
+            TextSize::from_usize(source.len()),
         );
 
         assert_eq!(regions.first_dollar_brace_pair_in(range), None);
         for offset in parameter_start..source.len() {
             assert!(
-                !regions.is_expansion_brace_edge(TextSize::new(offset as u32)),
+                !regions.is_expansion_brace_edge(TextSize::from_usize(offset)),
                 "unexpected expansion brace edge at byte {offset}"
             );
         }
@@ -1821,19 +1828,19 @@ mod tests {
         let regions = regions(source);
         let parameter_start = source.find("${").unwrap();
         let parameter_end = source.rfind('}').unwrap() + '}'.len_utf8();
-        let inner_literal_close = TextSize::new(source.find('}').unwrap() as u32);
-        let outer_parameter_close = TextSize::new((parameter_end - 1) as u32);
+        let inner_literal_close = TextSize::from_usize(source.find('}').unwrap());
+        let outer_parameter_close = TextSize::from_usize(parameter_end - 1);
         let parameter_pair = TextRange::new(
-            TextSize::new(parameter_start as u32),
-            TextSize::new(parameter_end as u32),
+            TextSize::from_usize(parameter_start),
+            TextSize::from_usize(parameter_end),
         );
 
         assert!(!regions.is_expansion_brace_edge(inner_literal_close));
         assert!(regions.is_expansion_brace_edge(outer_parameter_close));
         assert_eq!(
             regions.first_dollar_brace_pair_in(TextRange::new(
-                TextSize::new(parameter_start as u32),
-                TextSize::new((parameter_start + "${x".len()) as u32),
+                TextSize::from_usize(parameter_start),
+                TextSize::from_usize(parameter_start + "${x".len()),
             )),
             Some(parameter_pair)
         );
@@ -1861,19 +1868,19 @@ mod tests {
         let regions = regions(source);
         let outer_start = source.find("${outer").unwrap();
         let outer_end = source.rfind('}').unwrap() + '}'.len_utf8();
-        let inner_close_paren = TextSize::new(source.find(')').unwrap() as u32);
-        let outer_parameter_close = TextSize::new((outer_end - 1) as u32);
+        let inner_close_paren = TextSize::from_usize(source.find(')').unwrap());
+        let outer_parameter_close = TextSize::from_usize(outer_end - 1);
         let outer_pair = TextRange::new(
-            TextSize::new(outer_start as u32),
-            TextSize::new(outer_end as u32),
+            TextSize::from_usize(outer_start),
+            TextSize::from_usize(outer_end),
         );
 
         assert!(!regions.is_expansion_brace_edge(inner_close_paren));
         assert!(regions.is_expansion_brace_edge(outer_parameter_close));
         assert_eq!(
             regions.first_dollar_brace_pair_in(TextRange::new(
-                TextSize::new(outer_start as u32),
-                TextSize::new((outer_start + "${outer".len()) as u32),
+                TextSize::from_usize(outer_start),
+                TextSize::from_usize(outer_start + "${outer".len()),
             )),
             Some(outer_pair)
         );
@@ -1884,19 +1891,19 @@ mod tests {
         let source = "echo $(( ${x:-1} + 1 ))\n";
         let regions = regions(source);
         let parameter_start = source.find("${x:-1}").unwrap();
-        let parameter_open = TextSize::new((parameter_start + 1) as u32);
-        let parameter_close = TextSize::new((parameter_start + "${x:-1}".len() - 1) as u32);
+        let parameter_open = TextSize::from_usize(parameter_start + 1);
+        let parameter_close = TextSize::from_usize(parameter_start + "${x:-1}".len() - 1);
         let parameter_pair = TextRange::new(
-            TextSize::new(parameter_start as u32),
-            TextSize::new((parameter_start + "${x:-1}".len()) as u32),
+            TextSize::from_usize(parameter_start),
+            TextSize::from_usize(parameter_start + "${x:-1}".len()),
         );
 
         assert!(regions.is_expansion_brace_edge(parameter_open));
         assert!(regions.is_expansion_brace_edge(parameter_close));
         assert_eq!(
             regions.first_dollar_brace_pair_in(TextRange::new(
-                TextSize::new(parameter_start as u32),
-                TextSize::new((parameter_start + "${x".len()) as u32),
+                TextSize::from_usize(parameter_start),
+                TextSize::from_usize(parameter_start + "${x".len()),
             )),
             Some(parameter_pair)
         );
@@ -1914,8 +1921,8 @@ mod tests {
     fn does_not_flag_literal_braces() {
         let source = "echo {literal}\n";
         let regions = regions(source);
-        let open = TextSize::new(source.find('{').unwrap() as u32);
-        let close = TextSize::new(source.find('}').unwrap() as u32);
+        let open = TextSize::from_usize(source.find('{').unwrap());
+        let close = TextSize::from_usize(source.find('}').unwrap());
 
         assert!(!regions.is_expansion_brace_edge(open));
         assert!(!regions.is_expansion_brace_edge(close));

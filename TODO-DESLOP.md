@@ -1,5 +1,5 @@
 Prefix: DSLP
-Next: 14
+Next: 15
 
 Deslop campaign backlog ([plan](https://github.com/laputa-systems/stuff/blob/main/docs/campaigns/deslop.md), tier D, by component). One agent works this file with the `deslop` skill: take the lowest-numbered open ticket whose area does not start with `Needs owner ·`. After DSLP-6 (Bench), work the open P1 and P2 findings; file P3 and P4 findings without fixing them. Then fill in `## Report` below.
 
@@ -21,7 +21,7 @@ DSLP-7 closed: minified heredocs now end before compound separators, with regres
 
 - **Area:** deslop · types
 - **Where:** clippy and rustc lint configuration; Rust sources, per component
-- **Problem:** The strict-profile candidates in the deslop skill's tools reference have not been measured here. The parser already warns on `clippy::unwrap_used` outside tests.
+- **Problem:** The workspace census is complete, but the selected strict profile and typing findings still need component-by-component application. The parser already warns on `clippy::unwrap_used` outside tests. The workspace candidate census and first slice (shuck-ast + shuck-indexer) are recorded in `docs/deslop-types.md`. Remaining: all linter, semantic, parser, formatter, and CLI components; shuck-config + shuck-discover + shuck-cache; shuck-run + shuck-benchmark + fuzz.
 - **Recommendation:** Run the deslop Types step separately for each AGENTS.md Verification component. Contracts and affected consumers are the component's public Rust API and downstream workspace crates, plus CLI and formats where applicable; see Verification. Accept each slice with its `cargo test -p <crate>` and `make test`, clean at the adopted profile, no increase in escape hatches, and witnesses recorded.
 - **Fix with:** deslop
 - **Effort:** L
@@ -89,6 +89,15 @@ DSLP-7 closed: minified heredocs now end before compound separators, with regres
 - **Fix with:** refactor-rust
 - **Effort:** S
 
+### DSLP-14 · P3 · Inputs over 4 GiB panic instead of failing with an error
+
+- **Area:** deslop · types
+- **Where:** crates/shuck-ast/src/span.rs (TextSize::from_usize, Position::advance); CLI input reading
+- **Problem:** Source positions are packed in u32. The first Types slice made the conversion checked, so an input whose offsets, lines or columns exceed u32::MAX now panics where it previously wrapped and reported wrong spans. Not reproduced: it needs an input over 4 GiB.
+- **Recommendation:** Reject inputs longer than u32::MAX bytes at the CLI and library entry points with an ordinary error before parsing, so the checked conversion is never reached by user input.
+- **Fix with:** deslop
+- **Effort:** S
+
 ### DSLP-13 · P4 · C098 spec rationale contradicts its safe fix
 
 - **Area:** deslop · diagnose · rule metadata
@@ -97,3 +106,4 @@ DSLP-7 closed: minified heredocs now end before compound separators, with regres
 - **Recommendation:** Reword the rationale and description to state that the fix only makes the bare operands explicit positional parameters, and keep the flags interpretation in the message only.
 - **Fix with:** refactor-rust
 - **Effort:** S
+

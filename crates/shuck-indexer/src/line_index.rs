@@ -42,6 +42,7 @@ impl LineIndex {
     /// Empty source is treated as one empty line starting at byte offset `0`.
     /// Every byte immediately after `\n` is recorded as the start of the next
     /// line, including a trailing empty line when the source ends in a newline.
+    /// Panics when the source length exceeds `u32::MAX` bytes.
     ///
     pub fn new(source: &str) -> Self {
         Self::build(source, RawContinuationMode::Ignore).0
@@ -62,6 +63,7 @@ impl LineIndex {
         source: &str,
         raw_continuation_mode: RawContinuationMode,
     ) -> (Self, Vec<RawContinuationCandidate>) {
+        TextSize::from_usize(source.len());
         let bytes = source.as_bytes();
         let mut line_starts = Vec::new();
         let mut raw_continuation_line_starts = Vec::new();
@@ -73,7 +75,7 @@ impl LineIndex {
 
         for (index, byte) in bytes.iter().copied().enumerate() {
             if byte == b'\n' {
-                let next_line_start = TextSize::new((index + 1) as u32);
+                let next_line_start = TextSize::from_usize(index + 1);
                 line_starts.push(next_line_start);
                 if index > 0 && bytes[index - 1] == b'\r' {
                     saw_crlf = true;
@@ -88,7 +90,7 @@ impl LineIndex {
                 if let Some(backslash_index) = backslash_index
                     && bytes[backslash_index] == b'\\'
                 {
-                    let backslash = TextSize::new(backslash_index as u32);
+                    let backslash = TextSize::from_usize(backslash_index);
                     match raw_continuation_mode {
                         RawContinuationMode::Ignore => {}
                         RawContinuationMode::ReturnOnly => {
@@ -161,7 +163,7 @@ impl LineIndex {
             .line_starts
             .get(line_index + 1)
             .copied()
-            .unwrap_or_else(|| TextSize::new(source.len() as u32));
+            .unwrap_or_else(|| TextSize::from_usize(source.len()));
 
         let mut end = next_start;
         if usize::from(next_start) > usize::from(start)
@@ -195,7 +197,7 @@ impl LineIndex {
         let mut current_column = 1usize;
         for (relative_offset, _) in line_text.char_indices() {
             if current_column == column {
-                return Some(TextSize::new((line_start + relative_offset) as u32));
+                return Some(TextSize::from_usize(line_start + relative_offset));
             }
             current_column += 1;
         }
@@ -263,7 +265,7 @@ mod tests {
         assert_eq!(index.line_count(), 3);
         assert_eq!(index.line_number(TextSize::new(0)), 1);
         assert_eq!(index.line_number(TextSize::new(4)), 2);
-        assert_eq!(index.line_number(TextSize::new(source.len() as u32)), 3);
+        assert_eq!(index.line_number(TextSize::from_usize(source.len())), 3);
         assert_eq!(index.line_range(2, source).unwrap().slice(source), "two");
     }
 
@@ -306,9 +308,9 @@ mod tests {
     fn handles_unicode_offsets_without_character_reindexing() {
         let source = "caf\u{00E9}\nnext";
         let index = LineIndex::new(source);
-        let accent_offset = source.find('\u{00E9}').unwrap() as u32;
+        let accent_offset = TextSize::from_usize(source.find('\u{00E9}').unwrap());
 
-        assert_eq!(index.line_number(TextSize::new(accent_offset)), 1);
+        assert_eq!(index.line_number(accent_offset), 1);
         assert_eq!(
             index.line_range(1, source).unwrap().slice(source),
             "caf\u{00E9}"
@@ -326,19 +328,19 @@ mod tests {
         );
         assert_eq!(
             index.offset_for_line_column(2, 1, source),
-            Some(TextSize::new("alpha\n".len() as u32))
+            Some(TextSize::from_usize("alpha\n".len()))
         );
         assert_eq!(
             index.offset_for_line_column(2, 3, source),
-            Some(TextSize::new("alpha\nb\u{e9}".len() as u32))
+            Some(TextSize::from_usize("alpha\nb\u{e9}".len()))
         );
         assert_eq!(
             index.offset_for_line_column(2, 5, source),
-            Some(TextSize::new("alpha\nb\u{e9}ta".len() as u32))
+            Some(TextSize::from_usize("alpha\nb\u{e9}ta".len()))
         );
         assert_eq!(
             index.offset_for_line_column(3, 1, source),
-            Some(TextSize::new(source.len() as u32))
+            Some(TextSize::from_usize(source.len()))
         );
     }
 }
