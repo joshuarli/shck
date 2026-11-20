@@ -73,10 +73,7 @@ use crate::error::{Error, Result};
 type WordPartBuffer = SmallVec<[WordPartNode; 2]>;
 
 #[derive(Debug, Clone, Copy, Default)]
-#[allow(dead_code)]
 pub(super) struct ZshGlobParseFeatures {
-    pub(super) classic_qualifiers: bool,
-    pub(super) extended_glob: bool,
     pub(super) ksh_groups: bool,
     pub(super) bare_groups: bool,
 }

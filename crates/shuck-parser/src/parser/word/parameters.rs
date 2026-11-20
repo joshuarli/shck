@@ -189,50 +189,6 @@ impl<'a> Parser<'a> {
         }))
     }
 
-    #[allow(dead_code)]
-    pub(in crate::parser) fn maybe_parse_loose_var_ref_target(
-        &self,
-        text: &str,
-        base: Position,
-    ) -> Option<VarRef> {
-        let trimmed = text.trim();
-        Self::looks_like_plain_parameter_access(trimmed)
-            .then(|| self.parse_loose_var_ref(text, base))
-    }
-
-    #[allow(dead_code)]
-    pub(in crate::parser) fn is_plain_special_parameter_name(name: &str) -> bool {
-        matches!(name, "#" | "$" | "!" | "*" | "@" | "?" | "-") || name == "0"
-    }
-
-    #[allow(dead_code)]
-    pub(in crate::parser) fn is_plain_parameter_access_name(name: &str) -> bool {
-        Self::is_valid_identifier(name)
-            || name.bytes().all(|byte| byte.is_ascii_digit())
-            || Self::is_plain_special_parameter_name(name)
-    }
-
-    #[allow(dead_code)]
-    pub(in crate::parser) fn looks_like_plain_parameter_access(text: &str) -> bool {
-        let trimmed = text.trim();
-        if trimmed.is_empty() {
-            return false;
-        }
-
-        let name = if let Some(open) = trimmed.find('[') {
-            if !trimmed.ends_with(']') {
-                return false;
-            }
-            &trimmed[..open]
-        } else {
-            trimmed
-        };
-
-        Self::is_plain_parameter_access_name(name)
-            || name
-                .strip_prefix('+')
-                .is_some_and(Self::is_plain_parameter_access_name)
-    }
     pub(in crate::parser) fn parse_loose_var_ref(&self, text: &str, base: Position) -> VarRef {
         let trimmed = text.trim();
         let base = base.advanced_by(&text[..text.len() - text.trim_start().len()]);
@@ -267,30 +223,5 @@ impl<'a> Parser<'a> {
             span,
         }
     }
-
-    #[allow(dead_code)]
-    pub(in crate::parser) fn find_matching_parameter_end(&self, text: &str) -> Option<usize> {
-        let mut depth = 0_i32;
-        let mut chars = text.char_indices().peekable();
-
-        while let Some((index, ch)) = chars.next() {
-            match ch {
-                '$' if chars.peek().is_some_and(|(_, next)| *next == '{') => {
-                    depth += 1;
-                }
-                '}' => {
-                    depth -= 1;
-                    if depth == 0 {
-                        return Some(index + ch.len_utf8());
-                    }
-                }
-                _ => {}
-            }
-        }
-
-        None
-    }
-
-
 
 }

@@ -45,44 +45,39 @@ impl<'a> Parser<'a> {
             (None, ForHeaderSurface::In { in_span: None })
         };
 
-        let (body, syntax, end_span) = match header {
-            ForHeaderSurface::In { in_span } => {
-                if !self.is_keyword(Keyword::Do) {
-                    self.pop_depth();
-                    return Err(self.error("expected 'do'"));
-                }
-                let do_span = self.current_span;
-                self.advance();
-                self.skip_newlines()?;
-
-                let body_start = self.current_span.start;
-                let body = self.parse_compound_list(Keyword::Done)?;
-                let body_span = Span::from_positions(body_start, self.current_span.start);
-                if body.is_empty() {
-                    self.pop_depth();
-                    return Err(self.error("syntax error: empty for loop body"));
-                }
-                if !self.is_keyword(Keyword::Done) {
-                    self.pop_depth();
-                    return Err(self.error("expected 'done'"));
-                }
-                let done_span = self.current_span;
-                self.advance();
-                let body = Self::stmt_seq_with_span(body_span, body);
-                (
-                    body,
-                    ForSyntax::InDoDone {
-                        in_span,
-                        do_span,
-                        done_span,
-                    },
-                    done_span,
-                )
-            }
-            ForHeaderSurface::Paren { .. } => {
+        let ForHeaderSurface::In { in_span } = header;
+        let (body, syntax, end_span) = {
+            if !self.is_keyword(Keyword::Do) {
                 self.pop_depth();
                 return Err(self.error("expected 'do'"));
             }
+            let do_span = self.current_span;
+            self.advance();
+            self.skip_newlines()?;
+
+            let body_start = self.current_span.start;
+            let body = self.parse_compound_list(Keyword::Done)?;
+            let body_span = Span::from_positions(body_start, self.current_span.start);
+            if body.is_empty() {
+                self.pop_depth();
+                return Err(self.error("syntax error: empty for loop body"));
+            }
+            if !self.is_keyword(Keyword::Done) {
+                self.pop_depth();
+                return Err(self.error("expected 'done'"));
+            }
+            let done_span = self.current_span;
+            self.advance();
+            let body = Self::stmt_seq_with_span(body_span, body);
+            (
+                body,
+                ForSyntax::InDoDone {
+                    in_span,
+                    do_span,
+                    done_span,
+                },
+                done_span,
+            )
         };
 
         self.pop_depth();

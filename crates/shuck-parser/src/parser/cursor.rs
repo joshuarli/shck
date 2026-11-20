@@ -242,11 +242,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    #[allow(dead_code)]
-    pub(super) fn zsh_options_at_offset(&self, _offset: usize) -> Option<()> {
-        None
-    }
-
     pub(super) fn zsh_glob_word_parsing_enabled_at(&self, _offset: usize) -> bool {
         false
     }
@@ -255,13 +250,7 @@ impl<'a> Parser<'a> {
         ZshGlobParseFeatures {
             ksh_groups: true,
             bare_groups: true,
-            ..ZshGlobParseFeatures::default()
         }
-    }
-
-    #[allow(dead_code)]
-    pub(super) fn zsh_word_parsing_enabled_at(&self, _offset: usize) -> bool {
-        false
     }
 
     pub(super) fn brace_syntax_enabled_at(&self, _offset: usize) -> bool {
@@ -276,22 +265,4 @@ impl<'a> Parser<'a> {
         false
     }
 
-    #[allow(dead_code)]
-    pub(super) fn current_zsh_options(&self) -> Option<()> {
-        None
-    }
-
-    #[allow(dead_code)]
-    pub(super) fn record_zsh_case_group_part(&mut self, _pattern_part_index: usize, _span: Span) {}
-
-    #[allow(dead_code)]
-    pub(super) fn record_zsh_always_span(&mut self, _span: Span) {}
-
-    #[allow(dead_code)]
-    pub(super) fn record_zsh_brace_if_span(&mut self, _span: Span) {}
-
-    #[allow(dead_code)]
-    pub(super) fn ignore_braces_enabled_at(&self, _offset: usize) -> bool {
-        false
-    }
 }

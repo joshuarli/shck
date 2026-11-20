@@ -287,40 +287,6 @@ impl<'a> Parser<'a> {
         Ok(stmts)
     }
 
-    #[allow(dead_code)]
-    pub(super) fn has_recorded_comment_between(
-        &self,
-        start_offset: usize,
-        end_offset: usize,
-    ) -> bool {
-        self.comments.iter().any(|comment| {
-            let comment_start = usize::from(comment.range.start());
-            comment_start >= start_offset && comment_start < end_offset
-        })
-    }
-
-    #[allow(dead_code)]
-    pub(super) fn rebase_nested_parse_error(&self, error: Error, base: Position) -> Error {
-        let Error::Parse {
-            message,
-            line,
-            column,
-        } = error;
-
-        if line == 0 {
-            return Error::parse(message);
-        }
-
-        let rebased_line = base.line() + line.saturating_sub(1);
-        let rebased_column = if line == 1 {
-            base.column() + column.saturating_sub(1)
-        } else {
-            column
-        };
-
-        Error::parse_at(message, rebased_line, rebased_column)
-    }
-
     pub(super) fn should_consume_right_brace_as_literal_argument(
         &mut self,
         _next_kind_after_right_brace: Option<TokenKind>,
