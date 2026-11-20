@@ -1,4 +1,3 @@
-use shuck_ast::BackgroundOperator;
 use super::*;
 
 impl<'a> Parser<'a> {
@@ -115,66 +114,6 @@ impl<'a> Parser<'a> {
         Ok(left_paren_span.merge(right_paren_span))
     }
 
-
-    #[allow(dead_code)]
-    pub(super) fn parse_single_stmt_command(&mut self) -> Result<Stmt> {
-        let mut stmt = self
-            .parse_pipeline()?
-            .ok_or_else(|| self.error("expected command"))?;
-
-        let Some(kind) = self.current_token_kind else {
-            return Ok(stmt);
-        };
-        let operator = match kind {
-            TokenKind::And => Some((Some(BinaryOp::And), None, false)),
-            TokenKind::Or => Some((Some(BinaryOp::Or), None, false)),
-            TokenKind::Semicolon => Some((None, Some(StmtTerminator::Semicolon), true)),
-            TokenKind::Background => Some((
-                None,
-                Some(StmtTerminator::Background(BackgroundOperator::Plain)),
-                true,
-            )),
-            TokenKind::BackgroundPipe => Some((
-                None,
-                Some(StmtTerminator::Background(BackgroundOperator::Plain)),
-                true,
-            )),
-            TokenKind::BackgroundBang => Some((
-                None,
-                Some(StmtTerminator::Background(BackgroundOperator::Plain)),
-                true,
-            )),
-            _ => None,
-        };
-        let Some((binary_op, terminator, allow_empty_tail)) = operator else {
-            return Ok(stmt);
-        };
-        let operator_span = self.current_span;
-        self.advance();
-
-        if let Some(binary_op) = binary_op {
-            self.skip_newlines()?;
-            if let Some(right) = self.parse_pipeline()? {
-                stmt = Self::binary_stmt(stmt, binary_op, operator_span, right);
-            }
-            return Ok(stmt);
-        }
-
-        if allow_empty_tail
-            && matches!(
-                self.current_token_kind,
-                Some(TokenKind::Semicolon | TokenKind::Newline)
-            )
-        {
-            self.advance();
-        }
-
-        stmt.terminator = terminator;
-        stmt.terminator_span = Some(operator_span);
-        Ok(stmt)
-    }
-
-
     /// Parse function definition with 'function' keyword: function name { body }
     pub(super) fn parse_function_keyword(&mut self) -> Result<Command> {
         self.ensure_function_keyword()?;
@@ -232,13 +171,6 @@ impl<'a> Parser<'a> {
             body: Box::new(body),
             span: start_span.merge(self.current_span),
         }))
-    }
-
-
-
-    #[allow(dead_code)]
-    pub(super) fn parse_anonymous_paren_function(&mut self) -> Result<Command> {
-        Err(self.error("anonymous functions are not supported"))
     }
 
 }

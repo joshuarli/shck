@@ -149,7 +149,7 @@ impl<'a> Parser<'a> {
         self.current_keyword
     }
 
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub(super) fn looks_like_disabled_repeat_loop(&mut self) -> Result<bool> {
         if self.current_keyword() != Some(Keyword::Repeat) {
             return Ok(false);

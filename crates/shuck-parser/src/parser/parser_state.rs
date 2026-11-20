@@ -219,10 +219,7 @@ pub(super) enum FlowControlBuiltinKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)]
 pub(super) enum BraceBodyContext {
     Ordinary,
     Function,
-    #[allow(dead_code)]
-    IfClause,
 }
