@@ -13,7 +13,7 @@ use crate::color::{self, BOLD, CYAN, GREEN, RED, YELLOW};
 use crate::shellcheck_compat::optional::OptionalCheck;
 use crate::shellcheck_runtime::ShellCheckDiagnostic;
 
-pub fn usage_text() -> String {
+pub(super) fn usage_text() -> String {
     [
         "Usage: shellcheck [OPTIONS...] FILES...",
         "  -a, --check-sourced            Also report diagnostics from resolved sourced files",
@@ -37,7 +37,7 @@ pub fn usage_text() -> String {
     .join("\n")
 }
 
-pub fn print_error_help(message: &str, show_help: bool) -> io::Result<()> {
+pub(super) fn print_error_help(message: &str, show_help: bool) -> io::Result<()> {
     let mut stderr = io::stderr().lock();
     writeln!(stderr, "{message}")?;
     if show_help {
@@ -47,13 +47,13 @@ pub fn print_error_help(message: &str, show_help: bool) -> io::Result<()> {
     Ok(())
 }
 
-pub fn print_version() {
+pub(super) fn print_version() {
     println!("ShellCheck compatibility mode");
     println!("version: {}", env!("CARGO_PKG_VERSION"));
     println!("engine: shuck");
 }
 
-pub fn print_list_optional(checks: &[OptionalCheck]) {
+pub(super) fn print_list_optional(checks: &[OptionalCheck]) {
     for (index, check) in checks.iter().enumerate() {
         if index > 0 {
             println!();
@@ -65,7 +65,7 @@ pub fn print_list_optional(checks: &[OptionalCheck]) {
     }
 }
 
-pub fn print_report(report: &CompatReport, options: &CompatOptions) -> Result<(), CompatCliError> {
+pub(super) fn print_report(report: &CompatReport, options: &CompatOptions) -> Result<(), CompatCliError> {
     let rendered = match options.format {
         CompatFormat::Checkstyle => render_checkstyle(report),
         CompatFormat::Diff => render_diff(report),

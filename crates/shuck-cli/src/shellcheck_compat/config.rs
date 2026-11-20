@@ -9,7 +9,7 @@ use super::{
 const CONFIG_FILENAME: &str = ".shellcheckrc";
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct CompatConfig {
+pub(super) struct CompatConfig {
     pub check_sourced: Option<bool>,
     pub color: Option<CompatColorMode>,
     pub include_codes: Vec<String>,
@@ -24,7 +24,7 @@ pub struct CompatConfig {
     pub external_sources: Option<bool>,
 }
 
-pub fn resolve_config_override(
+pub(super) fn resolve_config_override(
     cwd: &Path,
     override_mode: &CliConfigOverride,
 ) -> Result<Option<PathBuf>, CompatCliError> {
@@ -35,7 +35,7 @@ pub fn resolve_config_override(
     }
 }
 
-pub fn load_config(path: &Path) -> Result<CompatConfig, CompatCliError> {
+pub(super) fn load_config(path: &Path) -> Result<CompatConfig, CompatCliError> {
     let source = fs::read_to_string(path).map_err(|err| {
         CompatCliError::usage(4, format!("could not read {}: {err}", path.display()))
     })?;

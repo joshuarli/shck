@@ -2,13 +2,13 @@ use shuck_linter::Rule;
 use shuck_linter::RuleSet;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum OptionalCheckBehavior {
+pub(super) enum OptionalCheckBehavior {
     None,
     ReportEnvironmentStyleNames,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct OptionalCheck {
+pub(super) struct OptionalCheck {
     pub name: &'static str,
     pub description: &'static str,
     pub example: &'static str,
@@ -20,12 +20,12 @@ pub struct OptionalCheck {
 }
 
 impl OptionalCheck {
-    pub fn enabled_rule_set(self) -> RuleSet {
+    pub(super) fn enabled_rule_set(self) -> RuleSet {
         self.enable_rules.iter().copied().collect()
     }
 }
 
-pub const OPTIONAL_CHECKS: &[OptionalCheck] = &[
+pub(super) const OPTIONAL_CHECKS: &[OptionalCheck] = &[
     OptionalCheck {
         name: "add-default-case",
         description: "Reports case statements that omit a fallback branch.",
@@ -138,7 +138,7 @@ pub const OPTIONAL_CHECKS: &[OptionalCheck] = &[
     },
 ];
 
-pub fn compat_default_disabled_rules() -> RuleSet {
+pub(super) fn compat_default_disabled_rules() -> RuleSet {
     OPTIONAL_CHECKS
         .iter()
         .filter(|check| check.supported)
@@ -146,10 +146,10 @@ pub fn compat_default_disabled_rules() -> RuleSet {
         .collect()
 }
 
-pub fn supported_optional_checks() -> impl Iterator<Item = &'static OptionalCheck> {
+pub(super) fn supported_optional_checks() -> impl Iterator<Item = &'static OptionalCheck> {
     OPTIONAL_CHECKS.iter().filter(|check| check.supported)
 }
 
-pub fn find_optional_check(name: &str) -> Option<&'static OptionalCheck> {
+pub(super) fn find_optional_check(name: &str) -> Option<&'static OptionalCheck> {
     OPTIONAL_CHECKS.iter().find(|check| check.name == name)
 }
