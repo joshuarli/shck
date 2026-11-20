@@ -2994,3 +2994,17 @@ bash_format_ast_cases! {
         "[ -d x ] &&\n  a |\n  b |\n  c\n"
         => "[ -d x ] &&\n\ta |\n\tb |\n\t\tc\n";
 }
+
+#[test]
+fn minify_flushes_heredocs_before_compound_closers() {
+    let options = ShellFormatOptions::default().with_minify(true);
+    for (source, expected) in [
+        ("if true; then\ncat <<EOF\nbody\nEOF\nfi\necho after\n", "if true; then cat <<EOF\nbody\nEOF\nfi; echo after\n"),
+        ("case a in\na) cat <<EOF\nbody\nEOF\n;;\nesac\n", "case a in a) cat <<EOF\nbody\nEOF\n;; esac\n"),
+        ("f() {\ncat <<EOF\nbody\nEOF\n}\nf\n", "f() { cat <<EOF\nbody\nEOF\n}; f\n"),
+        ("case a in\na) case b in\nb) cat <<EOF\nbody\nEOF\n;;\nesac\n;;\nesac\n", "case a in a) case b in b) cat <<EOF\nbody\nEOF\n;; esac; ;; esac\n"),
+        ("if cat <<A | cat; then\none\nA\ncat <<B <<C\ntwo\nB\nthree\nC\necho after\nfi\n", "if cat <<A | cat\none\nA\nthen cat <<B <<C\ntwo\nB\nthree\nC\necho after; fi\n"),
+    ] {
+        assert_formats_to_with_ast(source, Some(Path::new("test.bash")), &options, expected);
+    }
+}
