@@ -67,7 +67,7 @@ The command was `TMPDIR="$PWD/.work/tmp" cargo clippy --workspace --all-targets 
 
 Adopt `clippy::redundant_clone` at warn, enforced with `-D warnings`, including tests. There are 52 distinct reports in 337,297 Rust source lines; even if all were false positives, this is below one per 5,000 lines. For example, `crates/shuck-run/src/resolve.rs:49` clones a version that is subsequently moved and never used again, potentially allocating for a range of predicates. Later slices should inspect each report before changing it. The first component has zero reports. Existing production-only `unwrap_used` warnings in the AST, indexer, and parser remain in place; they are not a newly selected workspace profile.
 
-The negative witness below is rejected with `error: redundant clone` by `clippy-driver --edition=2024 -D clippy::redundant_clone --emit=metadata witness.rs` (exit 1). It isolates the new lint contract: once the original is dead, an unnecessary clone fails the selected check. This slice does not change a public Rust type or runtime behavior.
+The negative witness below is rejected with `error: redundant clone` by `clippy-driver --edition=2024 -D clippy::redundant_clone --emit=metadata witness.rs` (exit 1). It isolates the new lint contract: once the original is dead, an unnecessary clone fails the selected check. The offset changes below additionally tighten this component’s runtime boundary.
 
 ```rust
 fn main() {
@@ -77,13 +77,21 @@ fn main() {
 }
 ```
 
-The other candidates are not adopted as a shared profile in this slice: `unsafe_code` (21) includes required benchmark allocator implementations; wildcard matches (330 and 19) include intentional partial matches, including tests, without evidence that the fallback is wrong; truncation (170) and sign-loss (16) include bounded source offsets and checked ranges but deserve individual review; `unwrap_used` (0 production) has no new finding, and `expect_used` (39 production) includes startup/build-time invariants; `needless_pass_by_value` (44) includes public signatures and ownership choices. These counts do not establish that all reported casts or assertions are safe. Later slices should investigate relevant findings without treating this census as a blanket exemption.
+The other candidates are not adopted as a shared profile in this slice: `unsafe_code` (21) includes required benchmark allocator implementations; wildcard matches (330 and 19) include intentional partial matches, including tests, without evidence that the fallback is wrong; truncation (170) and sign-loss (16) include bounded source offsets and checked ranges but deserve individual review in each component; `unwrap_used` (0 production) has no new finding, and `expect_used` (39 production) includes startup/build-time invariants; `needless_pass_by_value` (44) includes public signatures and ownership choices. These counts do not establish that all reported casts or assertions are safe. Later slices should investigate relevant findings without treating this census as a blanket exemption.
 
 ## First component escape-hatch baseline
 
-Counts are lexical occurrences in first-party `src/*.rs`, including tests for `allow`, `unsafe`, and numeric `as` casts; unwrap/expect counts cover production text before inline `#[cfg(test)]` modules. Before and after are identical because the only source edits add lint attributes.
+Counts are lexical occurrences in first-party `src/*.rs`, including tests for `allow`, `unsafe`, and numeric `as` casts; unwrap/expect counts cover production text before inline `#[cfg(test)]` modules.
 
 | Crate | allow before/after | unsafe before/after | production unwrap/expect before/after | numeric casts before/after |
 | --- | ---: | ---: | ---: | ---: |
-| shuck-ast | 3 / 3 | 0 / 0 | 0 / 0 | 28 / 28 |
-| shuck-indexer | 0 / 0 | 0 / 0 | 0 / 0 | 94 / 94 |
+| shuck-ast | 3 / 3 | 0 / 0 | 0 / 0 | 28 / 20 |
+| shuck-indexer | 0 / 0 | 0 / 0 | 0 / 0 | 94 / 0 |
+
+## Component follow-up
+
+For later components, apply the adopted `redundant_clone` profile and review and fix that component’s census leads for casts and wildcard matches. The census above remains the original baseline.
+
+In AST and indexer, `cast_possible_truncation` is now enabled for all targets. `TextSize::from_usize` checks the shared `usize` to `u32` boundary and panics if the value cannot fit; `Position::at` uses it for all three coordinates, and position advancement and rebasing check addition. Index construction checks source length before scanning; derived byte offsets and test offsets use the same checked conversion. This preserves existing signatures, while oversized coordinates and source lengths now panic instead of potentially wrapping in release builds. The tests `oversized_position_is_rejected`, `oversized_text_size_is_rejected`, `advancing_past_maximum_is_rejected`, and `adding_past_maximum_is_rejected` witness the boundary. The remaining numeric casts in AST widen `u32` to `usize` or define/test the maximum, rather than truncating source offsets.
+
+All 14 original wildcard reports were reviewed. The AST parameter-operator fallback in rendering and source-backed checks, indexer redirect traversal, compound folding-start decision, and close-delimiter visitor now name all variants so additions require review. The remaining AST matches are intentionally selective: static text and status detection reject all expansion kinds; source-slice selection and quoted rendering delegate every non-special case to common logic. The close-delimiter test helper rejects all compounds outside the three fixture kinds. The wildcard lint is not enabled: these intentional partial matches remain.

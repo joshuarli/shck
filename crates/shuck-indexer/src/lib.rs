@@ -1,5 +1,5 @@
 #![warn(missing_docs)]
-#![warn(clippy::redundant_clone)]
+#![warn(clippy::redundant_clone, clippy::cast_possible_truncation)]
 #![cfg_attr(not(test), warn(clippy::unwrap_used))]
 
 //! Positional and structural indexes over parsed shell scripts.
@@ -161,6 +161,7 @@ impl Indexer {
     ///
     /// `source` must be the exact text used to produce `file`; ranges in the
     /// AST are interpreted as byte offsets into that string.
+    /// Panics when the source length exceeds `u32::MAX` bytes.
     pub fn for_file_with_options(source: &str, file: &File, options: IndexerOptions) -> Self {
         let raw_mode = if options.source_layout_indexes() {
             RawContinuationMode::StoreAndReturn
@@ -343,7 +344,7 @@ mod tests {
 
         assert_eq!(
             indexer.line_index().raw_continuation_backslashes(),
-            &[TextSize::new(source.find('\\').unwrap() as u32)]
+            &[TextSize::from_usize(source.find('\\').unwrap())]
         );
         assert_eq!(indexer.region_index().heredocs().len(), 1);
     }
@@ -362,14 +363,14 @@ EOF
         assert_eq!(indexer.line_index().line_count(), 6);
         assert_eq!(indexer.comment_index().comments().len(), 2);
 
-        let heredoc_offset = TextSize::new(source.find("literal $body").unwrap() as u32);
+        let heredoc_offset = TextSize::from_usize(source.find("literal $body").unwrap());
         assert_eq!(
             indexer.region_index().region_at(heredoc_offset),
             Some(RegionKind::Heredoc)
         );
         assert!(indexer.region_index().is_quoted(heredoc_offset));
 
-        let name_offset = TextSize::new(source.find("$name").unwrap() as u32);
+        let name_offset = TextSize::from_usize(source.find("$name").unwrap());
         assert_eq!(
             indexer.region_index().region_at(name_offset),
             Some(RegionKind::DoubleQuoted)

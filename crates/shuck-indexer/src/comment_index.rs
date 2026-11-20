@@ -45,7 +45,9 @@ impl CommentIndex {
     /// Comments with ranges outside `source` or on invalid UTF-8 boundaries are
     /// skipped defensively, then the remaining comments are sorted by source
     /// range before line lookup metadata is built.
+    /// Panics when the source length exceeds `u32::MAX` bytes.
     pub fn new(source: &str, line_index: &LineIndex, file: &File) -> Self {
+        TextSize::from_usize(source.len());
         let mut comments = Vec::new();
         collect_file_comments(file, &mut comments);
         let mut indexed_comments = comments
@@ -516,7 +518,7 @@ mod tests {
         let index = comments(source);
 
         let shebang_offset = TextSize::new(0);
-        let echo_offset = TextSize::new(source.find("echo").unwrap() as u32);
+        let echo_offset = TextSize::from_usize(source.find("echo").unwrap());
 
         assert_eq!(index.comments().len(), 1);
         assert!(index.is_comment(shebang_offset));

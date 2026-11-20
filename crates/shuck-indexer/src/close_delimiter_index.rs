@@ -48,7 +48,9 @@ impl CloseDelimiterIndex {
     ///
     /// The index uses parser-owned syntax spans and ignores compound forms
     /// without a concrete close delimiter in source.
+    /// Panics when the source length exceeds `u32::MAX` bytes.
     pub fn new(source: &str, file: &File) -> Self {
+        TextSize::from_usize(source.len());
         let mut collector = CloseDelimiterCollector::new(source);
         collector.visit_file(file);
         collector.finish()
@@ -491,7 +493,8 @@ CompoundCommand::Time(command) => {
             | WordPart::ArrayAccess(reference)
             | WordPart::ArrayLength(reference)
             | WordPart::ArrayIndices(reference) => self.visit_var_ref(reference),
-            _ => {}
+            WordPart::Literal(_) | WordPart::SingleQuoted { .. } | WordPart::Variable(_)
+            | WordPart::PrefixMatch { .. } => {}
         }
     }
 
@@ -620,7 +623,7 @@ CompoundCommand::Time(command) => {
 }
 
 fn text_range(start: usize, end: usize) -> TextRange {
-    TextRange::new(TextSize::new(start as u32), TextSize::new(end as u32))
+    TextRange::new(TextSize::from_usize(start), TextSize::from_usize(end))
 }
 
 #[cfg(test)]
