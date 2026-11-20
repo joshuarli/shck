@@ -63,7 +63,7 @@ impl ShellDialect {
             .or(shebang_dialect)
             .or_else(|| match path_dialect {
                 Self::Unknown | Self::Sh => Self::infer_from_source_markers(source),
-                dialect => Some(dialect),
+                dialect @ (Self::Bash | Self::Dash | Self::Ksh | Self::Mksh) => Some(dialect),
             })
             .unwrap_or(path_dialect)
     }

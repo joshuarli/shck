@@ -1,3 +1,10 @@
+#![warn(
+    clippy::redundant_clone,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::match_wildcard_for_single_variants
+)]
+
 mod directive;
 mod index;
 mod rewrite;

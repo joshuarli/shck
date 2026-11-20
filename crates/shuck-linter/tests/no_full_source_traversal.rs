@@ -92,14 +92,14 @@ fn should_scan(path: &Path) -> bool {
 
 fn file_violations(manifest_dir: &Path, path: &Path, source: &str) -> Vec<Violation> {
     let mut violations = Vec::new();
-    let mut brace_depth = 0i32;
+    let mut brace_depth = 0i128;
     let mut pending_cfg_test_block = false;
-    let mut ignored_test_depth = None::<i32>;
+    let mut ignored_test_depth = None::<i128>;
 
     for (line_index, line) in source.lines().enumerate() {
         let trimmed = line.trim();
-        let opens = line.matches('{').count() as i32;
-        let closes = line.matches('}').count() as i32;
+        let opens = i128::try_from(line.matches('{').count()).expect("brace count fits i128");
+        let closes = i128::try_from(line.matches('}').count()).expect("brace count fits i128");
 
         if ignored_test_depth.is_none() && trimmed.starts_with("#[cfg") && trimmed.contains("test")
         {

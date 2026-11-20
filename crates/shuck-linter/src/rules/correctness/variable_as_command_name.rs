@@ -257,7 +257,7 @@ args='--name \"hello world\"'
             &main,
             source,
             &LinterSettings::for_rule(Rule::VariableAsCommandName)
-                .with_analyzed_paths([main.clone(), helper.clone()]),
+                .with_analyzed_paths([main.clone(), helper]),
         );
 
         assert_eq!(diagnostics.len(), 1);

@@ -2956,7 +2956,7 @@ bats_test_function() { printf '%s\\n' local; }
             &main,
             source,
             &LinterSettings::for_rule(Rule::OverwrittenFunction)
-                .with_analyzed_paths([main.clone(), helper.clone()]),
+                .with_analyzed_paths([main.clone(), helper]),
         );
 
         assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
@@ -2989,7 +2989,7 @@ runner
             &main,
             source,
             &LinterSettings::for_rule(Rule::OverwrittenFunction)
-                .with_analyzed_paths([main.clone(), helper.clone()]),
+                .with_analyzed_paths([main.clone(), helper]),
         );
 
         assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
@@ -3029,9 +3029,9 @@ runner
             source,
             &LinterSettings::for_rule(Rule::OverwrittenFunction).with_analyzed_paths([
                 main.clone(),
-                tracing.clone(),
-                test_functions.clone(),
-                warnings.clone(),
+                tracing,
+                test_functions,
+                warnings,
             ]),
         );
 
@@ -3064,8 +3064,8 @@ runner
             source,
             &LinterSettings::for_rule(Rule::OverwrittenFunction).with_analyzed_paths([
                 main.clone(),
-                functions.clone(),
-                os_detection.clone(),
+                functions,
+                os_detection,
             ]),
         );
 
@@ -3091,7 +3091,7 @@ prompt_setter() { printf '%s\\n' local; }
             &main,
             source,
             &LinterSettings::for_rule(Rule::OverwrittenFunction)
-                .with_analyzed_paths([main.clone(), base.clone()]),
+                .with_analyzed_paths([main.clone(), base]),
         );
 
         assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
@@ -3141,10 +3141,10 @@ runner
             source,
             &LinterSettings::for_rule(Rule::OverwrittenFunction).with_analyzed_paths([
                 main.clone(),
-                first_helper.clone(),
-                second_helper.clone(),
-                test_functions.clone(),
-                warnings.clone(),
+                first_helper,
+                second_helper,
+                test_functions,
+                warnings,
             ]),
         );
 
@@ -3188,9 +3188,9 @@ runner
             source,
             &LinterSettings::for_rule(Rule::OverwrittenFunction).with_analyzed_paths([
                 main.clone(),
-                first_helper.clone(),
-                second_helper.clone(),
-                shared.clone(),
+                first_helper,
+                second_helper,
+                shared,
             ]),
         );
 
@@ -3215,7 +3215,7 @@ helper() { printf '%s\\n' local; }
             &main,
             source,
             &LinterSettings::for_rule(Rule::OverwrittenFunction)
-                .with_analyzed_paths([main.clone(), helper.clone()]),
+                .with_analyzed_paths([main.clone(), helper]),
         );
 
         assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
@@ -3251,8 +3251,8 @@ source ./second.bash
             source,
             &LinterSettings::for_rule(Rule::OverwrittenFunction).with_analyzed_paths([
                 main.clone(),
-                first_helper.clone(),
-                second_helper.clone(),
+                first_helper,
+                second_helper,
             ]),
         );
 

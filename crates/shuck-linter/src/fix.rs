@@ -62,7 +62,7 @@ impl Edit {
     pub fn replacement_at(start: usize, end: usize, content: impl Into<CompactString>) -> Self {
         let (start, end) = ordered_offsets(start, end);
         Self {
-            range: TextRange::new(TextSize::new(start as u32), TextSize::new(end as u32)),
+            range: TextRange::new(TextSize::from_usize(start), TextSize::from_usize(end)),
             content: content.into(),
         }
     }

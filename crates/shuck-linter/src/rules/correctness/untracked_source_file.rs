@@ -85,7 +85,7 @@ mod tests {
             &main,
             source,
             &LinterSettings::for_rule(Rule::UntrackedSourceFile)
-                .with_analyzed_paths([main.clone(), helper.clone()]),
+                .with_analyzed_paths([main.clone(), helper]),
         );
 
         assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
@@ -103,7 +103,7 @@ mod tests {
             &main,
             source,
             &LinterSettings::for_rule(Rule::UntrackedSourceFile)
-                .with_analyzed_paths([main.clone(), helper.clone()])
+                .with_analyzed_paths([main.clone(), helper])
                 .with_resolve_source_closure(false),
         );
 
@@ -303,7 +303,7 @@ source \"${scriptfolder}${known_pins_dbfile}\"
             .parse()
             .unwrap();
         let resolver = TestSourceResolver {
-            helper: helper.clone(),
+            helper,
         };
 
         let settings = LinterSettings::for_rule(Rule::UntrackedSourceFile);
@@ -550,7 +550,7 @@ fi
         let output = Parser::new(source).parse().unwrap();
 
         let main_path = main.clone();
-        let helper_path = helper.clone();
+        let helper_path = helper;
         let resolver = move |source_path: &Path, _candidate: &str| {
             if source_path == main_path.as_path() {
                 vec![helper_path.clone()]
@@ -582,7 +582,7 @@ fi
         let output = Parser::new(source).parse().unwrap();
 
         let main_path = main.clone();
-        let helper_path = helper.clone();
+        let helper_path = helper;
         let resolver = move |source_path: &Path, candidate: &str| {
             if source_path == main_path.as_path() && candidate == "scripts/rvm" {
                 vec![helper_path.clone()]
