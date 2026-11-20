@@ -474,7 +474,13 @@ fn binding_can_supply_parameter_value(binding: &Binding) -> bool {
                     BindingAttributes::DECLARATION_INITIALIZED | BindingAttributes::INTEGER,
                 )
         }
-        _ => true,
+        BindingOrigin::Assignment { .. }
+        | BindingOrigin::LoopVariable { .. }
+        | BindingOrigin::ParameterDefaultAssignment { .. }
+        | BindingOrigin::Imported { .. }
+        | BindingOrigin::BuiltinTarget { .. }
+        | BindingOrigin::ArithmeticAssignment { .. }
+        | BindingOrigin::Nameref { .. } => true,
     }
 }
 

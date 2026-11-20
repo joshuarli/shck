@@ -119,7 +119,7 @@ impl ExactVariableDataflow {
         self.binding_data.bindings_for_name[name_id.index()]
             .iter_ones()
             .filter(|binding_index| reaching_in.contains(block_id.index(), *binding_index))
-            .map(|binding_index| BindingId(binding_index as u32))
+            .map(|binding_index| BindingId(crate::checked_index(binding_index)))
             .collect()
     }
 

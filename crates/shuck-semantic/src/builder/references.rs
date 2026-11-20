@@ -23,7 +23,7 @@ impl<'a, 'idx, 'observer> SemanticModelBuilder<'a, 'idx, 'observer> {
         } else {
             name_span
         };
-        let id = ReferenceId(self.references.len() as u32);
+        let id = ReferenceId(crate::checked_index(self.references.len()));
         let scope = self.current_scope();
         let resolved = self.resolve_reference(name, scope, span.start.offset());
         let predefined_runtime = resolved.is_none() && self.runtime.is_preinitialized(name);
@@ -422,7 +422,7 @@ fn source_position_at_offset(
         return None;
     }
 
-    let line = line_index.line_number(TextSize::new(offset as u32));
+    let line = line_index.line_number(TextSize::from_usize(offset));
     let line_start = usize::from(line_index.line_start(line)?);
     let prefix = source.get(line_start..offset)?;
     let column = if prefix.is_ascii() {

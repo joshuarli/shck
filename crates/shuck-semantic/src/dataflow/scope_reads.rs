@@ -287,7 +287,7 @@ fn exit_blocks_for_scope(cfg: &ControlFlowGraph, scope: ScopeId) -> Vec<BlockId>
     component
         .iter_ones()
         .filter_map(|block_index| {
-            let block_id = BlockId(block_index as u32);
+            let block_id = BlockId(crate::checked_index(block_index));
             block_exits_component(cfg, &component, block_id).then_some(block_id)
         })
         .collect()
@@ -816,7 +816,20 @@ pub(crate) fn function_binding_certainty(binding: &Binding) -> Option<ContractCe
                 Some(ContractCertainty::Definite)
             }
         }
-        _ => None,
+        BindingKind::Assignment
+        | BindingKind::ParameterDefaultAssignment
+        | BindingKind::AppendAssignment
+        | BindingKind::ArrayAssignment
+        | BindingKind::Declaration(_)
+        | BindingKind::LoopVariable
+        | BindingKind::ReadTarget
+        | BindingKind::MapfileTarget
+        | BindingKind::PrintfTarget
+        | BindingKind::GetoptsTarget
+        | BindingKind::ZparseoptsTarget
+        | BindingKind::ArithmeticAssignment
+        | BindingKind::Nameref
+        | BindingKind::Imported => None,
     }
 }
 

@@ -114,3 +114,20 @@ Escape-hatch counts are lexical Rust occurrences across each package, including 
 | shuck-run | 0 / 0 | 0 / 0 | 0 / 0 | 2 / 2 |
 | shuck-benchmark | 0 / 0 | 21 / 21 | 5 / 5 | 36 / 26 |
 | fuzz | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
+||||||| parent of 55bf4ac9 (fix(types): check semantic index boundaries)
+
+## Semantic component follow-up
+
+The semantic crate enables `clippy::redundant_clone`, `clippy::cast_possible_truncation`, and `clippy::cast_sign_loss` for all targets. The seven reported clones in builder traversal, CFG construction, source closure, model construction, call facts, and two test fixtures were removed. The arithmetic assignment work item and source-closure resolver configuration remain passed by value: both are short-lived internal inputs handed off to the operation that consumes their role, and neither owns a large allocation.
+
+All truncation leads were reviewed. Semantic binding, reference, scope, block and interned-name IDs now use a checked index conversion when allocated; reconstruction of IDs from collection indexes uses the same conversion. Recorded command allocation already checks its count. Worklist positions now use `usize` throughout, avoiding both narrowing and collision with the `u32::MAX` sentinel. Source offsets use `TextSize::from_usize`, including editor and builder lookups. The traversal guard test uses a wider signed brace count. The remaining numeric casts widen IDs, lengths and bit counts, convert pointers for a relative offset, use the fieldless `ProvidedBindingKind` discriminant as a sort key, or construct test bounds. `oversized_semantic_index_is_rejected` witnesses the ID limit; the AST `oversized_text_size_is_rejected` test witnesses the shared offset limit. Oversized values now panic instead of silently wrapping; valid values preserve their representation.
+
+The wildcard leads were reviewed in all semantic components and tests. Binding-origin decisions for value flow and editor spans, reference-kind dispatch, source-reference diagnostic classification, source-directive selection, function-binding certainty, and named function scope classification now enumerate the owned variants. Remaining fallbacks select a particular syntax shape, dynamic-source form, or fixture target and intentionally reject or use common behavior for the rest; the AST syntax enums are owned by `shuck-ast`. Test scope lookups intentionally select named functions with a particular name. A future distinct semantic category in the decisions now made exhaustive requires an explicit choice.
+
+The declaration reuse assertion was removed by carrying the selected ID through the branch. The remaining production `expect` leads describe construction invariants: a simple command contributes its name to normalization; contiguous word groups are nonempty; the recorded list collector supplies a first segment and an operator for later segments; and recorded command syntax has a kind. The zsh prefix assertion is in a currently disabled branch and its predicate establishes the prefix. Changing those construction contracts or the public command-kind query would require a broader redesign; the assertions retain failure on broken internal invariants rather than adding silent defaults.
+
+Escape-hatch counts below are lexical occurrences in tracked semantic Rust files; numeric casts include tests and all integer target types. Production unwrap/expect counts exclude test files and text following the first inline `#[cfg(test)]` in each source file; this lexical count includes some test helpers outside such modules and is not the Clippy production-only census.
+
+| allow | unsafe | production-text unwrap/expect | numeric casts |
+| --- | --- | --- | --- |
+| 34 / 34 | 0 / 0 | 40 / 39 | 53 / 26 |

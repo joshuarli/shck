@@ -7254,7 +7254,7 @@ flag=1
     );
 
     let main_path = main.clone();
-    let helper_path = helper.clone();
+    let helper_path = helper;
     let resolver = move |source_path: &Path, candidate: &str| {
         if source_path == main_path.as_path() && candidate == "./helper.sh" {
             vec![helper_path.clone()]
@@ -7339,7 +7339,7 @@ source \"$rvm_path/scripts/rvm\"
     );
 
     let main_path = main.clone();
-    let helper_path = helper.clone();
+    let helper_path = helper;
     let resolver = move |source_path: &Path, candidate: &str| {
         if source_path == main_path.as_path() && candidate == "scripts/rvm" {
             vec![helper_path.clone()]
@@ -9263,4 +9263,12 @@ fn backgrounded_exit_does_not_terminate_the_script() {
 fn exit_shadowed_by_function_does_not_terminate_the_script() {
     assert!(dead_code_snippets("exit() { echo shadow; }\nexit 1\necho live\n").is_empty());
     assert!(dead_code_snippets("exit 1\necho dead\nexit() { :; }\n").is_empty());
+}
+
+#[test]
+#[cfg(target_pointer_width = "64")]
+#[should_panic(expected = "semantic index exceeds u32")]
+fn oversized_semantic_index_is_rejected() {
+    assert_eq!(crate::checked_index(u32::MAX as usize), u32::MAX);
+    crate::checked_index(u32::MAX as usize + 1);
 }

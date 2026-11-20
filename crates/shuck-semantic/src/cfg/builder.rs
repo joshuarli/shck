@@ -130,7 +130,7 @@ pub(crate) fn build_control_flow_graph(
     let file_exits = if file.exits.is_empty() {
         smallvec![entry]
     } else {
-        file.exits.clone()
+        file.exits
     };
     let mut scope_exits = FxHashMap::with_capacity_and_hasher(scope_count, Default::default());
     scope_exits.insert(ScopeId(0), file_exits.clone());
@@ -1025,7 +1025,7 @@ impl<'a> GraphBuilder<'a> {
     }
 
     fn command_block(&mut self, span: Span) -> BlockId {
-        let id = BlockId(self.blocks.len() as u32);
+        let id = BlockId(crate::checked_index(self.blocks.len()));
         let key = SpanKey::new(span);
         self.blocks.push(BasicBlock {
             id,
@@ -1043,7 +1043,7 @@ impl<'a> GraphBuilder<'a> {
     }
 
     fn empty_block(&mut self) -> BlockId {
-        let id = BlockId(self.blocks.len() as u32);
+        let id = BlockId(crate::checked_index(self.blocks.len()));
         self.blocks.push(BasicBlock {
             id,
             commands: SmallVec::new(),
@@ -1091,7 +1091,7 @@ fn collect_flat_list_segments(
 fn derive_predecessors(successors: &[SmallVec<[FlowEdge; 2]>]) -> Vec<SmallVec<[BlockId; 2]>> {
     let mut predecessors = vec![SmallVec::<[BlockId; 2]>::new(); successors.len()];
     for (block_index, edges) in successors.iter().enumerate() {
-        let block = BlockId(block_index as u32);
+        let block = BlockId(crate::checked_index(block_index));
         for (target, _) in edges {
             predecessors[target.index()].push(block);
         }

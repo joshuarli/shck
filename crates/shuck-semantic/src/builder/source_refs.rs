@@ -77,7 +77,10 @@ impl<'a, 'idx, 'observer> SemanticModelBuilder<'a, 'idx, 'observer> {
                 directive.directive,
                 directive.path_range,
             )),
-            _ => None,
+            SourceRefKind::Literal(_)
+            | SourceRefKind::Directive(_)
+            | SourceRefKind::Dynamic
+            | SourceRefKind::SingleVariableStaticTail { .. } => None,
         }
     }
 }

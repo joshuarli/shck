@@ -288,7 +288,7 @@ impl<'a, 'idx, 'observer> SemanticModelBuilder<'a, 'idx, 'observer> {
         origin: BindingOrigin,
         attributes: BindingAttributes,
     ) -> BindingId {
-        let id = BindingId(self.bindings.len() as u32);
+        let id = BindingId(crate::checked_index(self.bindings.len()));
         self.bindings.push(Binding {
             id,
             name: name.clone(),

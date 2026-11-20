@@ -591,7 +591,11 @@ fn classify_source_ref_diagnostic_class(
         SourceRefKind::Dynamic if template_is_untracked_file(template) => {
             SourceRefDiagnosticClass::UntrackedFile
         }
-        _ => source_ref.diagnostic_class,
+        SourceRefKind::Literal(_)
+        | SourceRefKind::Directive(_)
+        | SourceRefKind::DirectiveDevNull
+        | SourceRefKind::Dynamic
+        | SourceRefKind::SingleVariableStaticTail { .. } => source_ref.diagnostic_class,
     }
 }
 
@@ -1628,7 +1632,7 @@ fn candidate_path_variants(candidate: &str) -> Vec<PathBuf> {
     }
     let normalized = lexical_normalize_path(Path::new(candidate));
     if !variants.contains(&normalized) {
-        variants.push(normalized.clone());
+        variants.push(normalized);
     }
     variants
 }
@@ -2063,7 +2067,11 @@ fn build_scope_function_contracts(
                     ScopeKind::Function(FunctionScopeKind::Named(names)) => {
                         Some((candidate.id, names.clone()))
                     }
-                    _ => None,
+                    ScopeKind::Function(FunctionScopeKind::Dynamic | FunctionScopeKind::Anonymous)
+                    | ScopeKind::File
+                    | ScopeKind::Subshell
+                    | ScopeKind::CommandSubstitution
+                    | ScopeKind::Pipeline => None,
                 })
         })
         .collect::<Vec<_>>();

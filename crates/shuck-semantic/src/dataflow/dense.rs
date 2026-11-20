@@ -26,7 +26,7 @@ impl NameTable {
             return id;
         }
 
-        let id = NameId(self.ids_by_name.len() as u32);
+        let id = NameId(crate::checked_index(self.ids_by_name.len()));
         self.ids_by_name.insert(name.clone(), id);
         id
     }
@@ -75,7 +75,7 @@ fn materialize_dense_reaching_definitions(
             dense
                 .reaching_in
                 .row_ones(block.id.index())
-                .map(|binding_index| BindingId(binding_index as u32))
+                .map(|binding_index| BindingId(crate::checked_index(binding_index)))
                 .collect::<FxHashSet<_>>(),
         );
         reaching_out.insert(
@@ -83,7 +83,7 @@ fn materialize_dense_reaching_definitions(
             dense
                 .reaching_out
                 .row_ones(block.id.index())
-                .map(|binding_index| BindingId(binding_index as u32))
+                .map(|binding_index| BindingId(crate::checked_index(binding_index)))
                 .collect::<FxHashSet<_>>(),
         );
     }
@@ -320,12 +320,12 @@ fn run_round_robin_worklist<F, D, I>(
     D: FnMut(BlockId) -> I,
     I: Iterator<Item = BlockId>,
 {
-    let mut position_by_block = vec![u32::MAX; cfg.blocks().len()];
+    let mut position_by_block = vec![usize::MAX; cfg.blocks().len()];
     for (position, block) in order.iter().enumerate() {
-        position_by_block[block.index()] = position as u32;
+        position_by_block[block.index()] = position;
     }
-    let mut dirty = (0..order.len() as u32).collect::<std::collections::BTreeSet<_>>();
-    let mut cursor = 0u32;
+    let mut dirty = (0..order.len()).collect::<std::collections::BTreeSet<_>>();
+    let mut cursor = 0usize;
 
     while let Some(position) = dirty
         .range(cursor..)
@@ -335,11 +335,11 @@ fn run_round_robin_worklist<F, D, I>(
     {
         dirty.remove(&position);
         cursor = position + 1;
-        let block = order[position as usize];
+        let block = order[position];
         if transfer(block) {
             for dependent in dependents(block) {
                 let dependent_position = position_by_block[dependent.index()];
-                if dependent_position != u32::MAX {
+                if dependent_position != usize::MAX {
                     dirty.insert(dependent_position);
                 }
             }

@@ -364,7 +364,18 @@ fn word_visit_kind_for_reference_kind(kind: ReferenceKind) -> WordVisitKind {
     match kind {
         ReferenceKind::ConditionalOperand => WordVisitKind::Conditional,
         ReferenceKind::ParameterPattern => WordVisitKind::ParameterPattern,
-        _ => WordVisitKind::Expansion,
+        ReferenceKind::DeclarationName
+        | ReferenceKind::Expansion
+        | ReferenceKind::ImplicitRead
+        | ReferenceKind::ParameterExpansion
+        | ReferenceKind::Length
+        | ReferenceKind::ArrayAccess
+        | ReferenceKind::IndirectExpansion
+        | ReferenceKind::ArithmeticRead
+        | ReferenceKind::PromptExpansion
+        | ReferenceKind::TrapAction
+        | ReferenceKind::ParameterSliceArithmetic
+        | ReferenceKind::RequiredRead => WordVisitKind::Expansion,
     }
 }
 
@@ -1961,7 +1972,11 @@ fn classify_source_ref_diagnostic_class(
         SourceRefKind::Dynamic if dynamic_root_with_slash_tail(word, source) => {
             SourceRefDiagnosticClass::UntrackedFile
         }
-        _ => default_diagnostic_class(kind),
+        SourceRefKind::Literal(_)
+        | SourceRefKind::Directive(_)
+        | SourceRefKind::DirectiveDevNull
+        | SourceRefKind::Dynamic
+        | SourceRefKind::SingleVariableStaticTail { .. } => default_diagnostic_class(kind),
     }
 }
 
@@ -2207,8 +2222,8 @@ fn source_value_range(text: &str, text_offset: usize, value: &str) -> TextRange 
     let relative = value.as_ptr() as usize - text.as_ptr() as usize;
     let start = text_offset + relative;
     TextRange::new(
-        TextSize::new(start as u32),
-        TextSize::new((start + value.len()) as u32),
+        TextSize::from_usize(start),
+        TextSize::from_usize(start + value.len()),
     )
 }
 
