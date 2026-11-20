@@ -1,4 +1,5 @@
-#![warn(missing_docs)]
+#![warn(missing_docs, unsafe_code)]
+#![warn(clippy::cast_possible_truncation, clippy::cast_sign_loss, clippy::match_wildcard_for_single_variants, clippy::redundant_clone)]
 #![cfg_attr(not(test), warn(clippy::unwrap_used))]
 //! Shell formatting entrypoints built on top of `shuck-parser`.
 //!

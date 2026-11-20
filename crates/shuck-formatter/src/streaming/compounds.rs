@@ -68,7 +68,8 @@ where
             IfLayoutStyle::SplitCondition => {
                 self.format_split_condition_then_fi_if(command, then_span, fi_span)
             }
-            layout => self.format_inline_condition_then_fi_if(command, then_span, fi_span, layout) }
+            layout @ (IfLayoutStyle::Inline(_) | IfLayoutStyle::Expanded(_)) =>
+                self.format_inline_condition_then_fi_if(command, then_span, fi_span, layout) }
     }
 
     pub(super) fn format_raw_grouped_then_fi_if(

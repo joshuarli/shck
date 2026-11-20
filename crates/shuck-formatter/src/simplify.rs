@@ -768,7 +768,7 @@ mod tests {
     #[test]
     fn simplify_report_tracks_applied_rewrites() {
         let parsed = Parser::new("echo $(( $a + ${b} ))\n").parse().unwrap();
-        let mut file = parsed.file.clone();
+        let mut file = parsed.file;
         let report = simplify_file(&mut file, "echo $(( $a + ${b} ))\n");
         let total_changes: usize = report.applied.iter().map(|entry| entry.changes).sum();
 

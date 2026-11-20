@@ -1493,7 +1493,7 @@ pub(super) fn source_indent_minus_one_unit(
             shortened.pop();
             shortened
         }
-        _ => {
+        IndentStyle::Tab | IndentStyle::Space => {
             let width = usize::from(options.indent_width()).max(1);
             if indent.ends_with(&" ".repeat(width)) {
                 indent[..indent.len().saturating_sub(width)].to_string()

@@ -39,7 +39,8 @@ impl<'a> CompoundBodyPlan<'a> {
                 Self::from_layout(site, CompoundBodyLayout::DirectInline, context)
             }
             CompoundBodyOpen::Group('{') => Self::brace_group(site, brace_prefix, context),
-            _ => unreachable!("compound body uses do, direct, or brace syntax") }
+            CompoundBodyOpen::Keyword(_) | CompoundBodyOpen::Group(_) =>
+                unreachable!("compound body uses do, direct, or brace syntax") }
     }
 
     pub(crate) fn do_done(site: CompoundBodySite<'a>, context: RenderContext<'_, '_>) -> Self {

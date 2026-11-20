@@ -125,7 +125,7 @@ impl<'a> SourceMap<'a> {
     pub fn line_number_for_offset(&self, offset: usize) -> usize {
         self.data
             .line_index
-            .line_number(TextSize::new(self.clamped_offset(offset) as u32))
+            .line_number(TextSize::from_usize(self.clamped_offset(offset)))
     }
 
     #[must_use]

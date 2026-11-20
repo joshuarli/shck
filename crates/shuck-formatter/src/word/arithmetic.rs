@@ -621,7 +621,8 @@ pub(super) fn compact_dynamic_arithmetic_subscript(text: &str) -> String {
     while let Some(ch) = chars.next() {
         if ch == '$' && chars.peek().is_some_and(|next| *next == '(') {
             rendered.push(ch);
-            rendered.push(chars.next().expect("peeked '('"));
+            chars.next();
+            rendered.push('(');
             dollar_paren_depth = dollar_paren_depth.saturating_add(1);
             continue;
         }

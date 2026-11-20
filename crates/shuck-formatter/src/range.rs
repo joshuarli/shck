@@ -637,7 +637,7 @@ mod tests {
         let source = "if true; then\necho   hi\n";
         let result = format_range(
             source,
-            TextRange::new(TextSize::new(0), TextSize::new(source.len() as u32)),
+            TextRange::new(TextSize::new(0), TextSize::from_usize(source.len())),
             None,
             &ShellFormatOptions::default(),
         );
