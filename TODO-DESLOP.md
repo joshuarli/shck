@@ -47,18 +47,12 @@ DSLP-5 closed: the Dead code step ran per component, one merged PR each:
 
 Together they delete about 2,350 lines; most of it is `allow(dead_code)` helpers, literal-false branches and empty registration paths. They also narrow unreachable `pub` items. No CLI subcommand, flag, output format, exit code, rule code or Makefile target was removed. Each `docs/deslop-deadcode-*.md` records its consumer searches and checks.
 
-Public items that have no workspace consumer but could have external ones are not removed; they are filed as Needs owner tickets. Those, together with the stub rules from #30, are:
-- DSLP-21: indexer and discover APIs;
-- DSLP-22: parser APIs;
-- DSLP-23: `GlobPatternBehavior::sh_glob`;
-- DSLP-25: `format_range`;
-- DSLP-26: six registered stub rules that never fire.
+The owner ruled on the previously deferred API and stub-rule tickets.
 
-Completion review (`docs/deslop-review.md`) covered #1 to #29 and found two defects in #12's resource-limit reporting. For stdin input, `check` dropped a limit error when lint diagnostics were present (P2). Fuel exhaustion between commands reported `Fatal`, not `LimitExceeded` (P3). Both are fixed with regression tests in #32. A separate review of #30 and #31 filed DSLP-27 (P4).
+Completion review (`docs/deslop-review.md`) covered #1 to #29 and found two defects in #12's resource-limit reporting. For stdin input, `check` dropped a limit error when lint diagnostics were present (P2). Fuel exhaustion between commands reported `Fatal`, not `LimitExceeded` (P3). Both are fixed with regression tests in #32. A separate review of #30 and #31 filed a test-only signal for removal.
 
 Open after the pass:
-- Needs owner: DSLP-21, DSLP-22, DSLP-23, DSLP-25 and DSLP-26.
-- Filed P3 and P4 findings: DSLP-11 to DSLP-14, DSLP-16 to DSLP-20, DSLP-24 and DSLP-27.
+- Filed P3 and P4 findings: DSLP-11 to DSLP-14, DSLP-16 to DSLP-20, and DSLP-24.
 - Not run: the Large-corpus and Full benchmark tiers, Windows builds, fuzz execution, and `cargo shear`, which needs Nix.
 
 ## Tickets
@@ -151,14 +145,5 @@ Open after the pass:
 - **Problem:** The rule rationale tells the reader to 'Add a dash before the flags: set -euo pipefail', but the safe fix inserts '--' instead: 'set euox pipefail' becomes 'set -- euox pipefail', which keeps the words as positional parameters and never enables the options. The fixed script therefore still does not have the behavior the rationale names.
 - **Recommendation:** Reword the rationale and description to state that the fix only makes the bare operands explicit positional parameters, and keep the flags interpretation in the message only.
 - **Fix with:** refactor-rust
-- **Effort:** S
-
-### DSLP-27 · P4 · Delete test-only zsh module signal
-
-- **Area:** linter
-- **Where:** crates/shuck-linter/src/ambient_contracts/signals.rs:63,130
-- **Problem:** After #30, SourceSignals::loads_zsh_module and its zmodload_lines field are compiled only under cfg(test) and have no production caller; the code exists only to test itself.
-- **Recommendation:** Delete loads_zsh_module, zmodload_lines, and their two signals tests.
-- **Fix with:** cargo test -p shuck-linter
 - **Effort:** S
 
