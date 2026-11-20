@@ -215,22 +215,6 @@ impl Default for DiscoveryOptions {
     }
 }
 
-/// Discover files, failing when any path could not be read or walked.
-///
-/// Use [`discover_files_with_status`] to keep the files that were found
-/// alongside per-path errors.
-pub fn discover_files(
-    inputs: &[PathBuf],
-    cwd: &Path,
-    options: &DiscoveryOptions,
-) -> Result<Vec<DiscoveredFile>> {
-    let result = discover_files_with_status(inputs, cwd, options)?;
-    if let Some(error) = result.errors.first() {
-        return Err(anyhow!("{}: {}", error.path.display(), error.message));
-    }
-    Ok(result.files)
-}
-
 /// Discover files and report whether configured work bounds truncated the walk.
 pub fn discover_files_with_status(
     inputs: &[PathBuf],
@@ -1102,12 +1086,13 @@ mod tests {
             fs::set_permissions(&executable, permissions).unwrap();
         }
 
-        let files = discover_files(
+        let files = discover_files_with_status(
             &[extensionless, executable, non_shell],
             tempdir.path(),
             &DiscoveryOptions::default(),
         )
-        .unwrap();
+        .unwrap()
+        .files;
 
         assert_eq!(files.len(), 3);
         assert!(files.iter().all(|file| file.kind == FileKind::Shell));
@@ -1162,12 +1147,13 @@ jobs:
         fs::write(tempdir.path().join(".bashrc"), "echo bash\n").unwrap();
         fs::write(tempdir.path().join(".profile"), "echo profile\n").unwrap();
 
-        let files = discover_files(
+        let files = discover_files_with_status(
             &[tempdir.path().to_path_buf()],
             tempdir.path(),
             &DiscoveryOptions::default(),
         )
-        .unwrap();
+        .unwrap()
+        .files;
         let display_paths = files
             .iter()
             .map(|file| file.display_path.clone())
@@ -1218,12 +1204,13 @@ jobs:
         )
         .unwrap();
 
-        let files = discover_files(
+        let files = discover_files_with_status(
             &[tempdir.path().to_path_buf()],
             tempdir.path(),
             &DiscoveryOptions::default(),
         )
-        .unwrap();
+        .unwrap()
+        .files;
 
         assert!(files.is_empty());
     }
@@ -1241,7 +1228,7 @@ jobs:
             .unwrap();
         }
 
-        let files = discover_files(
+        let files = discover_files_with_status(
             &[tempdir.path().to_path_buf()],
             tempdir.path(),
             &DiscoveryOptions {
@@ -1249,7 +1236,8 @@ jobs:
                 ..DiscoveryOptions::default()
             },
         )
-        .unwrap();
+        .unwrap()
+        .files;
 
         let names = files
             .iter()
@@ -1298,7 +1286,7 @@ jobs:
         let cancellation = DiscoveryCancellationToken::default();
         cancellation.cancel();
 
-        let files = discover_files(
+        let files = discover_files_with_status(
             &[tempdir.path().to_path_buf()],
             tempdir.path(),
             &DiscoveryOptions {
@@ -1306,7 +1294,8 @@ jobs:
                 ..DiscoveryOptions::default()
             },
         )
-        .unwrap();
+        .unwrap()
+        .files;
 
         assert!(files.is_empty());
     }
@@ -1319,7 +1308,7 @@ jobs:
         fs::write(nested.join("nested.sh"), "echo nested\n").unwrap();
         fs::write(tempdir.path().join("z-parent.sh"), "echo parent\n").unwrap();
 
-        let files = discover_files(
+        let files = discover_files_with_status(
             &[tempdir.path().to_path_buf()],
             tempdir.path(),
             &DiscoveryOptions {
@@ -1328,7 +1317,8 @@ jobs:
                 ..DiscoveryOptions::default()
             },
         )
-        .unwrap();
+        .unwrap()
+        .files;
 
         assert_eq!(files.len(), 1);
         assert_eq!(files[0].display_path, PathBuf::from("z-parent.sh"));
@@ -1415,7 +1405,7 @@ jobs:
         fs::write(project.join("vendor/dep.sh"), "echo dep\n").unwrap();
 
         for parallel in [false, true] {
-            let files = discover_files(
+            let files = discover_files_with_status(
                 std::slice::from_ref(&project),
                 &project,
                 &DiscoveryOptions {
@@ -1423,7 +1413,8 @@ jobs:
                     ..DiscoveryOptions::default()
                 },
             )
-            .unwrap();
+        .unwrap()
+        .files;
             assert_eq!(
                 files
                     .iter()
@@ -1434,15 +1425,16 @@ jobs:
             );
         }
 
-        let explicit = discover_files(
+        let explicit = discover_files_with_status(
             &[project.join("vendor/dep.sh")],
             &project,
             &DiscoveryOptions::default(),
         )
-        .unwrap();
+        .unwrap()
+        .files;
         assert_eq!(explicit.len(), 1);
 
-        let forced = discover_files(
+        let forced = discover_files_with_status(
             &[project.join("vendor/dep.sh")],
             &project,
             &DiscoveryOptions {
@@ -1450,7 +1442,8 @@ jobs:
                 ..DiscoveryOptions::default()
             },
         )
-        .unwrap();
+        .unwrap()
+        .files;
         assert!(forced.is_empty());
     }
 

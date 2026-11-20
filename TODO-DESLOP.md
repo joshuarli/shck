@@ -135,15 +135,6 @@ Open after the pass:
 - **Fix with:** bench-pyramid
 - **Effort:** S
 
-### DSLP-21 · P3 · Decide whether unused public indexer and discover APIs stay
-
-- **Area:** Needs owner · deslop · dead code
-- **Where:** crates/shuck-indexer/src/selection_range_index.rs:40 (selection_chain); crates/shuck-indexer/src/lib.rs:273 (is_continuation); crates/shuck-discover/src/lib.rs:222 (discover_files)
-- **Problem:** These public functions have only in-crate test consumers anywhere in the workspace, including fuzz/. Removing them changes the public API of published crates, so external consumers are unknown.
-- **Recommendation:** Owner decides: remove them (and their tests) if the crates have no external consumers, or keep them as supported API.
-- **Fix with:** deslop
-- **Effort:** S
-
 ### DSLP-22 · P3 · Decide whether parser public APIs with no workspace consumer stay
 
 - **Area:** Needs owner · deslop · dead code
