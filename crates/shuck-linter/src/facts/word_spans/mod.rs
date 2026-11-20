@@ -5,7 +5,8 @@ use shuck_ast::{
 
 use super::BacktickEscapedParameter;
 use crate::Locator;
-use shuck_semantic::{GlobPatternBehavior, PathnameExpansionBehavior, PatternOperatorBehavior};
+use shuck_semantic::glob::GlobPatternBehavior;
+use shuck_semantic::{PathnameExpansionBehavior, PatternOperatorBehavior};
 
 mod arrays;
 mod backticks;

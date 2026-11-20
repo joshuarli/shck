@@ -107,7 +107,8 @@ impl ParseResult {
 
     /// Return the strict parse error when the result is not clean, otherwise panic with
     /// `message`.
-    pub fn expect_err(self, message: &str) -> Error {
+    #[cfg(test)]
+    pub(crate) fn expect_err(self, message: &str) -> Error {
         if self.is_err() {
             self.strict_error()
         } else {

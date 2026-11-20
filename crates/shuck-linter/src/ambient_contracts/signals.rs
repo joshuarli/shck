@@ -60,8 +60,6 @@ pub(super) struct SourceSignals<'a> {
     mentioned_names: BTreeSet<&'a str>,
     assigned_names: BTreeSet<&'a str>,
     code_lines: Vec<&'a str>,
-    #[cfg(test)]
-    zmodload_lines: Vec<&'a str>,
     has_probable_function_definition: bool,
     has_source_command: bool,
 }
@@ -69,23 +67,15 @@ pub(super) struct SourceSignals<'a> {
 impl<'a> SourceSignals<'a> {
     fn new(source: &'a str) -> Self {
         let mut code_lines = Vec::new();
-        #[cfg(test)]
-        let mut zmodload_lines = Vec::new();
         let mut has_probable_function_definition = false;
         let mut has_source_command = false;
 
-        #[cfg(test)]
-        let source_mentions_zmodload = source.contains("zmodload");
         for line in source.lines() {
             let code = code_before_shell_comment(line);
             let trimmed = code.trim();
             code_lines.push(trimmed);
             has_probable_function_definition |= probable_function_definition(trimmed);
             has_source_command |= source_command_line(trimmed);
-            #[cfg(test)]
-            if source_mentions_zmodload && code.contains("zmodload") {
-                zmodload_lines.push(code);
-            }
         }
 
         Self {
@@ -93,8 +83,6 @@ impl<'a> SourceSignals<'a> {
             mentioned_names: collect_parameter_mentions(source),
             assigned_names: collect_assignment_names(source),
             code_lines,
-            #[cfg(test)]
-            zmodload_lines,
             has_probable_function_definition,
             has_source_command,
         }
@@ -124,11 +112,6 @@ impl<'a> SourceSignals<'a> {
 
     pub(super) fn has_source_command(&self) -> bool {
         self.has_source_command
-    }
-
-    #[cfg(test)]
-    pub(super) fn loads_zsh_module(&self, module: &str) -> bool {
-        self.zmodload_lines.iter().any(|code| code.contains(module))
     }
 
     pub(super) fn static_assignment_value(&self, name: &str) -> Option<String> {
@@ -354,19 +337,5 @@ mod tests {
 
         assert!(signals.assigns_name_with_prefix("VCS_STATUS_"));
         assert!(!signals.assigns_name_with_prefix("P9K_"));
-    }
-
-    #[test]
-    fn zmodload_signal_ignores_separator_comments() {
-        let signals = SourceSignals::new("true;# zmodload zsh/parameter\n");
-
-        assert!(!signals.loads_zsh_module("zsh/parameter"));
-    }
-
-    #[test]
-    fn zmodload_signal_keeps_executed_segments_after_separators() {
-        let signals = SourceSignals::new("true; zmodload zsh/parameter\n");
-
-        assert!(signals.loads_zsh_module("zsh/parameter"));
     }
 }

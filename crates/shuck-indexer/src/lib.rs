@@ -264,20 +264,7 @@ impl Indexer {
         &self.selection_range_index
     }
 
-    /// Return whether `offset` is on a semantic continuation line.
-    ///
-    /// The query first maps `offset` to its containing 1-based line, then checks
-    /// whether that line starts at one of [`Self::continuation_line_starts`].
-    /// Offsets past the final byte of the source are treated according to the
-    /// last indexed line.
-    pub fn is_continuation(&self, offset: TextSize) -> bool {
-        let line = self.line_index.line_number(offset);
-        let Some(line_start) = self.line_index.line_start(line) else {
-            return false;
-        };
 
-        contains_offset(&self.continuation_lines, line_start)
-    }
 }
 
 fn collect_continuation_lines(
@@ -301,10 +288,6 @@ fn collect_continuation_lines(
     continuation_lines
 }
 
-fn contains_offset(offsets: &[TextSize], offset: TextSize) -> bool {
-    offsets.binary_search(&offset).is_ok()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -321,8 +304,6 @@ mod tests {
         let indexer = index(source);
 
         assert_eq!(indexer.continuation_line_starts().len(), 1);
-        assert!(indexer.is_continuation(TextSize::new(11)));
-        assert!(!indexer.is_continuation(TextSize::new(28)));
         assert!(
             indexer
                 .line_index()

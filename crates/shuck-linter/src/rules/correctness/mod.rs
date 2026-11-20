@@ -13,7 +13,6 @@ pub mod backslash_before_closing_backtick;
 pub mod backtick_in_command_position;
 pub mod bad_redirection_fd_order;
 pub mod bad_var_name;
-pub mod bare_closing_brace;
 pub mod bare_done_word;
 pub mod bare_glob_command_path;
 pub mod bare_slash_marker;
@@ -41,8 +40,6 @@ pub mod double_paren_grouping;
 pub mod duplicate_redirect;
 pub mod dynamic_source_path;
 pub mod else_if;
-pub mod else_without_then;
-pub mod empty_function_body;
 pub mod empty_test;
 pub mod env_prefix_expansion_only;
 pub mod escaped_negation_in_test;
@@ -88,7 +85,6 @@ pub mod misquoted_heredoc_close;
 pub mod missing_bracket_space;
 pub mod missing_done_in_for_loop;
 pub mod missing_fi;
-pub mod missing_semicolon_before_brace;
 pub mod missing_space_before_bracket_close;
 pub mod mixed_and_or_in_condition;
 pub mod mutable_global;
@@ -124,7 +120,6 @@ pub mod stderr_before_stdout_redirect;
 pub mod stray_closing_keyword;
 pub mod string_compared_with_eq;
 pub mod string_comparison_for_version;
-pub mod subshell_in_arithmetic;
 pub mod subshell_local_assignment;
 pub mod subshell_side_effect;
 pub mod subst_with_redirect;
@@ -228,10 +223,6 @@ mod tests {
     #[test_case(Rule::NestedParameterExpansion, Path::new("C062.sh"))]
     #[test_case(Rule::OverwrittenFunction, Path::new("C063.sh"))]
     #[test_case(Rule::IfMissingThen, Path::new("C064.sh"))]
-    #[test_case(Rule::ElseWithoutThen, Path::new("C065.sh"))]
-    #[test_case(Rule::MissingSemicolonBeforeBrace, Path::new("C066.sh"))]
-    #[test_case(Rule::EmptyFunctionBody, Path::new("C067.sh"))]
-    #[test_case(Rule::BareClosingBrace, Path::new("C068.sh"))]
     #[test_case(Rule::BackslashBeforeClosingBacktick, Path::new("C069.sh"))]
     #[test_case(Rule::PositionalParamAsOperator, Path::new("C070.sh"))]
     #[test_case(Rule::DoubleParenGrouping, Path::new("C071.sh"))]
@@ -240,7 +231,6 @@ mod tests {
     #[test_case(Rule::SpaceAfterHashBang, Path::new("C074.sh"))]
     #[test_case(Rule::ShebangNotOnFirstLine, Path::new("C075.sh"))]
     #[test_case(Rule::CommentedContinuationLine, Path::new("C076.sh"))]
-    #[test_case(Rule::SubshellInArithmetic, Path::new("C077.sh"))]
     #[test_case(Rule::UnquotedGlobsInFind, Path::new("C078.sh"))]
     #[test_case(Rule::GlobInGrepPattern, Path::new("C080.sh"))]
     #[test_case(Rule::GlobInStringComparison, Path::new("C081.sh"))]

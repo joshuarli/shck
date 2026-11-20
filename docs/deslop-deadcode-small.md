@@ -60,12 +60,3 @@ inspection, not executed; its direct AST dependency remains intact.
   TMPDIR. Cargo also reported manual-readme and homepage metadata warnings and
   a benchmark `tikv-jemallocator` unused-dependency warning; these are outside
   this slice and the manifest warnings do not make Clippy exit nonzero.
-
-## Owner decision
-
-`SelectionRangeIndex::selection_chain` and `Indexer::is_continuation` have
-only in-crate test consumers in the searched workspace, but are public index
-queries on a published crate. `shuck-discover::discover_files` likewise has
-only in-crate test consumers. Removing them would change a public API, so they
-remain walk-back candidates for an owner. This is not a claim that external
-consumers do or do not exist.

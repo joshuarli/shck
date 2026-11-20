@@ -1066,6 +1066,17 @@ if true; then ( # shellcheck disable=SC2086
     }
 
     #[test]
+    fn removed_code_is_ignored_like_an_unknown_suppression() {
+        let removed = directives("# shuck: disable=C065,C006\n");
+        let unknown = directives("# shuck: disable=C999,C006\n");
+
+        assert_eq!(removed.len(), 1);
+        assert_eq!(unknown.len(), 1);
+        assert_eq!(removed[0].codes, unknown[0].codes);
+        assert_eq!(removed[0].codes, vec![Rule::UndefinedVariable]);
+    }
+
+    #[test]
     fn ignores_malformed_and_unknown_directives() {
         let source = "\
 # shuck: disable=

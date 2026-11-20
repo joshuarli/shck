@@ -32,7 +32,8 @@ mod dense_bit_set;
 mod editor;
 mod function_call_reachability;
 mod function_resolution;
-mod glob;
+/// Option-sensitive globbing and expansion behavior queries.
+pub mod glob;
 mod nonpersistent;
 mod reachability;
 mod reference;
@@ -101,7 +102,7 @@ pub use function_call_reachability::{
 /// Option-sensitive globbing and expansion behavior queries.
 pub use glob::{
     BraceCharacterClassBehavior, FieldSplittingBehavior, FileExpansionOrderBehavior,
-    GlobDotBehavior, GlobFailureBehavior, GlobPatternBehavior, PathnameExpansionBehavior,
+    GlobDotBehavior, GlobFailureBehavior, PathnameExpansionBehavior,
     PatternOperatorBehavior,
 };
 /// Nonpersistent assignment effects, such as assignments made in subshells and read later outside.

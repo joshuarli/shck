@@ -1,4 +1,0 @@
----
-source: crates/shuck-linter/src/rules/correctness/subshell_in_arithmetic.rs
-assertion_line: 33
----

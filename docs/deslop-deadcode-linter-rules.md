@@ -7,27 +7,13 @@ Scope: linter outside `facts/`, at base `d53111b180c46c75b64a0e2e9d902e13d84ec84
 - The literal `if false` return in `glob_in_string_comparison`: it could never execute. The C081 rule remains registered in `registry.rs`, dispatched in `checker.rs`, and covered by its rule tests and fixture. Searches across workspace crates, fuzz, docs, scripts, manifests and Makefile found no separate entry, build or package reference to the branch. The rule has no platform or feature gate.
 - The empty `WELL_KNOWN_REQUEST_CONTRACTS` table and its `WellKnownRequestContract`, `RequestActivation`, lookup, matcher and unreachable request handling. The table had no entries; workspace and fuzz searches found no constructor, registration, build or package reference. Declarative generated contracts and custom request contracts remain active. There was no platform or feature gate on the removed path.
 
-- `first_shell_command_segment` in ambient signals had no callers. The `zmodload_lines` collection and `loads_zsh_module` query have only two unit-test callers, so they now compile only for tests; the unused `trim_start` local was removed. Workspace, fuzz, docs, scripts and manifest searches found no other consumers or registrations. These are not feature or platform gated.
+- `first_shell_command_segment` in ambient signals had no callers. The unused `trim_start` local was removed. Workspace, fuzz, docs, scripts and manifest searches found no other consumers or registrations. These are not feature or platform gated.
 - The unannotated, uncalled `generate_declarative_contract_data_renders_runtime_descriptors` in `tests/build_script.rs` was not registered as a test; workspace and fuzz searches found no caller. The build generator remains used by `build.rs`.
 - Test helpers `request_contract_for`, `has_consumed_prefix`, `has_consumed_name` and `plugin_request` had no callers in the workspace, fuzz, docs, scripts or manifests. They had no feature or platform gates.
 
 Internal visibility was narrowed for the parse-diagnostic violation types, common word helper and unquoted-expansion safe-value module. Their containing modules are private or crate-private, and their existing consumers remain in the linter. No exported API changed.
 
 Consumer tests for each removal: `TMPDIR="$PWD/.work/tmp" cpu-guard --cores 4 -- cargo test -p shuck-linter` and `TMPDIR="$PWD/.work/tmp" cpu-guard --cores 4 -- make test`, using local workspace crates. Fuzz was searched but not run.
-
-## Needs owner
-
-These registered codes remain unchanged. Their bodies are stubs and deserve owner decisions:
-
-- C065: an `else` without a preceding `then`.
-- C066: a closing brace after a command lacking a semicolon or newline.
-- C067: an empty function body.
-- C068: a closing brace lacking a preceding command terminator.
-- C077: command substitution inside arithmetic expansion.
-- X077: nested default-value expansion in POSIX sh.
-- C109: historically reserved for `mapfile` or `readarray` using process substitution. Its body intentionally emits nothing; metadata says the idiom is accepted and the code remains reserved.
-
-Descriptions are from `docs/rules/<code>.yaml`; implementations are in the corresponding rule modules. These are candidates for the parent to file, not removals.
 
 ## Warning allowlist
 

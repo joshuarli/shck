@@ -13,15 +13,6 @@ use crate::{Category, FixAvailability, LinterSettings, Rule, code_to_rule, rule_
 /// Rules whose fixture is expected to produce no diagnostics. Every entry is a known gap;
 /// remove it once the rule fires on its fixture (the test fails if an entry goes stale).
 const SILENT_FIXTURE_ALLOWLIST: &[(&str, &str)] = &[
-    // C065-C068 and C077 are registered but their check functions are empty, so they can
-    // never report. Whether to implement or drop them is an open product decision.
-    ("C065", "rule body is empty; never reports"),
-    ("C066", "rule body is empty; never reports"),
-    ("C067", "rule body is empty; never reports"),
-    ("C068", "rule body is empty; never reports"),
-    ("C077", "rule body is empty; never reports"),
-    // X077 is registered but its check function is empty, so it can never report.
-    ("X077", "rule body is empty; never reports"),
     // These rules have real implementations, but their fixtures do not currently trigger
     // them (the committed snapshots are empty). The fixtures need a firing case.
     ("C109", "fixture snapshot is empty"),

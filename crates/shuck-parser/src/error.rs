@@ -38,7 +38,7 @@ impl std::error::Error for Error {}
 
 impl Error {
     /// Create a parse error with source location.
-    pub fn parse_at(message: impl Into<String>, line: usize, column: usize) -> Self {
+    pub(crate) fn parse_at(message: impl Into<String>, line: usize, column: usize) -> Self {
         Self::Parse {
             message: message.into(),
             line,

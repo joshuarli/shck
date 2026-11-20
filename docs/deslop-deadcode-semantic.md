@@ -22,4 +22,4 @@ Consumer verification: `cargo test -p shuck-semantic` (exit 0; 449 unit tests an
 
 ## Needs owner
 
-`GlobPatternBehavior::sh_glob` has only an in-crate test consumer in searches of the workspace and fuzz. It is a public query on an exported type, so external callers may rely on it; it remains for an owner decision. Further API-wide enumeration is needed. The remaining zsh surfaces and dormant paths may represent externally usable API or live behavior and need separate analysis before any walk-back.
+The remaining zsh surfaces and dormant paths may represent externally usable API or live behavior and need separate analysis before any walk-back.

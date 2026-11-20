@@ -174,9 +174,11 @@ pub use shell::ShellDialect;
 /// Option-sensitive shell behavior enums reused by linter facts and rules.
 pub use shuck_semantic::{
     ArithmeticLiteralBehavior, FieldSplittingBehavior, GlobDotBehavior, GlobFailureBehavior,
-    GlobPatternBehavior, PathnameExpansionBehavior, PatternOperatorBehavior,
+    PathnameExpansionBehavior, PatternOperatorBehavior,
     SubscriptIndexBehavior,
 };
+/// Pattern operator behavior reused by linter facts.
+pub use shuck_semantic::glob::GlobPatternBehavior;
 /// Semantic resolver extension points and their request/response types.
 ///
 /// These types are defined by `shuck-semantic` and re-exported here because they appear directly

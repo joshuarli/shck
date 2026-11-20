@@ -4,7 +4,7 @@ The lint engine lives in `shuck-linter`. Rules read precomputed facts, report di
 
 ## Rules and categories
 
-Rule codes are a category letter plus a number.
+Rule codes are a category letter plus a number. `C109` is reserved and does not report diagnostics.
 
 | Category | Prefix | Default |
 | --- | --- | --- |

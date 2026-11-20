@@ -1,6 +1,6 @@
 # Deslop completion review
 
-Intent: review the cumulative campaign changes for regressions, particularly parser limits, diagnostics, dependency caching, minification, checked conversions, dead-code removal, and benchmark entrypoints. Reviewed diff: `90c560d2cb767045c90550489534a552cc1be2ae..3e0a4e8f71ae7b1922e69b992ade7ec0964229d7`. Verdict: two demonstrated resource-limit defects remain. Previously filed DSLP-11 through DSLP-14 and DSLP-16 through DSLP-25 are excluded as requested.
+Intent: review the cumulative campaign changes for regressions, particularly parser limits, diagnostics, dependency caching, minification, checked conversions, dead-code removal, and benchmark entrypoints. Reviewed diff: `90c560d2cb767045c90550489534a552cc1be2ae..3e0a4e8f71ae7b1922e69b992ade7ec0964229d7`. Verdict: two demonstrated resource-limit defects remain. Previously filed SHCK-1 through SHCK-3 and SHCK-4 through DSLP-25 are excluded as requested.
 
 ## Findings
 
@@ -72,4 +72,4 @@ Each test fails against the reviewed revision and passes with the fix.
 
 ## Later Dead code slices
 
-#30 (linter rules) and #31 (linter facts) merged after the review above and were reviewed separately. #31 only deletes code and narrows visibility. #30 leaves `SourceSignals::loads_zsh_module` and its field compiled only under `cfg(test)`, with no production caller; this is filed as DSLP-27 (P4). #30 also deletes a `build_script.rs` test that had no `#[test]` attribute and never ran; every build exercises the generator it covered, so no coverage is lost.
+#30 (linter rules) and #31 (linter facts) merged after the review above and were reviewed separately. #31 only deletes code and narrows visibility. #30 also deletes a `build_script.rs` test that had no `#[test]` attribute and never ran; every build exercises the generator it covered, so no coverage is lost.

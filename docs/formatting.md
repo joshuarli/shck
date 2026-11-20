@@ -6,7 +6,6 @@
 
 - `format_source(source, path, options) -> Result<FormattedSource>` parses, then formats.
 - `format_file_ast(source, file, path, options) -> Result<FormattedSource>` formats an already-parsed `File` and never re-parses.
-- `format_range(source, range, path, options) -> Result<Option<FormattedRange>>` expands a range to the smallest enclosing complete statement.
 - `source_is_formatted(source, path, options) -> Result<bool>` backs `--check`.
 
 `FormattedSource` is `Unchanged` or `Formatted(String)`. The formatter compares rendered output to the input; equal bytes mean `Unchanged`.
