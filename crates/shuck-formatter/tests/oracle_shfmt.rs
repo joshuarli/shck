@@ -240,10 +240,10 @@ struct LargeCorpusProgress {
 #[test]
 #[ignore = "requires SHUCK_RUN_SHFMT_ORACLE=1 and shfmt on PATH (for example via `nix develop`)"]
 fn selected_fixtures_match_shfmt() {
-    if std::env::var_os("SHUCK_RUN_SHFMT_ORACLE").is_none() {
-        eprintln!("set SHUCK_RUN_SHFMT_ORACLE=1 to run the shfmt oracle");
-        return;
-    }
+    assert!(
+        std::env::var_os("SHUCK_RUN_SHFMT_ORACLE").is_some(),
+        "set SHUCK_RUN_SHFMT_ORACLE=1 to run the shfmt oracle"
+    );
 
     let shfmt = probe_shfmt().expect("shfmt not found on PATH; run under `nix develop`");
 
@@ -286,14 +286,12 @@ fn selected_fixtures_match_shfmt() {
 #[test]
 #[ignore = "requires SHUCK_RUN_SHFMT_ORACLE=1, SHUCK_TEST_LARGE_CORPUS=1, and shfmt on PATH"]
 fn large_corpus_matches_shfmt() {
-    if std::env::var_os("SHUCK_RUN_SHFMT_ORACLE").is_none() {
-        eprintln!("set SHUCK_RUN_SHFMT_ORACLE=1 to run the shfmt oracle");
-        return;
-    }
-    let Some(cfg) = resolve_large_corpus_config() else {
-        eprintln!("large corpus shfmt oracle skipped (set {LARGE_CORPUS_ENV}=1 to enable)");
-        return;
-    };
+    assert!(
+        std::env::var_os("SHUCK_RUN_SHFMT_ORACLE").is_some(),
+        "set SHUCK_RUN_SHFMT_ORACLE=1 to run the shfmt oracle"
+    );
+    let cfg = resolve_large_corpus_config()
+        .expect("set SHUCK_TEST_LARGE_CORPUS=1 to run the large corpus oracle");
 
     let update_allowlist = env_truthy(SHFMT_ALLOWLIST_UPDATE_ENV, false);
     let allowlist = (!update_allowlist).then(load_shfmt_large_corpus_allowlist);
@@ -376,6 +374,8 @@ fn large_corpus_matches_shfmt() {
             }
         }
     }
+
+    assert!(compared > 0, "no large-corpus fixtures compared");
 
     if update_allowlist {
         write_shfmt_large_corpus_allowlist(&mismatches);

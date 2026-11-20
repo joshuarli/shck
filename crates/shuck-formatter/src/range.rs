@@ -574,6 +574,7 @@ mod tests {
         ];
         for source in sources {
             let expected = format_whole(source, None);
+            let mut selected = 0;
             for offset in 0..=source.len() {
                 let offset = u32::try_from(offset).expect("offset fits");
                 let Some(result) = format_range(
@@ -585,6 +586,7 @@ mod tests {
                 .expect("range formatting should succeed") else {
                     continue;
                 };
+                selected += 1;
                 let edited = match result.formatted {
                     FormattedSource::Unchanged => source.to_owned(),
                     FormattedSource::Formatted(text) => {
@@ -599,6 +601,7 @@ mod tests {
                     "source {source:?} offset {offset} produced {edited:?}"
                 );
             }
+            assert!(selected > 0, "no statement selected in {source:?}");
         }
     }
 

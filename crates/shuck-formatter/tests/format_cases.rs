@@ -3005,6 +3005,12 @@ fn minify_flushes_heredocs_before_compound_closers() {
         ("case a in\na) case b in\nb) cat <<EOF\nbody\nEOF\n;;\nesac\n;;\nesac\n", "case a in a) case b in b) cat <<EOF\nbody\nEOF\n;; esac; ;; esac\n"),
         ("if cat <<A | cat; then\none\nA\ncat <<B <<C\ntwo\nB\nthree\nC\necho after\nfi\n", "if cat <<A | cat\none\nA\nthen cat <<B <<C\ntwo\nB\nthree\nC\necho after; fi\n"),
     ] {
+        let formatted = format_to_string(source, Some(Path::new("test.bash")), &options);
+        let parsed = Parser::with_dialect(&formatted, ParseShellDialect::Bash).parse();
+        assert!(
+            !parsed.is_err(),
+            "minified output failed to parse: {formatted:?}"
+        );
         assert_formats_to_with_ast(source, Some(Path::new("test.bash")), &options, expected);
     }
 }
