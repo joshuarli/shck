@@ -19,6 +19,8 @@ DSLP-9 closed: parse-diagnostic enrichment precomputes per-line state; existing 
 
 DSLP-10 closed: parser depth-limit errors survive recovery and are reported without cascading closing-keyword diagnostics.
 
+DSLP-15 closed: full output shares a line index across diagnostics for each source.
+
 ## Tickets
 
 ### DSLP-3 · P2 · Types: strict profile and typing findings
@@ -56,15 +58,6 @@ DSLP-10 closed: parser depth-limit errors survive recovery and are reported with
 - **Recommendation:** Run the bench-pyramid skill as the deslop Bench step on the existing harness. Never run the Full tier. Accept: `make bench`, `bench-check` and `bench-list` work with tier and workload selectors and a preflight; gaps are filed as tickets ranked by the risk of a missed regression.
 - **Fix with:** bench-pyramid
 - **Effort:** M
-
-### DSLP-15 · P2 · default check output rebuilds a line index per diagnostic
-
-- **Area:** deslop · linter performance
-- **Where:** crates/shuck-cli/src/commands/check_output.rs:1098 (full renderer)
-- **Problem:** After DSLP-9 made parse-diagnostic enrichment linear, `shuck check --no-cache` with the default full output still scales quadratically because the renderer rebuilds a line index for each diagnostic. Release medians on a loaded host: 4x more `then` lines (8,000 to 32,000) took 14.0x longer and 4x more nested ifs took 12.2x longer with default output, while `--output-format concise` grew 2.5x and 2.1x. Error-dense inputs of a few hundred KB still take seconds to render.
-- **Recommendation:** Build the line index once per file and share it across that file's diagnostics in the full renderer; confirm byte-identical output on the linter fixtures and measure the 4x scaling ratio again.
-- **Fix with:** refactor-rust
-- **Effort:** S
 
 ### DSLP-11 · P3 · config files silently ignore unknown keys that --config rejects
 

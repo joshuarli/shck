@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::io::{self, Write};
@@ -152,12 +152,16 @@ fn write_full_diagnostics(
     diagnostics: &[DisplayedDiagnostic],
     use_color: bool,
 ) -> io::Result<()> {
+    let mut line_indexes = HashMap::new();
     for (index, diagnostic) in diagnostics.iter().enumerate() {
         if index > 0 {
             writeln!(writer)?;
         }
 
-        let rendered = format_full_diagnostic(diagnostic, use_color);
+        let line_index = diagnostic.source.as_ref().map(|source| {
+            line_indexes.entry(Arc::as_ptr(source)).or_insert_with(|| LineIndex::new(source))
+        });
+        let rendered = format_full_diagnostic(diagnostic, use_color, line_index.as_deref());
         writer.write_all(rendered.as_bytes())?;
         if !rendered.ends_with('\n') {
             writeln!(writer)?;
@@ -431,11 +435,15 @@ fn write_sarif_diagnostics(
     Ok(())
 }
 
-fn format_full_diagnostic(diagnostic: &DisplayedDiagnostic, use_color: bool) -> String {
+fn format_full_diagnostic(
+    diagnostic: &DisplayedDiagnostic,
+    use_color: bool,
+    line_index: Option<&LineIndex>,
+) -> String {
     let Some(source) = diagnostic.source.as_deref() else {
         return format!("{}\n", format_concise_diagnostic(diagnostic, use_color));
     };
-    let Some(snippet) = renderable_snippet(diagnostic.span, source) else {
+    let Some(snippet) = line_index.and_then(|index| renderable_snippet(diagnostic.span, source, index)) else {
         return format!("{}\n", format_concise_diagnostic(diagnostic, use_color));
     };
 
@@ -1095,15 +1103,14 @@ struct RenderableSnippet {
     range: Range<usize>,
 }
 
-fn renderable_snippet(span: DisplaySpan, source: &str) -> Option<RenderableSnippet> {
-    let line_index = LineIndex::new(source);
-    let start = position_offset(span.start, &line_index, source)?;
-    let end = position_offset(span.end, &line_index, source)?;
+fn renderable_snippet(span: DisplaySpan, source: &str, line_index: &LineIndex) -> Option<RenderableSnippet> {
+    let start = position_offset(span.start, line_index, source)?;
+    let end = position_offset(span.end, line_index, source)?;
     let line_start = span.start.line;
     let snippet_start = usize::from(line_index.line_start(line_start)?);
-    let snippet_end = snippet_end_offset(span.end.line.max(span.start.line), &line_index, source)?;
+    let snippet_end = snippet_end_offset(span.end.line.max(span.start.line), line_index, source)?;
     let raw_snippet = &source[snippet_start..snippet_end];
-    let absolute_range = highlighted_range(start..end.max(start), span.start, &line_index, source);
+    let absolute_range = highlighted_range(start..end.max(start), span.start, line_index, source);
     let relative_range =
         (absolute_range.start - snippet_start)..(absolute_range.end - snippet_start);
     let (rendered_source, rendered_range) =
@@ -1329,7 +1336,8 @@ mod tests {
     }
 
     fn render_full(diagnostic: &DisplayedDiagnostic) -> String {
-        format_full_diagnostic(diagnostic, false)
+        let line_index = diagnostic.source.as_deref().map(LineIndex::new);
+        format_full_diagnostic(diagnostic, false, line_index.as_ref())
     }
 
     #[test]
