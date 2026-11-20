@@ -1822,6 +1822,12 @@ fn commands_iter_filters_synthetic_ids_so_command_kind_is_safe() {
     let source = "case \"$x\" in $(echo a)) ;; esac\n";
     let model = model(source);
 
+    assert!(model.commands().iter().any(|id| {
+        model.command_kind(*id) == CommandKind::Compound(CompoundCommandKind::Case)
+    }));
+    assert!(model.commands().iter().any(|id| {
+        model.command_syntax_span(*id).slice(source) == "echo a"
+    }));
     for id in model.commands().iter().copied() {
         let _ = model.command_kind(id);
     }
@@ -8082,6 +8088,21 @@ set_flag() {
 }
 
 #[test]
+fn imported_dependency_paths_include_transitive_and_missing_sources() {
+    let temp = tempdir().unwrap();
+    let main = temp.path().join("main.sh");
+    let loader = temp.path().join("loader.sh");
+    let helper = temp.path().join("helper.sh");
+    let missing = temp.path().join("missing.sh");
+    fs::write(&main, ". ./loader.sh\n. ./loader.sh\n. ./missing.sh\n").unwrap();
+    fs::write(&loader, ". ./helper.sh\n").unwrap();
+    fs::write(&helper, "flag=1\n").unwrap();
+
+    let model = model_at_path(&main);
+    assert_eq!(model.imported_dependency_paths(), &[helper, loader, missing]);
+}
+
+#[test]
 fn sourced_helper_function_exports_possible_imported_binding_when_called() {
     let temp = tempdir().unwrap();
     let main = temp.path().join("main.sh");
@@ -8165,6 +8186,8 @@ set_flag() {
 
     let model = model_at_path(&main);
     assert!(model.analysis().uninitialized_references().is_empty());
+    let without_closure = model_with_dialect(&fs::read_to_string(&main).unwrap(), ShellDialect::Bash);
+    assert_eq!(uninitialized_names(&without_closure), vec!["flag"]);
 }
 
 #[test]
