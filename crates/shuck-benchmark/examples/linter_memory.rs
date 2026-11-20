@@ -29,7 +29,7 @@ impl Frame {
         self.current_live_bytes += size as i64;
         self.peak_live_bytes = self
             .peak_live_bytes
-            .max(self.current_live_bytes.max(0) as u64);
+            .max(self.current_live_bytes.max(0).unsigned_abs());
     }
 
     fn on_dealloc(&mut self, size: usize) {
@@ -42,7 +42,7 @@ impl Frame {
         self.current_live_bytes += new_size as i64 - old_size as i64;
         self.peak_live_bytes = self
             .peak_live_bytes
-            .max(self.current_live_bytes.max(0) as u64);
+            .max(self.current_live_bytes.max(0).unsigned_abs());
     }
 
     fn merge_sequential(&mut self, other: Frame) {
@@ -50,7 +50,7 @@ impl Frame {
         self.reallocation_count += other.reallocation_count;
         self.total_allocated_bytes += other.total_allocated_bytes;
         self.total_reallocated_bytes += other.total_reallocated_bytes;
-        let carried_live_bytes = self.current_live_bytes.max(0) as u64;
+        let carried_live_bytes = self.current_live_bytes.max(0).unsigned_abs();
         self.peak_live_bytes = self
             .peak_live_bytes
             .max(carried_live_bytes + other.peak_live_bytes);
@@ -176,7 +176,7 @@ impl From<Frame> for MemoryMetrics {
             total_allocated_bytes: frame.total_allocated_bytes,
             total_reallocated_bytes: frame.total_reallocated_bytes,
             peak_live_bytes: frame.peak_live_bytes,
-            final_live_bytes: frame.current_live_bytes.max(0) as u64,
+            final_live_bytes: frame.current_live_bytes.max(0).unsigned_abs(),
         }
     }
 }

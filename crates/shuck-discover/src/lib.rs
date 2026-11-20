@@ -1080,7 +1080,8 @@ mod tests {
     fn ignores_large_extensionless_non_shell_file() {
         let tempdir = tempdir().unwrap();
         let file = tempdir.path().join("blob");
-        fs::write(&file, vec![b'x'; (SHEBANG_SNIFF_LIMIT_BYTES as usize) * 2]).unwrap();
+        let size = usize::try_from(SHEBANG_SNIFF_LIMIT_BYTES).unwrap() * 2;
+        fs::write(&file, vec![b'x'; size]).unwrap();
 
         assert!(!is_shell_script(&file).unwrap());
     }
@@ -1347,10 +1348,11 @@ jobs:
 
         let result = discover_files_with_status(
             &[
-                python.clone(),
-                python_shebang.clone(),
-                ruby_versioned.clone(),
-                shell_shebang_py.clone()],
+                python,
+                python_shebang,
+                ruby_versioned,
+                shell_shebang_py,
+            ],
             tempdir.path(),
             &DiscoveryOptions::default(),
         )
