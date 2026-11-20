@@ -77,6 +77,7 @@ fn oils_corpus_matches_parser_expectations() {
         }
     }
 
+    assert!(total_cases > skipped_cases, "all OILS parser cases were skipped");
     assert!(
         failures.is_empty(),
         "OILS parser corpus had {} failure(s) across {} cases ({} skipped):\n\n{}",

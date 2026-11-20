@@ -922,6 +922,9 @@ fn test_process_substitution_like_regex_inside_nested_command_substitution_stays
     };
 
     let inner = expect_simple(&body[0]);
+    assert_eq!(inner.name.render(input), "printf");
+    assert_eq!(inner.args.len(), 2);
+    assert_eq!(inner.args[1].render(input), "<record_id>([^<]*)</record_id>");
     for word in &inner.args {
         assert!(
             !word
@@ -949,6 +952,8 @@ fn test_process_substitution_like_regex_inside_nested_pipeline_command_substitut
     let WordPart::CommandSubstitution { body, .. } = &value.parts[0].kind else {
         panic!("expected command substitution");
     };
+    assert_eq!(body.len(), 1);
+    assert!(matches!(&body[0].command, AstCommand::Binary(binary) if binary.op == BinaryOp::Pipe));
 
     fn word_has_process_substitution(word: &Word) -> bool {
         word.parts.iter().any(|part| match &part.kind {
