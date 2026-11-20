@@ -609,7 +609,10 @@ mod tests {
 
     #[test]
     fn zsh_plugin_flags_removed() {
-        // zsh support has been removed; plugin resolution flags no longer exist.
+        for flag in ["--zsh-plugin-resolution", "--no-zsh-plugin-resolution"] {
+            let err = parse_from(["check", flag]).unwrap_err();
+            assert!(matches!(err, CliError::UnknownOption { .. }), "{flag}");
+        }
     }
 
     #[test]
