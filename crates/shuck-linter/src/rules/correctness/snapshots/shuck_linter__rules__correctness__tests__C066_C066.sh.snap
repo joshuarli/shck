@@ -1,4 +1,0 @@
----
-source: crates/shuck-linter/src/rules/correctness/mod.rs
-assertion_line: 92
----

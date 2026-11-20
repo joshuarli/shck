@@ -28,7 +28,7 @@ Costs are cargo's reported test execution durations from the same session, not c
 
 ## False passes and dispositions
 
-`downstream_construction_and_inspection_path_stays_ergonomic` previously linted a clean script and inspected diagnostics only inside a loop, so zero diagnostics passed. It now requires one unused-assignment diagnostic with the configured severity. The existing parity test guards nonempty rule-specific fixture output; its explicit silent-fixture allowlist identifies known exceptions rather than silently claiming coverage. C109 is intentionally reserved and silent, C065–C068, C077 and X077 have empty rule bodies, and X047 has a non-firing existing fixture; X044 and X051 are planned and not registered. Existing empty snapshots and fixture gaps remain visible, not counted as positive rule witnesses. No tests were removed.
+`downstream_construction_and_inspection_path_stays_ergonomic` previously linted a clean script and inspected diagnostics only inside a loop, so zero diagnostics passed. It now requires one unused-assignment diagnostic with the configured severity. The existing parity test guards nonempty rule-specific fixture output; its explicit silent-fixture allowlist identifies known exceptions rather than silently claiming coverage. C109 is intentionally reserved and silent, and X047 has a non-firing existing fixture; X044 and X051 are planned and not registered. Existing empty snapshots and fixture gaps remain visible, not counted as positive rule witnesses. No tests were removed.
 
 ## Fault proof
 

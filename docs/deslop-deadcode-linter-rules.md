@@ -15,20 +15,6 @@ Internal visibility was narrowed for the parse-diagnostic violation types, commo
 
 Consumer tests for each removal: `TMPDIR="$PWD/.work/tmp" cpu-guard --cores 4 -- cargo test -p shuck-linter` and `TMPDIR="$PWD/.work/tmp" cpu-guard --cores 4 -- make test`, using local workspace crates. Fuzz was searched but not run.
 
-## Needs owner
-
-These registered codes remain unchanged. Their bodies are stubs and deserve owner decisions:
-
-- C065: an `else` without a preceding `then`.
-- C066: a closing brace after a command lacking a semicolon or newline.
-- C067: an empty function body.
-- C068: a closing brace lacking a preceding command terminator.
-- C077: command substitution inside arithmetic expansion.
-- X077: nested default-value expansion in POSIX sh.
-- C109: historically reserved for `mapfile` or `readarray` using process substitution. Its body intentionally emits nothing; metadata says the idiom is accepted and the code remains reserved.
-
-Descriptions are from `docs/rules/<code>.yaml`; implementations are in the corresponding rule modules. These are candidates for the parent to file, not removals.
-
 ## Warning allowlist
 
 - `DeclarativeContractDescriptor::label` is emitted by the build generator from contract metadata; removing it requires changing the generator outside this slice.

@@ -786,9 +786,6 @@ impl<'a> Checker<'a> {
         if self.is_rule_enabled(Rule::GlobAssignedToVariable) {
             rules::style::glob_assigned_to_variable::glob_assigned_to_variable(self);
         }
-        if self.is_rule_enabled(Rule::NestedDefaultExpansion) {
-            rules::portability::nested_default_expansion::nested_default_expansion(self);
-        }
         if self.is_rule_enabled(Rule::MultiVarForLoop) {
             rules::portability::multi_var_for_loop::multi_var_for_loop(self);
         }
@@ -970,9 +967,6 @@ impl<'a> Checker<'a> {
         }
         if self.is_rule_enabled(Rule::LegacyArithmeticInSh) {
             rules::portability::legacy_arithmetic_in_sh::legacy_arithmetic_in_sh(self);
-        }
-        if self.is_rule_enabled(Rule::SubshellInArithmetic) {
-            rules::correctness::subshell_in_arithmetic::subshell_in_arithmetic(self);
         }
         if self.is_rule_enabled(Rule::SingleQuoteBackslash) {
             rules::style::single_quote_backslash::single_quote_backslash(self);
@@ -1246,20 +1240,6 @@ impl<'a> Checker<'a> {
         }
         if self.is_rule_enabled(Rule::IfMissingThen) {
             rules::correctness::if_missing_then::if_missing_then(self);
-        }
-        if self.is_rule_enabled(Rule::ElseWithoutThen) {
-            rules::correctness::else_without_then::else_without_then(self);
-        }
-        if self.is_rule_enabled(Rule::MissingSemicolonBeforeBrace) {
-            rules::correctness::missing_semicolon_before_brace::missing_semicolon_before_brace(
-                self,
-            );
-        }
-        if self.is_rule_enabled(Rule::EmptyFunctionBody) {
-            rules::correctness::empty_function_body::empty_function_body(self);
-        }
-        if self.is_rule_enabled(Rule::BareClosingBrace) {
-            rules::correctness::bare_closing_brace::bare_closing_brace(self);
         }
         if self.is_rule_enabled(Rule::UnreachableAfterExit) {
             rules::correctness::unreachable_after_exit::unreachable_after_exit(self);

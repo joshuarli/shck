@@ -144,10 +144,6 @@ declare_rules! {
     ("C062", Category::Correctness, Severity::Warning, NestedParameterExpansion),
     ("C063", Category::Correctness, Severity::Warning, OverwrittenFunction),
     ("C064", Category::Correctness, Severity::Warning, IfMissingThen),
-    ("C065", Category::Correctness, Severity::Warning, ElseWithoutThen),
-    ("C066", Category::Correctness, Severity::Warning, MissingSemicolonBeforeBrace),
-    ("C067", Category::Correctness, Severity::Warning, EmptyFunctionBody),
-    ("C068", Category::Correctness, Severity::Warning, BareClosingBrace),
     ("C069", Category::Correctness, Severity::Warning, BackslashBeforeClosingBacktick),
     ("C070", Category::Correctness, Severity::Warning, PositionalParamAsOperator),
     ("C071", Category::Correctness, Severity::Warning, DoubleParenGrouping),
@@ -161,7 +157,6 @@ declare_rules! {
         Severity::Warning,
         CommentedContinuationLine
     ),
-    ("C077", Category::Correctness, Severity::Warning, SubshellInArithmetic),
     ("C078", Category::Correctness, Severity::Warning, UnquotedGlobsInFind),
     ("C080", Category::Correctness, Severity::Warning, GlobInGrepPattern),
     ("C081", Category::Correctness, Severity::Warning, GlobInStringComparison),
@@ -561,7 +556,6 @@ declare_rules! {
     ("X062", Category::Portability, Severity::Warning, CStyleForArithmeticInSh),
     ("X071", Category::Portability, Severity::Warning, ArrayKeysInSh),
     ("X081", Category::Portability, Severity::Warning, StarGlobRemovalInSh),
-    ("X077", Category::Portability, Severity::Warning, NestedDefaultExpansion),
     ("X046", Category::Portability, Severity::Warning, ExtglobInTest),
     ("X052", Category::Portability, Severity::Warning, FunctionKeywordInSh),
     ("X058", Category::Portability, Severity::Warning, LexicalComparisonInDoubleBracket),
@@ -1003,13 +997,6 @@ mod tests {
         assert_eq!(code_to_rule("SH-169"), Some(Rule::NestedParameterExpansion));
         assert_eq!(code_to_rule("SH-171"), Some(Rule::OverwrittenFunction));
         assert_eq!(code_to_rule("SH-175"), Some(Rule::IfMissingThen));
-        assert_eq!(code_to_rule("SH-176"), Some(Rule::ElseWithoutThen));
-        assert_eq!(
-            code_to_rule("SH-177"),
-            Some(Rule::MissingSemicolonBeforeBrace)
-        );
-        assert_eq!(code_to_rule("SH-178"), Some(Rule::EmptyFunctionBody));
-        assert_eq!(code_to_rule("SH-179"), Some(Rule::BareClosingBrace));
         assert_eq!(
             code_to_rule("SH-186"),
             Some(Rule::BackslashBeforeClosingBacktick)
@@ -1034,7 +1021,6 @@ mod tests {
         assert_eq!(code_to_rule("SH-225"), Some(Rule::SuspiciousBracketGlob));
         assert_eq!(code_to_rule("SH-227"), Some(Rule::SuWithoutFlag));
         assert_eq!(code_to_rule("SH-240"), Some(Rule::UnquotedPathInMkdir));
-        assert_eq!(code_to_rule("SH-195"), Some(Rule::SubshellInArithmetic));
         assert_eq!(code_to_rule("C078"), Some(Rule::UnquotedGlobsInFind));
         assert_eq!(code_to_rule("SH-200"), Some(Rule::UnquotedGlobsInFind));
         assert_eq!(code_to_rule("C080"), Some(Rule::GlobInGrepPattern));
@@ -1206,8 +1192,6 @@ mod tests {
         assert_eq!(code_to_rule("SH-278"), Some(Rule::ArrayKeysInSh));
         assert_eq!(code_to_rule("X081"), Some(Rule::StarGlobRemovalInSh));
         assert_eq!(code_to_rule("SH-305"), Some(Rule::StarGlobRemovalInSh));
-        assert_eq!(code_to_rule("X077"), Some(Rule::NestedDefaultExpansion));
-        assert_eq!(code_to_rule("SH-291"), Some(Rule::NestedDefaultExpansion));
         assert_eq!(code_to_rule("X013"), Some(Rule::ArrayAssignment));
         assert_eq!(code_to_rule("SH-018"), Some(Rule::ArrayAssignment));
         assert_eq!(code_to_rule("X018"), Some(Rule::IndirectExpansion));

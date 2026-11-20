@@ -29,7 +29,6 @@ pub mod legacy_arithmetic_in_sh;
 pub mod let_command;
 pub mod local_variable_in_sh;
 pub mod multi_var_for_loop;
-pub mod nested_default_expansion;
 pub mod pipe_stderr_in_sh;
 pub mod pipefail_option;
 pub mod plus_equals_append;
@@ -113,7 +112,6 @@ mod tests {
     #[test_case(Rule::SourcedWithArgs, Path::new("X042.sh"))]
     #[test_case(Rule::PlusEqualsAppend, Path::new("X045.sh"))]
     #[test_case(Rule::MultiVarForLoop, Path::new("X047.sh"))]
-    #[test_case(Rule::NestedDefaultExpansion, Path::new("X077.sh"))]
     #[test_case(Rule::CshSyntaxInSh, Path::new("X050.sh"))]
     #[test_case(Rule::DollarStringInSh, Path::new("X055.sh"))]
     #[test_case(Rule::ExtglobInSh, Path::new("X054.sh"))]

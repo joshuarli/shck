@@ -144,15 +144,6 @@ Open after the pass:
 - **Fix with:** deslop
 - **Effort:** S
 
-### DSLP-26 · P3 · Six registered rules are empty stubs that never fire
-
-- **Area:** Needs owner · deslop · dead code
-- **Where:** crates/shuck-linter rules C065, C066, C067, C068, C077, X077 (registered, empty bodies); C109 reserved
-- **Problem:** C065 (else without then), C066 (closing brace after an unterminated command), C067 (empty function body), C068 (closing brace without a preceding terminator), C077 (command substitution inside arithmetic expansion) and X077 (nested default expansion in POSIX sh) are registered and selectable but their bodies are empty, so enabling them silently checks nothing. Their codes are user-facing: configs and suppression comments can name them.
-- **Recommendation:** Owner decides per rule: implement it (several overlap parser recovery diagnostics), or deregister it and reject or warn on its code in config and suppressions. Document C109 as reserved.
-- **Fix with:** deslop
-- **Effort:** M
-
 ### DSLP-13 · P4 · C098 spec rationale contradicts its safe fix
 
 - **Area:** deslop · diagnose · rule metadata
