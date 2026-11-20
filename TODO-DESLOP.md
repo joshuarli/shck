@@ -1,5 +1,5 @@
 Prefix: DSLP
-Next: 16
+Next: 21
 
 Deslop campaign backlog ([plan](https://github.com/laputa-systems/stuff/blob/main/docs/campaigns/deslop.md), tier D, by component). One agent works this file with the `deslop` skill: take the lowest-numbered open ticket whose area does not start with `Needs owner ·`. After DSLP-6 (Bench), work the open P1 and P2 findings; file P3 and P4 findings without fixing them. Then fill in `## Report` below.
 
@@ -50,15 +50,6 @@ DSLP-15 closed: full output shares a line index across diagnostics for each sour
 - **Fix with:** deslop
 - **Effort:** L
 
-### DSLP-6 · P2 · Bench: tiered benchmark entrypoint
-
-- **Area:** deslop · bench
-- **Where:** crates/shuck-benchmark, Makefile, docs/benchmarks.md
-- **Problem:** The rustybench harness exists, but the bench-pyramid entrypoint and its outcome list have not been established (campaign decision 14).
-- **Recommendation:** Run the bench-pyramid skill as the deslop Bench step on the existing harness. Never run the Full tier. Accept: `make bench`, `bench-check` and `bench-list` work with tier and workload selectors and a preflight; gaps are filed as tickets ranked by the risk of a missed regression.
-- **Fix with:** bench-pyramid
-- **Effort:** M
-
 ### DSLP-11 · P3 · config files silently ignore unknown keys that --config rejects
 
 - **Area:** deslop · diagnose · config
@@ -84,6 +75,51 @@ DSLP-15 closed: full output shares a line index across diagnostics for each sour
 - **Problem:** Source positions are packed in u32. The first Types slice made the conversion checked, so an input whose offsets, lines or columns exceed u32::MAX now panics where it previously wrapped and reported wrong spans. Not reproduced: it needs an input over 4 GiB.
 - **Recommendation:** Reject inputs longer than u32::MAX bytes at the CLI and library entry points with an ordinary error before parsing, so the checked conversion is never reached by user input.
 - **Fix with:** deslop
+- **Effort:** S
+
+### DSLP-16 · P3 · Bench driver has no regression verdict
+
+- **Area:** deslop · bench
+- **Where:** benches/driver.py (run); docs/benchmarks.md
+- **Problem:** `make bench` runs tiers and workloads but has no accepted baseline, interleaved comparison or budget, so neither an immediate nor a cumulative slowdown fails it. The existing `bench-save`/`bench-compare` targets are separate and untiered.
+- **Recommendation:** Have `make bench-check` compare a candidate against a saved rustybench baseline for the selected tier, interleaved, with a per-workload budget, and fail on an exceeded budget.
+- **Fix with:** bench-pyramid
+- **Effort:** M
+
+### DSLP-17 · P3 · Parser benchmark and corpus script do not check their results
+
+- **Area:** deslop · bench
+- **Where:** crates/shuck-benchmark/benches/parser.rs:9; scripts/benchmarks/run_repo_corpus.sh:246
+- **Problem:** The parser benchmark consumes a command count without asserting the expected value, and the repository-corpus script discards output and tolerates failures. A change that does less or wrong work can look faster.
+- **Recommendation:** Assert each workload's expected result (command count, diagnostic count or output digest) once per run before timing, and make the corpus script fail on a failed or changed run.
+- **Fix with:** bench-pyramid
+- **Effort:** S
+
+### DSLP-18 · P3 · Tiered benchmarks omit process startup, whole-repo runs and memory
+
+- **Area:** deslop · bench
+- **Where:** docs/benchmarks.md (outcome list); benches/driver.py
+- **Problem:** The tiered workloads exercise in-process library paths. Process startup, whole-repository `shuck check` and peak memory stay in separate macro and memory scripts outside the tiers, so a regression there is not seen by `make bench`.
+- **Recommendation:** Add a Scenario workload that times the release `shuck check` binary over a fixture tree and records peak RSS, using the existing memory scripts.
+- **Fix with:** bench-pyramid
+- **Effort:** M
+
+### DSLP-19 · P3 · Benchmark runs do not identify fixture content or revision
+
+- **Area:** deslop · bench
+- **Where:** benches/driver.py:59 (preflight) and :107 (summary)
+- **Problem:** Preflight checks fixture sizes but not contents, and run summaries record neither the tested revision nor a dirty tree. A same-size fixture change, or an unidentified candidate, can hide or fake a regression.
+- **Recommendation:** Verify fixture digests from crates/shuck-benchmark/resources/manifest.json in preflight, and record the commit and dirty state in each summary.
+- **Fix with:** bench-pyramid
+- **Effort:** S
+
+### DSLP-20 · P3 · Profiling commands need an undefined cargo profile
+
+- **Area:** deslop · bench
+- **Where:** docs/benchmarks.md:56; Cargo.toml
+- **Problem:** The documented profiling commands use `--profile profiling`, which the workspace does not define, so they fail and regressions are harder to attribute.
+- **Recommendation:** Define a `profiling` profile (release with debug symbols) in Cargo.toml, or fix the documented commands.
+- **Fix with:** bench-pyramid
 - **Effort:** S
 
 ### DSLP-13 · P4 · C098 spec rationale contradicts its safe fix
