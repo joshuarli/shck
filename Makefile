@@ -1,4 +1,4 @@
-.PHONY: build test release verify-release run check hawk check-scripts setup-hooks setup-large-corpus ensure-cache test-large-corpus large-corpus-report large-corpus-report-from-log large-corpus-report-open test-oracle-shfmt test-oracle-shfmt-fixtures test-oracle-shfmt-benchmark test-oracle-shfmt-large-corpus update-oracle-shfmt-large-corpus-allowlist test-oracle-shellcheck-cli fuzz-setup fuzz-list fuzz-smoke fuzz-run fuzz-cli bench bench-save bench-compare bench-parser bench-arithmetic bench-lexer bench-semantic bench-linter bench-formatter bench-large-corpus-hotspots bench-macro bench-macro-single bench-macro-format bench-macro-format-summary bench-macro-format-single bench-macro-site-local bench-repo-corpus profile-parser profile-parser-view profile-arithmetic profile-arithmetic-view profile-formatter profile-formatter-view profile-linter profile-linter-view profile-cli profile-cli-view profile-large-corpus profile-large-corpus-view
+.PHONY: bench-check bench-list build test release verify-release run check hawk check-scripts setup-hooks setup-large-corpus ensure-cache test-large-corpus large-corpus-report large-corpus-report-from-log large-corpus-report-open test-oracle-shfmt test-oracle-shfmt-fixtures test-oracle-shfmt-benchmark test-oracle-shfmt-large-corpus update-oracle-shfmt-large-corpus-allowlist test-oracle-shellcheck-cli fuzz-setup fuzz-list fuzz-smoke fuzz-run fuzz-cli bench bench-save bench-compare bench-parser bench-arithmetic bench-lexer bench-semantic bench-linter bench-formatter bench-large-corpus-hotspots bench-macro bench-macro-single bench-macro-format bench-macro-format-summary bench-macro-format-single bench-macro-site-local bench-repo-corpus profile-parser profile-parser-view profile-arithmetic profile-arithmetic-view profile-formatter profile-formatter-view profile-linter profile-linter-view profile-cli profile-cli-view profile-large-corpus profile-large-corpus-view
 
 ARGS ?= --help
 TARGET ?= $(shell rustc -vV | awk '/^host:/ {print $$2}')
@@ -182,8 +182,21 @@ test-oracle-shellcheck-cli:
 run:
 	cargo run -p shuck-cli -- $(ARGS)
 
+TIER ?= Change
+WORKLOAD ?=
+AREA ?=
+SKIP ?=
+DRY_RUN ?=
+BENCH_SELECT = --tier "$(TIER)" $(if $(WORKLOAD),--workload "$(WORKLOAD)") $(if $(AREA),--area "$(AREA)") $(foreach item,$(SKIP),--skip "$(item)") $(if $(DRY_RUN),--dry-run)
+
 bench:
-	cargo bench -p shuck-benchmark
+	python3 benches/driver.py run $(BENCH_SELECT)
+
+bench-check:
+	python3 benches/driver.py check $(BENCH_SELECT)
+
+bench-list:
+	python3 benches/driver.py list $(BENCH_SELECT)
 
 bench-save:
 	@command -v $(BENCH_RUNNER) >/dev/null || { echo "install the benchmark runner with: cargo install rustybench"; exit 1; }
