@@ -39,7 +39,6 @@ pub(super) fn analyze_file(
     pending: PendingProjectFile,
     base_linter_settings: &LinterSettings,
     per_file_shell: &CompiledPerFileShellList,
-    plugin_resolver: Option<&(dyn shuck_semantic::PluginResolver + Send + Sync)>,
     source_path_resolver: Option<&(dyn shuck_semantic::SourcePathResolver + Send + Sync)>,
     source_resolver: Option<&NativeSourceResolver>,
     lint_sources: bool,
@@ -53,7 +52,6 @@ pub(super) fn analyze_file(
             pending,
             base_linter_settings,
             per_file_shell,
-            plugin_resolver,
             source_path_resolver,
             source_resolver,
             lint_sources,
@@ -70,7 +68,6 @@ fn analyze_shell_file(
     pending: PendingProjectFile,
     base_linter_settings: &LinterSettings,
     per_file_shell: &CompiledPerFileShellList,
-    plugin_resolver: Option<&(dyn shuck_semantic::PluginResolver + Send + Sync)>,
     source_path_resolver: Option<&(dyn shuck_semantic::SourcePathResolver + Send + Sync)>,
     source_resolver: Option<&NativeSourceResolver>,
     lint_sources: bool,
@@ -91,7 +88,6 @@ fn analyze_shell_file(
         &source,
         &parse_result,
         &linter_settings,
-        plugin_resolver,
         source_path_resolver,
         shellcheck_map,
         &pending.file.absolute_path,
@@ -120,7 +116,6 @@ fn analyze_shell_file(
                 &source,
                 &parse_result,
                 &linter_settings,
-                plugin_resolver,
                 source_path_resolver,
                 shellcheck_map,
                 &pending.file.absolute_path,
@@ -246,7 +241,6 @@ pub(super) fn collect_lint_diagnostics(
     source: &Arc<str>,
     parse_result: &ParseResult,
     linter_settings: &LinterSettings,
-    plugin_resolver: Option<&(dyn shuck_semantic::PluginResolver + Send + Sync)>,
     source_path_resolver: Option<&(dyn shuck_semantic::SourcePathResolver + Send + Sync)>,
     shellcheck_map: &ShellCheckCodeMap,
     source_path: &Path,
@@ -254,8 +248,7 @@ pub(super) fn collect_lint_diagnostics(
     let mut request =
         shuck_linter::AnalysisRequest::from_parse_result(parse_result, source, linter_settings)
             .with_source_path(source_path)
-            .with_shellcheck_map(shellcheck_map)
-            .with_optional_plugin_resolver(plugin_resolver);
+            .with_shellcheck_map(shellcheck_map);
     if let Some(resolver) = source_path_resolver {
         request = request.with_source_path_resolver(resolver);
     }
@@ -431,7 +424,6 @@ mod tests {
             &empty_per_file_shell(tempdir.path()),
             None,
             None,
-            None,
             false,
             &ShellCheckCodeMap::default(),
             false,
@@ -490,7 +482,6 @@ mod tests {
             &source,
             &parse_result,
             &LinterSettings::default(),
-            None,
             None,
             &ShellCheckCodeMap::default(),
             &path,

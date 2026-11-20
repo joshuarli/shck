@@ -130,7 +130,6 @@ pub(super) fn check_stdin(
         &checked_source,
         &parse_result,
         &linter_settings,
-        None,
         closure_resolver,
         &shellcheck_map,
         &file.absolute_path,
@@ -159,8 +158,7 @@ pub(super) fn check_stdin(
                 &checked_source,
                 &parse_result,
                 &linter_settings,
-                None,
-        closure_resolver,
+                closure_resolver,
                 &shellcheck_map,
                 &file.absolute_path,
             );

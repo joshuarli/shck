@@ -14,18 +14,15 @@ publish = false
 [features]
 large-corpus-hotspots = []
 parser-benchmarking = ["shuck-parser/benchmarking"]
-dhat-heap = ["dep:dhat"]
+dhat-heap = []
 
 [dependencies]
 shuck-formatter = { workspace = true, features = ["benchmarking"] }
 shuck-linter = { workspace = true, features = ["benchmarking"] }
 shuck-parser = { workspace = true }
-dhat = { version = "0.3", optional = true }
-
-[target.'cfg(not(target_os = "windows"))'.dependencies]
-tikv-jemallocator = "0.6"
 
 [dev-dependencies]
+dhat = "0.3"
 deser = { workspace = true }
 deser-json = { workspace = true }
 rustybench = "0.4"
@@ -35,6 +32,9 @@ shuck-semantic = { workspace = true }
 similar = { workspace = true }
 tempfile = { workspace = true }
 walkdir = "2"
+
+[target.'cfg(not(target_os = "windows"))'.dev-dependencies]
+tikv-jemallocator = "0.6"
 
 [[example]]
 name = "parser_counts"
