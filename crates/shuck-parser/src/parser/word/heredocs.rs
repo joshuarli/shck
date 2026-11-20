@@ -57,10 +57,10 @@ impl<'a> Parser<'a> {
                     source_backed,
                 ) {
                     WordPart::Parameter(parameter) => HeredocBodyPart::Parameter(parameter),
-                    other => self.literal_heredoc_body_part_from_word_part(other, span),
+                    other => self.literal_heredoc_body_part_from_word_part(&other, span),
                 }
             }
-            other => self.literal_heredoc_body_part_from_word_part(other, span),
+            other => self.literal_heredoc_body_part_from_word_part(&other, span),
         };
 
         HeredocBodyPartNode::new(kind, span)
@@ -68,7 +68,7 @@ impl<'a> Parser<'a> {
 
     pub(in crate::parser) fn literal_heredoc_body_part_from_word_part(
         &self,
-        part: WordPart,
+        part: &WordPart,
         span: Span,
     ) -> HeredocBodyPart {
         if span.end.offset() <= self.input.len() {
@@ -76,7 +76,7 @@ impl<'a> Parser<'a> {
         }
 
         let mut syntax = String::new();
-        self.push_word_part_syntax(&mut syntax, &part, span);
+        self.push_word_part_syntax(&mut syntax, part, span);
         HeredocBodyPart::Literal(LiteralText::owned(syntax))
     }
 }

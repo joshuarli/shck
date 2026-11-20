@@ -1,4 +1,5 @@
 #![warn(missing_docs)]
+#![warn(clippy::redundant_clone, clippy::cast_possible_truncation)]
 
 //! Shell lexer and parser APIs for the Shuck workspace.
 //!

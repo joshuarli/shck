@@ -27,7 +27,7 @@ impl<'a> Parser<'a> {
         Some((word, delimiter_text, quoted))
     }
 
-    pub(super) fn strip_heredoc_tabs(content: String) -> String {
+    pub(super) fn strip_heredoc_tabs(content: &str) -> String {
         let had_trailing_newline = content.ends_with('\n');
         let mut stripped: String = content
             .lines()
@@ -74,7 +74,7 @@ impl<'a> Parser<'a> {
         let heredoc = self.lexer.read_heredoc(&delimiter_text, strip_tabs);
         let content_span = heredoc.content_span;
         let raw_content = heredoc.content;
-        let stripped_content = strip_tabs.then(|| Self::strip_heredoc_tabs(raw_content.clone()));
+        let stripped_content = strip_tabs.then(|| Self::strip_heredoc_tabs(&raw_content));
 
         let body = if quoted {
             HeredocBody::literal_with_span(stripped_content.unwrap_or(raw_content), content_span)

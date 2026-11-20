@@ -194,7 +194,19 @@ impl<'a> Parser<'a> {
                 let word = self.collect_conditional_context_word(stop_at_right_paren)?;
                 ConditionalExpr::Pattern(self.pattern_from_conditional_word(&word))
             }
-            _ => ConditionalExpr::Word(self.parse_conditional_operand_word(stop_at_right_paren)?),
+            ConditionalBinaryOp::NewerThan
+            | ConditionalBinaryOp::OlderThan
+            | ConditionalBinaryOp::SameFile
+            | ConditionalBinaryOp::ArithmeticEq
+            | ConditionalBinaryOp::ArithmeticNe
+            | ConditionalBinaryOp::ArithmeticLe
+            | ConditionalBinaryOp::ArithmeticGe
+            | ConditionalBinaryOp::ArithmeticLt
+            | ConditionalBinaryOp::ArithmeticGt
+            | ConditionalBinaryOp::And
+            | ConditionalBinaryOp::Or
+            | ConditionalBinaryOp::LexicalBefore
+            | ConditionalBinaryOp::LexicalAfter => ConditionalExpr::Word(self.parse_conditional_operand_word(stop_at_right_paren)?),
         };
 
         Ok(ConditionalExpr::Binary(ConditionalBinaryExpr {

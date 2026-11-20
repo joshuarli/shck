@@ -166,7 +166,7 @@ impl<'a> Parser<'a> {
                 let Some(right) = self.parse_pipeline()? else {
                     return Err(self.error(match binary_op {
                         BinaryOp::And => "expected command after &&",
-                        _ => "expected command after ||",
+                        BinaryOp::Or | BinaryOp::Pipe | BinaryOp::PipeAll => "expected command after ||",
                     }));
                 };
                 current = Self::binary_stmt(current, binary_op, operator_span, right);
@@ -321,7 +321,7 @@ impl<'a> Parser<'a> {
                 *trailing = redirects;
                 Ok(Some(command))
             }
-            _ => {
+            Command::Simple(_) | Command::Builtin(_) | Command::Decl(_) | Command::Function(_) => {
                 self.restore(checkpoint);
                 Ok(None)
             }

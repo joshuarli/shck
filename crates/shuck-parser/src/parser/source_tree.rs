@@ -135,7 +135,7 @@ impl<'a> Parser<'a> {
     }
 
     pub(super) fn rebase_comments(comments: &mut [Comment], base: Position) {
-        let base_offset = TextSize::new(base.offset() as u32);
+        let base_offset = TextSize::from_usize(base.offset());
         for comment in comments {
             comment.range = comment.range.offset_by(base_offset);
         }
@@ -155,7 +155,7 @@ impl<'a> Parser<'a> {
         Self::rebase_comments(&mut stmt.leading_comments, base);
         stmt.terminator_span = stmt.terminator_span.map(|span| span.rebased(base));
         if let Some(comment) = &mut stmt.inline_comment {
-            let base_offset = TextSize::new(base.offset() as u32);
+            let base_offset = TextSize::from_usize(base.offset());
             comment.range = comment.range.offset_by(base_offset);
         }
         Self::rebase_redirects(&mut stmt.redirects, base);

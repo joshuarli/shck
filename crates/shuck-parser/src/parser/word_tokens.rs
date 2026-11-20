@@ -33,7 +33,11 @@ impl<'a> Parser<'a> {
                             || raw_text.contains("${") && raw_text.contains('/')
                             || !raw_text.contains("$(")
                     }
-                    _ => segment.text_is_source_backed(),
+                    LexedWordSegmentKind::SingleQuoted
+                    | LexedWordSegmentKind::DollarSingleQuoted
+                    | LexedWordSegmentKind::DoubleQuoted
+                    | LexedWordSegmentKind::DollarDoubleQuoted
+                    | LexedWordSegmentKind::Composite => segment.text_is_source_backed(),
                 };
             let text = if use_source_slice {
                 content_span.slice(self.input)
@@ -180,7 +184,11 @@ impl<'a> Parser<'a> {
                             || raw_text.contains("${") && raw_text.contains('/')
                             || !raw_text.contains("$(")
                     }
-                    _ => segment.text_is_source_backed(),
+                    LexedWordSegmentKind::SingleQuoted
+                    | LexedWordSegmentKind::DollarSingleQuoted
+                    | LexedWordSegmentKind::DoubleQuoted
+                    | LexedWordSegmentKind::DollarDoubleQuoted
+                    | LexedWordSegmentKind::Composite => segment.text_is_source_backed(),
                 };
             let text = if use_source_slice {
                 content_span.slice(self.input)
@@ -294,7 +302,11 @@ impl<'a> Parser<'a> {
                             || raw_text.contains("${") && raw_text.contains('/')
                             || !raw_text.contains("$(")
                     }
-                    _ => segment.text_is_source_backed(),
+                    LexedWordSegmentKind::SingleQuoted
+                    | LexedWordSegmentKind::DollarSingleQuoted
+                    | LexedWordSegmentKind::DoubleQuoted
+                    | LexedWordSegmentKind::DollarDoubleQuoted
+                    | LexedWordSegmentKind::Composite => segment.text_is_source_backed(),
                 };
             let text = if use_source_slice {
                 content_span.slice(self.input)
