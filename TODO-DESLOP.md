@@ -1,5 +1,5 @@
 Prefix: DSLP
-Next: 24
+Next: 25
 
 Deslop campaign backlog ([plan](https://github.com/laputa-systems/stuff/blob/main/docs/campaigns/deslop.md), tier D, by component). One agent works this file with the `deslop` skill: take the lowest-numbered open ticket whose area does not start with `Needs owner ·`. After DSLP-6 (Bench), work the open P1 and P2 findings; file P3 and P4 findings without fixing them. Then fill in `## Report` below.
 
@@ -139,6 +139,15 @@ DSLP-15 closed: full output shares a line index across diagnostics for each sour
 - **Where:** crates/shuck-semantic/src/glob.rs:150 (GlobPatternBehavior::sh_glob, re-exported from lib.rs)
 - **Problem:** The public constructor has only an in-crate test consumer in the workspace, including fuzz/. Removing it changes the published semantic API; external consumers are unknown.
 - **Recommendation:** Owner decides: remove it or narrow it to pub(crate) if shuck-semantic has no external consumers, or keep it as supported API.
+- **Fix with:** deslop
+- **Effort:** S
+
+### DSLP-24 · P3 · X047 fixture never fires its rule
+
+- **Area:** deslop · tests
+- **Where:** crates/shuck-linter rule X047 fixture; parity silent-fixture allowlist
+- **Problem:** The X047 rule-specific fixture produces no diagnostic, so the rule has no positive witness and the parity test allowlists it as silent. A regression that stops X047 from firing would pass.
+- **Recommendation:** Add a fixture case that triggers X047 and remove it from the silent-fixture allowlist, or record why the rule cannot fire.
 - **Fix with:** deslop
 - **Effort:** S
 
