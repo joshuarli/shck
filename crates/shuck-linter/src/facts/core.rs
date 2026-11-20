@@ -51,7 +51,7 @@ impl From<Span> for FactSpan {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct WordNodeId(u32);
+pub(crate) struct WordNodeId(u32);
 
 impl WordNodeId {
     pub(crate) fn new(index: usize) -> Self {
@@ -64,7 +64,7 @@ impl WordNodeId {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct WordOccurrenceId(u32);
+pub(crate) struct WordOccurrenceId(u32);
 
 impl WordOccurrenceId {
     pub(crate) fn new(index: usize) -> Self {
@@ -109,8 +109,6 @@ pub(crate) enum BuiltinLookupKind {
 pub(crate) enum CompoundLookupKind {
     If,
     For,
-    Repeat,
-    Foreach,
     ArithmeticFor,
     While,
     Until,
@@ -122,7 +120,6 @@ pub(crate) enum CompoundLookupKind {
     Time,
     Conditional,
     Coproc,
-    Always,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -479,13 +476,13 @@ pub enum SudoFamilyInvoker {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NamedSpan {
+pub(crate) struct NamedSpan {
     pub name: Name,
     pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BacktickEscapedParameter {
+pub(crate) struct BacktickEscapedParameter {
     pub name: Option<Name>,
     pub diagnostic_span: Span,
     pub reference_span: Span,

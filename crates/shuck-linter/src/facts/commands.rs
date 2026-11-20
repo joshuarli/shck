@@ -1,6 +1,6 @@
 use super::*;
 
-pub use super::core::CommandFactRef;
+pub(crate) use super::core::CommandFactRef;
 
 #[derive(Debug, Clone)]
 pub struct CommandFact<'a> {
@@ -29,17 +29,17 @@ pub struct CommandFact<'a> {
 }
 
 #[derive(Debug, Clone)]
-pub struct RedundantEchoSpaceFact {
+pub(crate) struct RedundantEchoSpaceFact {
     diagnostic_span: Span,
     space_spans: Vec<Span>,
 }
 
 impl RedundantEchoSpaceFact {
-    pub fn diagnostic_span(&self) -> Span {
+    pub(crate) fn diagnostic_span(&self) -> Span {
         self.diagnostic_span
     }
 
-    pub fn space_spans(&self) -> &[Span] {
+    pub(crate) fn space_spans(&self) -> &[Span] {
         &self.space_spans
     }
 }
@@ -426,13 +426,7 @@ impl<'facts, 'a> CommandFactRef<'facts, 'a> {
             return Vec::new();
         };
 
-        let mut spans = word_spans::word_suspicious_bracket_glob_spans(word, source);
-        if false {
-            spans.extend(word_spans::word_suspicious_brace_character_class_spans(
-                word, source,
-            ));
-        }
-        spans
+        word_spans::word_suspicious_bracket_glob_spans(word, source)
     }
 
     pub fn body_word_span(self) -> Option<Span> {

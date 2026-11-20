@@ -562,22 +562,22 @@ impl DirectoryChangeCommandFacts {
 }
 
 #[derive(Debug, Clone, Copy, Default)]
-pub struct FunctionPositionalParameterFacts {
+pub(crate) struct FunctionPositionalParameterFacts {
     pub(crate) required_arg_count: usize,
     pub(crate) uses_unprotected_positional_parameters: bool,
     pub(crate) resets_positional_parameters: bool,
 }
 
 impl FunctionPositionalParameterFacts {
-    pub fn required_arg_count(&self) -> usize {
+    pub(crate) fn required_arg_count(&self) -> usize {
         self.required_arg_count
     }
 
-    pub fn uses_positional_parameters(&self) -> bool {
+    pub(crate) fn uses_positional_parameters(&self) -> bool {
         self.uses_unprotected_positional_parameters
     }
 
-    pub fn resets_positional_parameters(&self) -> bool {
+    pub(crate) fn resets_positional_parameters(&self) -> bool {
         self.resets_positional_parameters
     }
 }
@@ -641,7 +641,7 @@ pub struct SudoFamilyCommandFacts {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct CommandOptionFacts<'a> {
+pub(crate) struct CommandOptionFacts<'a> {
     rm: Option<RmCommandFacts<'a>>,
     chmod: Option<ChmodCommandFacts<'a>>,
     ssh: Option<SshCommandFacts>,
@@ -783,103 +783,103 @@ impl<'facts, 'a> CommandOptionFactsRef<'facts, 'a> {
 }
 
 impl<'a> CommandOptionFacts<'a> {
-    pub fn rm(&self) -> Option<&RmCommandFacts<'a>> {
+    pub(crate) fn rm(&self) -> Option<&RmCommandFacts<'a>> {
         self.rm.as_ref()
     }
 
-    pub fn chmod(&self) -> Option<&ChmodCommandFacts<'a>> {
+    pub(crate) fn chmod(&self) -> Option<&ChmodCommandFacts<'a>> {
         self.chmod.as_ref()
     }
 
-    pub fn ssh(&self) -> Option<&SshCommandFacts> {
+    pub(crate) fn ssh(&self) -> Option<&SshCommandFacts> {
         self.ssh.as_ref()
     }
 
-    pub fn read(&self) -> Option<&ReadCommandFacts> {
+    pub(crate) fn read(&self) -> Option<&ReadCommandFacts> {
         self.read.as_ref()
     }
 
-    pub fn su(&self) -> Option<&SuCommandFacts> {
+    pub(crate) fn su(&self) -> Option<&SuCommandFacts> {
         self.su.as_ref()
     }
 
-    pub fn echo(&self) -> Option<&EchoCommandFacts<'a>> {
+    pub(crate) fn echo(&self) -> Option<&EchoCommandFacts<'a>> {
         self.echo.as_ref()
     }
 
-    pub fn sed(&self) -> Option<&SedCommandFacts> {
+    pub(crate) fn sed(&self) -> Option<&SedCommandFacts> {
         self.sed.as_ref()
     }
 
-    pub fn tr(&self) -> Option<&TrCommandFacts<'a>> {
+    pub(crate) fn tr(&self) -> Option<&TrCommandFacts<'a>> {
         self.tr.as_ref()
     }
 
-    pub fn printf(&self) -> Option<&PrintfCommandFacts<'a>> {
+    pub(crate) fn printf(&self) -> Option<&PrintfCommandFacts<'a>> {
         self.printf.as_ref()
     }
 
-    pub fn unset(&self) -> Option<&UnsetCommandFacts<'a>> {
+    pub(crate) fn unset(&self) -> Option<&UnsetCommandFacts<'a>> {
         self.unset.as_ref()
     }
 
-    pub fn find(&self) -> Option<&FindCommandFacts> {
+    pub(crate) fn find(&self) -> Option<&FindCommandFacts> {
         self.find.as_ref()
     }
 
-    pub fn find_exec(&self) -> Option<&FindExecCommandFacts> {
+    pub(crate) fn find_exec(&self) -> Option<&FindExecCommandFacts> {
         self.find_exec.as_ref()
     }
 
-    pub fn find_exec_shell(&self) -> Option<&FindExecShellCommandFacts> {
+    pub(crate) fn find_exec_shell(&self) -> Option<&FindExecShellCommandFacts> {
         self.find_exec_shell.as_ref()
     }
 
-    pub fn mapfile(&self) -> Option<&MapfileCommandFacts> {
+    pub(crate) fn mapfile(&self) -> Option<&MapfileCommandFacts> {
         self.mapfile.as_ref()
     }
 
-    pub fn xargs(&self) -> Option<&XargsCommandFacts<'a>> {
+    pub(crate) fn xargs(&self) -> Option<&XargsCommandFacts<'a>> {
         self.xargs.as_ref()
     }
 
-    pub fn wait(&self) -> Option<&WaitCommandFacts> {
+    pub(crate) fn wait(&self) -> Option<&WaitCommandFacts> {
         self.wait.as_ref()
     }
 
-    pub fn grep(&self) -> Option<&GrepCommandFacts<'a>> {
+    pub(crate) fn grep(&self) -> Option<&GrepCommandFacts<'a>> {
         self.grep.as_ref()
     }
 
-    pub fn ps(&self) -> Option<&PsCommandFacts> {
+    pub(crate) fn ps(&self) -> Option<&PsCommandFacts> {
         self.ps.as_ref()
     }
 
-    pub fn set(&self) -> Option<&SetCommandFacts> {
+    pub(crate) fn set(&self) -> Option<&SetCommandFacts> {
         self.set.as_ref()
     }
 
-    pub fn directory_change(&self) -> Option<&DirectoryChangeCommandFacts> {
+    pub(crate) fn directory_change(&self) -> Option<&DirectoryChangeCommandFacts> {
         self.directory_change.as_ref()
     }
 
-    pub fn expr(&self) -> Option<&ExprCommandFacts> {
+    pub(crate) fn expr(&self) -> Option<&ExprCommandFacts> {
         self.expr.as_ref()
     }
 
-    pub fn exit(&self) -> Option<&ExitCommandFacts<'a>> {
+    pub(crate) fn exit(&self) -> Option<&ExitCommandFacts<'a>> {
         self.exit.as_ref()
     }
 
-    pub fn sudo_family(&self) -> Option<&SudoFamilyCommandFacts> {
+    pub(crate) fn sudo_family(&self) -> Option<&SudoFamilyCommandFacts> {
         self.sudo_family.as_ref()
     }
 
-    pub fn nonportable_sh_builtin_option_span(&self) -> Option<Span> {
+    pub(crate) fn nonportable_sh_builtin_option_span(&self) -> Option<Span> {
         self.nonportable_sh_builtin_option_span
     }
 
-    pub fn file_operand_words(&self) -> &[&'a Word] {
+    pub(crate) fn file_operand_words(&self) -> &[&'a Word] {
         &self.file_operand_words
     }
 

@@ -3,19 +3,19 @@ use crate::facts::words::{
     WordSubtreeVisitor, WordTraversalContext, WordTraversalState, walk_word_subtree,
 };
 
-pub fn arithmetic_expansion_part_spans(word: &Word) -> Vec<Span> {
+pub(crate) fn arithmetic_expansion_part_spans(word: &Word) -> Vec<Span> {
     let mut spans = Vec::new();
     collect_arithmetic_expansion_spans(word, &mut spans);
     spans
 }
 
-pub fn parenthesized_arithmetic_expansion_part_spans(word: &Word) -> Vec<Span> {
+pub(crate) fn parenthesized_arithmetic_expansion_part_spans(word: &Word) -> Vec<Span> {
     let mut spans = Vec::new();
     collect_parenthesized_arithmetic_expansion_spans(word, &mut spans);
     spans
 }
 
-pub fn unquoted_command_substitution_part_spans(word: &Word) -> Vec<Span> {
+pub(crate) fn unquoted_command_substitution_part_spans(word: &Word) -> Vec<Span> {
     let mut spans = Vec::new();
     collect_unquoted_command_substitution_spans(word, &mut spans);
     spans

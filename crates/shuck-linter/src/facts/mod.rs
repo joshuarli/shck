@@ -65,9 +65,10 @@ use self::{
         CaseModificationFragmentFact, CasePatternExpansionFact, DollarDoubleQuotedFragmentFact,
         IndirectExpansionFragmentFact, NestedParameterExpansionFragmentFact,
         OpenDoubleQuoteFragmentFact, ParameterPatternSpecialTargetFragmentFact,
-        PositionalParameterTrimFragmentFact, ReplacementExpansionFragmentFact,
+        PositionalParameterTrimFix, PositionalParameterTrimFragmentFact,
+        PositionalParameterTrimReplacement, ReplacementExpansionFragmentFact,
         SubstringExpansionFragmentFact, SurfaceFragmentFacts, SurfaceFragmentSink,
-        SurfaceScanContext, SuspectClosingQuoteFragmentFact, ZshParameterIndexFlagFragmentFact,
+        SurfaceScanContext, SuspectClosingQuoteFragmentFact,
         build_suppressed_subscript_reference_spans, rewrite_pattern_as_single_double_quoted_string,
         rewrite_word_as_single_double_quoted_string } };
 use crate::{
@@ -133,30 +134,26 @@ pub(crate) use self::{
     statements::*, substitutions::*, traversal::*, words::* };
 
 pub use self::{
-    arithmetic::ArithmeticUpdateOperatorFixFact,
-    assignments::{EnvPrefixExpansionFixFact, SpaceyAssignmentFact},
-    case_patterns::CaseItemFact,
-    commands::{CommandFact, RedundantEchoSpaceFact},
+    commands::CommandFact,
     conditionals::{
         ConditionalBareWordFact, ConditionalBinaryFact, ConditionalFact,
         ConditionalMixedLogicalOperatorFact, ConditionalNodeFact, ConditionalOperandFact,
         ConditionalOperatorFamily, ConditionalUnaryFact },
     core::{CommandFactRef, CommandFacts, CommandId, FactSpan, SudoFamilyInvoker},
     functions::{FunctionCallArityFacts, FunctionHeaderFact},
-    lists::{ListFact, ListOperatorFact, ListSegmentKind, MixedShortCircuitKind},
+    lists::{ListFact, ListOperatorFact},
     loop_headers::{ForHeaderFact, LoopHeaderWordFact, SelectHeaderFact},
     model::{
         AssignmentFacts, CommandFactQueries, CompatFacts, FileDescriptionCommentFact, LinterFacts,
         ScriptLineCountFact, SourceFacts, WordFacts },
     pipelines::{PipelineFact, PipelineOperatorFact, PipelineSegmentFact},
     redirects::{
-        DuplicateRedirectFact, RedirectDevNullStatus, RedirectFact, RedirectTargetAnalysis,
+        RedirectDevNullStatus, RedirectFact, RedirectTargetAnalysis,
         RedirectTargetKind },
     simple_tests::{SimpleTestFact, SimpleTestOperatorFamily, SimpleTestShape, SimpleTestSyntax},
     statements::StatementFact,
     substitutions::{
-        CommandSubstitutionKind, SubstitutionFact, SubstitutionHostKind, SubstitutionOutputIntent },
-    surface::{PositionalParameterTrimFix, PositionalParameterTrimReplacement} };
+        CommandSubstitutionKind, SubstitutionFact, SubstitutionHostKind, SubstitutionOutputIntent } };
 
 pub(crate) use self::conditionals::ConditionalExpressionVisit;
 pub(crate) use self::core::CommandVisit;

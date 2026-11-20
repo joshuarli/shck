@@ -58,39 +58,39 @@ impl SingleQuotedFragmentFact {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct DollarDoubleQuotedFragmentFact {
+pub(crate) struct DollarDoubleQuotedFragmentFact {
     span: Span,
 }
 
 impl DollarDoubleQuotedFragmentFact {
-    pub fn span(&self) -> Span {
+    pub(crate) fn span(&self) -> Span {
         self.span
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct OpenDoubleQuoteFragmentFact {
+pub(crate) struct OpenDoubleQuoteFragmentFact {
     span: Span,
     replacement_span: Span,
     replacement: Box<str>,
 }
 
 impl OpenDoubleQuoteFragmentFact {
-    pub fn span(&self) -> Span {
+    pub(crate) fn span(&self) -> Span {
         self.span
     }
 
-    pub fn replacement_span(&self) -> Span {
+    pub(crate) fn replacement_span(&self) -> Span {
         self.replacement_span
     }
 
-    pub fn replacement(&self) -> &str {
+    pub(crate) fn replacement(&self) -> &str {
         &self.replacement
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct CasePatternExpansionFact {
+pub(crate) struct CasePatternExpansionFact {
     span: Span,
     replacement: Box<str>,
 }
@@ -100,32 +100,32 @@ impl CasePatternExpansionFact {
         Self { span, replacement }
     }
 
-    pub fn span(&self) -> Span {
+    pub(crate) fn span(&self) -> Span {
         self.span
     }
 
-    pub fn replacement(&self) -> &str {
+    pub(crate) fn replacement(&self) -> &str {
         &self.replacement
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct SuspectClosingQuoteFragmentFact {
+pub(crate) struct SuspectClosingQuoteFragmentFact {
     span: Span,
     replacement_span: Span,
     replacement: Box<str>,
 }
 
 impl SuspectClosingQuoteFragmentFact {
-    pub fn span(&self) -> Span {
+    pub(crate) fn span(&self) -> Span {
         self.span
     }
 
-    pub fn replacement_span(&self) -> Span {
+    pub(crate) fn replacement_span(&self) -> Span {
         self.replacement_span
     }
 
-    pub fn replacement(&self) -> &str {
+    pub(crate) fn replacement(&self) -> &str {
         &self.replacement
     }
 }
@@ -228,28 +228,28 @@ impl PositionalParameterFragmentFact {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct NestedParameterExpansionFragmentFact {
+pub(crate) struct NestedParameterExpansionFragmentFact {
     span: Span,
 }
 
 impl NestedParameterExpansionFragmentFact {
-    pub fn span(&self) -> Span {
+    pub(crate) fn span(&self) -> Span {
         self.span
     }
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct IndirectExpansionFragmentFact {
+pub(crate) struct IndirectExpansionFragmentFact {
     span: Span,
     array_keys: bool,
 }
 
 impl IndirectExpansionFragmentFact {
-    pub fn span(&self) -> Span {
+    pub(crate) fn span(&self) -> Span {
         self.span
     }
 
-    pub fn array_keys(&self) -> bool {
+    pub(crate) fn array_keys(&self) -> bool {
         self.array_keys
     }
 }
@@ -343,13 +343,6 @@ pub struct NativeZshScalarArrayReference {
 }
 
 impl NativeZshScalarArrayReference {
-    pub(crate) fn new(reference_id: ReferenceId, expansion_span: Span) -> Self {
-        Self {
-            reference_id,
-            expansion_span,
-        }
-    }
-
     pub fn expansion_span(&self) -> Span {
         self.expansion_span
     }
@@ -375,23 +368,12 @@ impl AmbiguousArrayReference {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct ParameterPatternSpecialTargetFragmentFact {
+pub(crate) struct ParameterPatternSpecialTargetFragmentFact {
     span: Span,
 }
 
 impl ParameterPatternSpecialTargetFragmentFact {
-    pub fn span(&self) -> Span {
-        self.span
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct ZshParameterIndexFlagFragmentFact {
-    span: Span,
-}
-
-impl ZshParameterIndexFlagFragmentFact {
-    pub fn span(&self) -> Span {
+    pub(crate) fn span(&self) -> Span {
         self.span
     }
 }
@@ -430,17 +412,17 @@ impl ReplacementExpansionFragmentFact {
 }
 
 #[derive(Debug, Clone)]
-pub struct PositionalParameterTrimFragmentFact {
+pub(crate) struct PositionalParameterTrimFragmentFact {
     span: Span,
     fix: Option<PositionalParameterTrimFix>,
 }
 
 impl PositionalParameterTrimFragmentFact {
-    pub fn span(&self) -> Span {
+    pub(crate) fn span(&self) -> Span {
         self.span
     }
 
-    pub fn fix(&self) -> Option<&PositionalParameterTrimFix> {
+    pub(crate) fn fix(&self) -> Option<&PositionalParameterTrimFix> {
         self.fix.as_ref()
     }
 
@@ -450,7 +432,7 @@ impl PositionalParameterTrimFragmentFact {
 }
 
 #[derive(Debug, Clone)]
-pub struct PositionalParameterTrimFix {
+pub(crate) struct PositionalParameterTrimFix {
     insertion_offset: usize,
     insertion: Box<str>,
     replacements: Box<[PositionalParameterTrimReplacement]>,
@@ -469,21 +451,21 @@ impl PositionalParameterTrimFix {
         }
     }
 
-    pub fn insertion_offset(&self) -> usize {
+    pub(crate) fn insertion_offset(&self) -> usize {
         self.insertion_offset
     }
 
-    pub fn insertion(&self) -> &str {
+    pub(crate) fn insertion(&self) -> &str {
         &self.insertion
     }
 
-    pub fn replacements(&self) -> &[PositionalParameterTrimReplacement] {
+    pub(crate) fn replacements(&self) -> &[PositionalParameterTrimReplacement] {
         &self.replacements
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct PositionalParameterTrimReplacement {
+pub(crate) struct PositionalParameterTrimReplacement {
     span: Span,
     replacement: Box<str>,
 }
@@ -493,11 +475,11 @@ impl PositionalParameterTrimReplacement {
         Self { span, replacement }
     }
 
-    pub fn span(&self) -> Span {
+    pub(crate) fn span(&self) -> Span {
         self.span
     }
 
-    pub fn replacement(&self) -> &str {
+    pub(crate) fn replacement(&self) -> &str {
         &self.replacement
     }
 }
@@ -522,7 +504,6 @@ pub(crate) struct SurfaceFragmentFacts {
     pub(crate) indexed_array_references: Vec<IndexedArrayReferenceFragmentFact>,
     pub(crate) plain_unindexed_references: Vec<Span>,
     pub(crate) parameter_pattern_special_targets: Vec<ParameterPatternSpecialTargetFragmentFact>,
-    pub(crate) zsh_parameter_index_flags: Vec<ZshParameterIndexFlagFragmentFact>,
     pub(crate) substring_expansions: Vec<SubstringExpansionFragmentFact>,
     pub(crate) case_modifications: Vec<CaseModificationFragmentFact>,
     pub(crate) replacement_expansions: Vec<ReplacementExpansionFragmentFact>,
@@ -620,7 +601,6 @@ impl<'a> SurfaceScanContext<'a> {
 pub(crate) struct SurfaceFragmentSink<'a> {
     source: &'a str,
     facts: SurfaceFragmentFacts,
-    zsh_parameter_index_flag_scratch: Vec<Span>,
     parameter_special_target_word_scratch: Vec<Span>,
     open_double_quote_scratch: Vec<(Span, Span)>,
     split_suspect_closing_quote_scratch: Vec<Span>,
@@ -631,7 +611,6 @@ impl<'a> SurfaceFragmentSink<'a> {
         Self {
             source,
             facts: SurfaceFragmentFacts::default(),
-            zsh_parameter_index_flag_scratch: Vec::new(),
             parameter_special_target_word_scratch: Vec::new(),
             open_double_quote_scratch: Vec::new(),
             split_suspect_closing_quote_scratch: Vec::new(),
@@ -736,20 +715,6 @@ impl<'a> SurfaceFragmentSink<'a> {
             .push(SubstringExpansionFragmentFact { span });
     }
 
-    fn record_zsh_parameter_index_flag(&mut self, span: Span) {
-        if self
-            .facts
-            .zsh_parameter_index_flags
-            .iter()
-            .any(|fragment| fragment.span() == span)
-        {
-            return;
-        }
-        self.facts
-            .zsh_parameter_index_flags
-            .push(ZshParameterIndexFlagFragmentFact { span });
-    }
-
     fn record_case_modification(&mut self, span: Span) {
         if self
             .facts
@@ -806,16 +771,6 @@ impl<'a> SurfaceFragmentSink<'a> {
         } else {
             context
         };
-        self.zsh_parameter_index_flag_scratch.clear();
-        collect_zsh_parameter_index_flag_spans_in_word(
-            word.span.slice(self.source),
-            word.span,
-            &mut self.zsh_parameter_index_flag_scratch,
-        );
-        for index in 0..self.zsh_parameter_index_flag_scratch.len() {
-            let span = self.zsh_parameter_index_flag_scratch[index];
-            self.record_zsh_parameter_index_flag(span);
-        }
         if context.collect_open_double_quotes {
             self.collect_open_double_quote_fragments(
                 word,
@@ -1431,13 +1386,6 @@ impl<'a> SurfaceFragmentSink<'a> {
         self.collect_word(word, context.without_open_double_quote_scan());
     }
 
-    fn collect_zsh_qualified_glob(
-        &mut self,
-        _glob: &(),
-        _context: SurfaceScanContext<'_>,
-    ) {
-    }
-
     fn collect_parameter_expansion(
         &mut self,
         parameter: &shuck_ast::ParameterExpansion,
@@ -1715,63 +1663,6 @@ fn single_quoted_fragment_is_zsh_delayed_eval_exempt(
     false
 }
 
-fn single_quoted_body(text: &str) -> Option<&str> {
-    text.strip_prefix('\'')?.strip_suffix('\'')
-}
-
-fn zsh_delayed_eval_assignment_target(target: &str, body: &str) -> bool {
-    if target.contains("_p9k__segment_cond_") && single_parameter_marker_literal(body) {
-        return true;
-    }
-
-    zsh_delayed_prompt_assignment_target(target) && zsh_delayed_eval_literal_body(body)
-}
-
-fn zsh_delayed_prompt_assignment_target(target: &str) -> bool {
-    matches!(target, "PROMPT" | "RPROMPT" | "RPS1" | "RPS2" | "SPROMPT")
-        || target == "_p9k__prompt"
-        || target.starts_with("_p9k__prompt_")
-}
-
-fn zsh_delayed_eval_literal_body(body: &str) -> bool {
-    body.contains("${(")
-        || body.contains("::=")
-        || body.contains("${_p9k")
-        || body.contains("$_p9k")
-        || body.contains("$+")
-        || body.contains("${+")
-}
-
-fn zsh_literal_map_key_target(target: &str, body: &str) -> bool {
-    target == "___subst_map" && single_parameter_marker_literal(body)
-}
-
-fn zsh_vcs_info_patch_loop_literal(target: &str, body: &str) -> bool {
-    target == "PATCH"
-        && body.starts_with("for ")
-        && body.contains(" hook_com[")
-        && single_quoted_body_contains_expansion(body)
-}
-
-fn single_parameter_marker_literal(body: &str) -> bool {
-    let Some(name) = body
-        .strip_prefix("${")
-        .and_then(|inner| inner.strip_suffix('}'))
-        .or_else(|| body.strip_prefix('$'))
-    else {
-        return false;
-    };
-
-    !name.is_empty()
-        && name
-            .chars()
-            .all(|ch| ch == '_' || ch.is_ascii_alphanumeric())
-}
-
-fn single_quoted_body_contains_expansion(body: &str) -> bool {
-    body.contains('$') || (body.contains('`') && body.matches('`').count() >= 2)
-}
-
 fn continued_line_chain_start(target: Position, source: &str) -> Option<Position> {
     let mut line_start_offset = source[..target.offset()]
         .rfind('\n')
@@ -1861,96 +1752,6 @@ fn backtick_display_escaped_dollar_count(text: &str) -> usize {
         .count()
 }
 
-fn quoted_parameter_target_len(text: &str) -> Option<usize> {
-    match text.as_bytes().first().copied() {
-        Some(b'\'') => single_quoted_fragment_len(text),
-        Some(b'"') => double_quoted_fragment_len(text),
-        _ => None,
-    }
-}
-
-fn collect_zsh_parameter_index_flag_spans_in_word(text: &str, span: Span, spans: &mut Vec<Span>) {
-    let mut search_from = 0usize;
-
-    while let Some(start) = next_live_parameter_expansion_start(text, search_from) {
-        let body = &text[start + 2..];
-        let Some(target_len) = quoted_parameter_target_len(body) else {
-            search_from = start + 2;
-            continue;
-        };
-        if !body[target_len..].starts_with('[') {
-            search_from = start + 2;
-            continue;
-        }
-
-        let target_start = span.start.advanced_by(&text[..start]);
-        let target_end = target_start.advanced_by(&text[start..start + 2 + target_len]);
-        spans.push(Span::from_positions(target_start, target_end));
-        search_from = start + 2 + target_len;
-    }
-}
-
-fn next_live_parameter_expansion_start(text: &str, search_from: usize) -> Option<usize> {
-    let bytes = text.as_bytes();
-    let mut index = search_from;
-    let mut in_double_quotes = false;
-
-    while index + 1 < bytes.len() {
-        if bytes[index] == b'\\' {
-            index += usize::from(index + 1 < bytes.len()) + 1;
-            continue;
-        }
-
-        if !in_double_quotes && bytes[index..].starts_with(b"$'") {
-            index += 1 + dollar_single_quoted_fragment_len(&text[index + 1..])?;
-            continue;
-        }
-
-        if !in_double_quotes && bytes[index] == b'\'' {
-            index += single_quoted_fragment_len(&text[index..])?;
-            continue;
-        }
-
-        if bytes[index] == b'"' {
-            in_double_quotes = !in_double_quotes;
-            index += 1;
-            continue;
-        }
-
-        if bytes[index..].starts_with(b"${") {
-            return Some(index);
-        }
-
-        index += 1;
-    }
-
-    None
-}
-
-fn single_quoted_fragment_len(text: &str) -> Option<usize> {
-    debug_assert!(text.starts_with('\''));
-    text[1..].find('\'').map(|offset| offset + 2)
-}
-
-fn dollar_single_quoted_fragment_len(text: &str) -> Option<usize> {
-    debug_assert!(text.starts_with('\''));
-    let bytes = text.as_bytes();
-    let mut index = 1usize;
-
-    while index < bytes.len() {
-        if bytes[index] == b'\\' {
-            index += usize::from(index + 1 < bytes.len()) + 1;
-            continue;
-        }
-        if bytes[index] == b'\'' {
-            return Some(index + 1);
-        }
-        index += 1;
-    }
-
-    None
-}
-
 fn single_quoted_backslash_continuation_span(
     parts: &[WordPartNode],
     index: usize,
@@ -1994,161 +1795,6 @@ fn single_quoted_part_contains_backslash_letter(part: &WordPartNode, source: &st
         .as_bytes()
         .windows(2)
         .any(|pair| pair[0] == b'\\' && pair[1].is_ascii_alphabetic())
-}
-
-fn double_quoted_fragment_len(text: &str) -> Option<usize> {
-    debug_assert!(text.starts_with('"'));
-    let bytes = text.as_bytes();
-    let mut index = 1usize;
-
-    while index < bytes.len() {
-        if bytes[index] == b'\\' {
-            index += usize::from(index + 1 < bytes.len()) + 1;
-            continue;
-        }
-        if bytes[index..].starts_with(b"${") {
-            index += parameter_expansion_len(&text[index..])?;
-            continue;
-        }
-        if bytes[index..].starts_with(b"$(") {
-            index += command_substitution_len(&text[index..])?;
-            continue;
-        }
-        if bytes[index] == b'`' {
-            index += backtick_substitution_len(&text[index..])?;
-            continue;
-        }
-        if bytes[index] == b'"' {
-            return Some(index + 1);
-        }
-        index += 1;
-    }
-
-    None
-}
-
-fn parameter_expansion_len(text: &str) -> Option<usize> {
-    debug_assert!(text.starts_with("${"));
-    let bytes = text.as_bytes();
-    let mut index = 2usize;
-
-    while index < bytes.len() {
-        if bytes[index] == b'\\' {
-            index += usize::from(index + 1 < bytes.len()) + 1;
-            continue;
-        }
-        if bytes[index] == b'\'' {
-            index += single_quoted_fragment_len(&text[index..])?;
-            continue;
-        }
-        if bytes[index] == b'"' {
-            index += double_quoted_fragment_len(&text[index..])?;
-            continue;
-        }
-        if bytes[index] == b'`' {
-            index += backtick_substitution_len(&text[index..])?;
-            continue;
-        }
-        if bytes[index..].starts_with(b"${") {
-            index += parameter_expansion_len(&text[index..])?;
-            continue;
-        }
-        if bytes[index..].starts_with(b"$(") {
-            index += command_substitution_len(&text[index..])?;
-            continue;
-        }
-        if bytes[index] == b'}' {
-            return Some(index + 1);
-        }
-        index += 1;
-    }
-
-    None
-}
-
-fn command_substitution_len(text: &str) -> Option<usize> {
-    debug_assert!(text.starts_with("$("));
-    let bytes = text.as_bytes();
-    let mut index = 2usize;
-    let mut paren_depth = 0usize;
-
-    while index < bytes.len() {
-        if bytes[index] == b'\\' {
-            index += usize::from(index + 1 < bytes.len()) + 1;
-            continue;
-        }
-        if bytes[index] == b'\'' {
-            index += single_quoted_fragment_len(&text[index..])?;
-            continue;
-        }
-        if bytes[index] == b'"' {
-            index += double_quoted_fragment_len(&text[index..])?;
-            continue;
-        }
-        if bytes[index] == b'`' {
-            index += backtick_substitution_len(&text[index..])?;
-            continue;
-        }
-        if bytes[index..].starts_with(b"${") {
-            index += parameter_expansion_len(&text[index..])?;
-            continue;
-        }
-        if bytes[index..].starts_with(b"$(") {
-            index += command_substitution_len(&text[index..])?;
-            continue;
-        }
-        if bytes[index] == b'(' {
-            paren_depth += 1;
-            index += 1;
-            continue;
-        }
-        if bytes[index] == b')' {
-            if paren_depth == 0 {
-                return Some(index + 1);
-            }
-            paren_depth -= 1;
-            index += 1;
-            continue;
-        }
-        index += 1;
-    }
-
-    None
-}
-
-fn backtick_substitution_len(text: &str) -> Option<usize> {
-    debug_assert!(text.starts_with('`'));
-    let bytes = text.as_bytes();
-    let mut index = 1usize;
-
-    while index < bytes.len() {
-        if bytes[index] == b'\\' {
-            index += usize::from(index + 1 < bytes.len()) + 1;
-            continue;
-        }
-        if bytes[index] == b'\'' {
-            index += single_quoted_fragment_len(&text[index..])?;
-            continue;
-        }
-        if bytes[index] == b'"' {
-            index += double_quoted_fragment_len(&text[index..])?;
-            continue;
-        }
-        if bytes[index..].starts_with(b"${") {
-            index += parameter_expansion_len(&text[index..])?;
-            continue;
-        }
-        if bytes[index..].starts_with(b"$(") {
-            index += command_substitution_len(&text[index..])?;
-            continue;
-        }
-        if bytes[index] == b'`' {
-            return Some(index + 1);
-        }
-        index += 1;
-    }
-
-    None
 }
 
 #[derive(Default, Clone, Copy)]

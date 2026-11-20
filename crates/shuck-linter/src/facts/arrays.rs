@@ -579,30 +579,6 @@ pub(crate) fn array_value_has_unquoted_comma(
     })
 }
 
-pub(crate) fn assignment_target_has_assoc_context(
-    assignment: &Assignment,
-    semantic: &SemanticModel,
-) -> bool {
-    semantic
-        .binding_for_definition_span(assignment.target.name_span)
-        .is_some_and(|binding| {
-            semantic
-                .binding(binding)
-                .attributes
-                .contains(BindingAttributes::ASSOC)
-        })
-        || semantic
-            .previous_visible_binding(
-                &assignment.target.name,
-                assignment.target.name_span,
-                Some(assignment.target.name_span),
-            )
-            .is_some_and(|binding| {
-                binding.attributes.contains(BindingAttributes::ASSOC)
-                    && !semantic.binding_cleared_before(binding.id, assignment.target.name_span)
-            })
-}
-
 pub(crate) fn zsh_option_map_value_allows_comma(
     value: &shuck_ast::ArrayValueWord,
     source: &str,

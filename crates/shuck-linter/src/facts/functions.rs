@@ -112,12 +112,12 @@ pub(crate) struct FunctionCliDispatchFacts {
 }
 
 impl FunctionCliDispatchFacts {
-    pub fn exported_from_case_cli(self) -> bool {
+    pub(crate) fn exported_from_case_cli(self) -> bool {
         self.exported_from_case_cli
     }
 
     #[cfg(test)]
-    pub fn dispatcher_span(self) -> Option<Span> {
+    pub(crate) fn dispatcher_span(self) -> Option<Span> {
         self.dispatcher_span
     }
 

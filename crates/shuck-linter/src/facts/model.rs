@@ -104,7 +104,6 @@ pub(crate) struct WordFactStore<'a> {
     pub(in crate::facts) plain_unindexed_reference_spans: Vec<Span>,
     pub(in crate::facts) parameter_pattern_special_target_fragments:
         Vec<ParameterPatternSpecialTargetFragmentFact>,
-    pub(in crate::facts) zsh_parameter_index_flag_fragments: Vec<ZshParameterIndexFlagFragmentFact>,
     pub(in crate::facts) substring_expansion_fragments: Vec<SubstringExpansionFragmentFact>,
     pub(in crate::facts) case_modification_fragments: Vec<CaseModificationFragmentFact>,
     pub(in crate::facts) replacement_expansion_fragments: Vec<ReplacementExpansionFragmentFact>,
@@ -144,7 +143,6 @@ pub(crate) struct SourceFactStore<'a> {
     pub(in crate::facts) file_end: usize,
     pub(in crate::facts) line_index: &'a LineIndex,
     pub(in crate::facts) comment_index: &'a CommentIndex,
-    pub(in crate::facts) shell: ShellDialect,
     pub(in crate::facts) script_line_count: OnceLock<ScriptLineCountFact>,
     pub(in crate::facts) indented_shebang_span: Option<Span>,
     pub(in crate::facts) indented_shebang_indent_span: Option<Span>,
@@ -1095,10 +1093,6 @@ impl<'facts, 'a> SourceFacts<'facts, 'a> {
         self.facts.source_facts.line_index
     }
 
-    pub(crate) fn shell(self) -> ShellDialect {
-        self.facts.source_facts.shell
-    }
-
     pub(crate) fn script_line_count(self) -> ScriptLineCountFact {
         *self.facts.source_facts.script_line_count.get_or_init(|| {
             build_script_line_count_fact(
@@ -1572,12 +1566,6 @@ impl<'facts, 'a> WordFacts<'facts, 'a> {
         self,
     ) -> &'facts [ParameterPatternSpecialTargetFragmentFact] {
         &self.facts.words.parameter_pattern_special_target_fragments
-    }
-
-    pub(crate) fn zsh_parameter_index_flag_fragments(
-        self,
-    ) -> &'facts [ZshParameterIndexFlagFragmentFact] {
-        &self.facts.words.zsh_parameter_index_flag_fragments
     }
 
     pub fn substring_expansion_fragments(self) -> &'facts [SubstringExpansionFragmentFact] {

@@ -1097,20 +1097,6 @@ pub(crate) fn substitution_pathname_matching_hazard(
             .unquoted_substitution_results_can_glob()
 }
 
-pub(crate) fn zsh_modifier_behavior<'model>(
-    behavior: &ShellBehaviorAt,
-    _syntax: &(),
-) -> ShellBehaviorAt {
-    behavior.clone()
-}
-
-pub(crate) fn apply_toggle_override(value: &mut bool, count: usize) {
-    if count % 2 == 1 {
-        *value = !*value;
-    }
-}
-
-
 pub(crate) fn scalar_part(
     can_expand_to_multiple_fields: bool,
     field_splitting_behavior: FieldSplittingBehavior,
@@ -1165,15 +1151,6 @@ pub(crate) fn parameter_operator_uses_pattern(operator: &shuck_ast::ParameterOp)
             | shuck_ast::ParameterOp::RemoveSuffixLong { .. }
             | shuck_ast::ParameterOp::ReplaceFirst { .. }
             | shuck_ast::ParameterOp::ReplaceAll { .. }
-    )
-}
-
-pub(crate) fn zsh_operation_uses_pattern(operation: &()) -> bool {
-    matches!(
-        operation,
-        _
-            | _
-            | _
     )
 }
 

@@ -14,8 +14,6 @@ pub(in crate::facts) enum WordTraversalOrigin {
     ArithmeticExpansion,
     ParameterOperand,
     ParameterPattern,
-    ZshParameterTarget,
-    ZshModifierArgument,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -132,13 +130,6 @@ pub(in crate::facts) trait WordSubtreeVisitor<'a> {
     fn visit_parameter_expansion(
         &mut self,
         _part: &'a WordPartNode,
-        _state: WordTraversalState<'a>,
-    ) {
-    }
-    fn visit_zsh_qualified_glob(
-        &mut self,
-        _part: &'a WordPartNode,
-        _glob: &'a (),
         _state: WordTraversalState<'a>,
     ) {
     }
@@ -503,9 +494,6 @@ fn walk_parameter_operator<'a>(
     }
 }
 
-
-
-
 fn walk_pattern<'a>(
     pattern: &'a Pattern,
     context: WordTraversalContext<'a>,
@@ -606,14 +594,6 @@ mod tests {
             self.events.push(format!("pattern-word:{:?}", state.origin));
         }
 
-        fn visit_zsh_qualified_glob(
-            &mut self,
-            _part: &'a WordPartNode,
-            _glob: &'a (),
-            state: WordTraversalState<'a>,
-        ) {
-            self.events.push(format!("zsh-glob:{:?}", state.origin));
-        }
     }
 
     fn first_arg(source: &str) -> Word {
@@ -712,9 +692,4 @@ mod tests {
         );
     }
 
-    fn span_for(source: &str, start: usize, end: usize) -> Span {
-        let start = Position::new().advanced_by(&source[..start]);
-        let end = Position::new().advanced_by(&source[..end]);
-        Span::from_positions(start, end)
-    }
 }

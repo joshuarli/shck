@@ -1889,13 +1889,6 @@ pub(crate) fn collect_status_parameter_spans_in_parameter_expansion(
     }
 }
 
-pub(crate) fn collect_status_parameter_spans_in_zsh_target(
-    _target: &(),
-    _source: &str,
-    _spans: &mut Vec<Span>,
-) {
-}
-
 pub(crate) fn collect_status_parameter_spans_in_conditional_expr(
     expression: &ConditionalExpr,
     source: &str,

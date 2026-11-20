@@ -1,12 +1,12 @@
 use super::*;
 
-pub fn word_unquoted_glob_pattern_spans(word: &Word, source: &str) -> Vec<Span> {
+pub(crate) fn word_unquoted_glob_pattern_spans(word: &Word, source: &str) -> Vec<Span> {
     let mut spans = Vec::new();
     collect_unquoted_glob_pattern_spans(&word.parts, source, false, &mut spans);
     spans
 }
 
-pub fn word_active_glob_pattern_spans(
+pub(crate) fn word_active_glob_pattern_spans(
     word: &Word,
     source: &str,
     pathname_behavior: PathnameExpansionBehavior,
@@ -24,7 +24,7 @@ pub fn word_active_glob_pattern_spans(
 }
 
 #[cfg(test)]
-pub fn word_unquoted_glob_pattern_spans_outside_brace_expansion(
+pub(crate) fn word_unquoted_glob_pattern_spans_outside_brace_expansion(
     word: &Word,
     source: &str,
 ) -> Vec<Span> {
@@ -51,7 +51,7 @@ pub fn word_unquoted_glob_pattern_spans_outside_brace_expansion(
         .collect()
 }
 
-pub fn word_active_glob_pattern_spans_outside_brace_expansion(
+pub(crate) fn word_active_glob_pattern_spans_outside_brace_expansion(
     word: &Word,
     source: &str,
     pathname_behavior: PathnameExpansionBehavior,
@@ -80,7 +80,7 @@ pub fn word_active_glob_pattern_spans_outside_brace_expansion(
         .collect()
 }
 
-pub fn word_starts_with_active_glob_group_operator(
+pub(crate) fn word_starts_with_active_glob_group_operator(
     word: &Word,
     source: &str,
     pathname_behavior: PathnameExpansionBehavior,
@@ -99,14 +99,14 @@ pub fn word_starts_with_active_glob_group_operator(
     )
 }
 
-pub fn word_suspicious_bracket_glob_spans(word: &Word, source: &str) -> Vec<Span> {
+pub(crate) fn word_suspicious_bracket_glob_spans(word: &Word, source: &str) -> Vec<Span> {
     word_unquoted_glob_pattern_spans(word, source)
         .into_iter()
         .filter(|span| suspicious_bracket_glob_text(span.slice(source)))
         .collect()
 }
 
-pub fn word_suspicious_brace_character_class_spans(word: &Word, source: &str) -> Vec<Span> {
+pub(crate) fn word_suspicious_brace_character_class_spans(word: &Word, source: &str) -> Vec<Span> {
     let mut spans = word
         .brace_syntax()
         .iter()
@@ -128,13 +128,13 @@ pub fn word_suspicious_brace_character_class_spans(word: &Word, source: &str) ->
     spans
 }
 
-pub fn word_unbraced_variable_before_bracket_spans(word: &Word, source: &str) -> Vec<Span> {
+pub(crate) fn word_unbraced_variable_before_bracket_spans(word: &Word, source: &str) -> Vec<Span> {
     let mut spans = Vec::new();
     collect_unbraced_variable_before_bracket_spans(&word.parts, source, &mut spans);
     spans
 }
 
-pub fn word_standalone_literal_backslash_span(word: &Word, source: &str) -> Option<Span> {
+pub(crate) fn word_standalone_literal_backslash_span(word: &Word, source: &str) -> Option<Span> {
     let [part] = word.parts.as_slice() else {
         return None;
     };
@@ -156,7 +156,7 @@ pub fn word_standalone_literal_backslash_span(word: &Word, source: &str) -> Opti
     Some(Span::from_positions(word.span.start, word.span.start))
 }
 
-pub fn conditional_extglob_span(expression: &ConditionalExpr, source: &str) -> Option<Span> {
+pub(crate) fn conditional_extglob_span(expression: &ConditionalExpr, source: &str) -> Option<Span> {
     match expression {
         ConditionalExpr::Binary(expr) => conditional_extglob_span(&expr.left, source)
             .or_else(|| conditional_extglob_span(&expr.right, source)),
@@ -167,7 +167,7 @@ pub fn conditional_extglob_span(expression: &ConditionalExpr, source: &str) -> O
     }
 }
 
-pub fn conditional_array_subscript_span(
+pub(crate) fn conditional_array_subscript_span(
     expression: &ConditionalExpr,
     source: &str,
 ) -> Option<Span> {
@@ -186,14 +186,14 @@ pub fn conditional_array_subscript_span(
     }
 }
 
-pub fn word_array_subscript_span(word: &Word, source: &str) -> Option<Span> {
+pub(crate) fn word_array_subscript_span(word: &Word, source: &str) -> Option<Span> {
     word_array_subscript_span_from_parts(&word.parts, source).or_else(|| {
         (!word.has_quoted_parts() && text_has_variable_subscript(word.span.slice(source)))
             .then_some(word.span)
     })
 }
 
-pub fn word_extglob_span(word: &Word, source: &str) -> Option<Span> {
+pub(crate) fn word_extglob_span(word: &Word, source: &str) -> Option<Span> {
     word_extglob_span_from_literal_parts(&word.parts, source).or_else(|| {
         if word_has_only_literal_parts(&word.parts) {
             return find_extglob_bounds(word.span.slice(source).as_bytes()).map(|_| word.span);
@@ -205,7 +205,7 @@ pub fn word_extglob_span(word: &Word, source: &str) -> Option<Span> {
     })
 }
 
-pub fn word_starts_with_extglob(word: &Word, source: &str) -> bool {
+pub(crate) fn word_starts_with_extglob(word: &Word, source: &str) -> bool {
     if word_has_only_literal_parts(&word.parts) {
         return matches!(
             find_extglob_bounds(word.span.slice(source).as_bytes()),
@@ -220,7 +220,7 @@ pub fn word_starts_with_extglob(word: &Word, source: &str) -> bool {
     matches!(find_extglob_bounds(&surface), Some((0, _)))
 }
 
-pub fn word_exactly_one_extglob_span(word: &Word, source: &str) -> Option<Span> {
+pub(crate) fn word_exactly_one_extglob_span(word: &Word, source: &str) -> Option<Span> {
     word_exactly_one_extglob_span_from_literal_parts(&word.parts, source).or_else(|| {
         if word_has_only_literal_parts(&word.parts) {
             return find_exactly_one_extglob_bounds(word.span.slice(source).as_bytes())
@@ -233,7 +233,7 @@ pub fn word_exactly_one_extglob_span(word: &Word, source: &str) -> Option<Span> 
     })
 }
 
-pub fn conditional_suspicious_bracket_glob_spans(
+pub(crate) fn conditional_suspicious_bracket_glob_spans(
     expression: &ConditionalExpr,
     source: &str,
 ) -> Vec<Span> {
@@ -242,7 +242,7 @@ pub fn conditional_suspicious_bracket_glob_spans(
     spans
 }
 
-pub fn case_item_suspicious_bracket_glob_spans(item: &CaseItem, source: &str) -> Vec<Span> {
+pub(crate) fn case_item_suspicious_bracket_glob_spans(item: &CaseItem, source: &str) -> Vec<Span> {
     let mut spans = Vec::new();
     for pattern in &item.patterns {
         collect_pattern_suspicious_bracket_glob_spans(pattern, source, &mut spans);
@@ -250,7 +250,7 @@ pub fn case_item_suspicious_bracket_glob_spans(item: &CaseItem, source: &str) ->
     spans
 }
 
-pub fn text_looks_like_caret_negated_bracket(text: &str) -> bool {
+pub(crate) fn text_looks_like_caret_negated_bracket(text: &str) -> bool {
     let bytes = text.as_bytes();
     let mut index = 0usize;
 
@@ -276,7 +276,7 @@ pub fn text_looks_like_caret_negated_bracket(text: &str) -> bool {
     false
 }
 
-pub fn word_caret_negated_bracket_spans(word: &Word, source: &str) -> Vec<Span> {
+pub(crate) fn word_caret_negated_bracket_spans(word: &Word, source: &str) -> Vec<Span> {
     if word_has_only_literal_parts(&word.parts) {
         let spans = word_caret_negated_bracket_spans_from_literal_parts(&word.parts, source);
         if !spans.is_empty() {
@@ -640,22 +640,6 @@ fn zsh_exclusion_operator_has_pattern_operand(
             bytes.len(),
             active_group_bounds,
         )
-}
-
-pub(crate) fn zsh_qualified_glob_active_pattern_spans(
-    glob: &(),
-    source: &str,
-    pattern_behavior: GlobPatternBehavior,
-) -> Vec<Span> {
-    if zsh_qualified_glob_has_control_syntax(glob) {
-        Vec::new()
-    } else {
-        active_literal_glob_pattern_spans(shuck_ast::Span::default(), source, pattern_behavior)
-    }
-}
-
-pub(crate) fn zsh_qualified_glob_has_control_syntax(_glob: &()) -> bool {
-    false
 }
 
 fn literal_range_has_active_glob_syntax(
