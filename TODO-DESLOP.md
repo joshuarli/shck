@@ -1,5 +1,5 @@
 Prefix: DSLP
-Next: 25
+Next: 26
 
 Deslop campaign backlog ([plan](https://github.com/laputa-systems/stuff/blob/main/docs/campaigns/deslop.md), tier D, by component). One agent works this file with the `deslop` skill: take the lowest-numbered open ticket whose area does not start with `Needs owner ·`. After DSLP-6 (Bench), work the open P1 and P2 findings; file P3 and P4 findings without fixing them. Then fill in `## Report` below.
 
@@ -148,6 +148,15 @@ DSLP-15 closed: full output shares a line index across diagnostics for each sour
 - **Where:** crates/shuck-linter rule X047 fixture; parity silent-fixture allowlist
 - **Problem:** The X047 rule-specific fixture produces no diagnostic, so the rule has no positive witness and the parity test allowlists it as silent. A regression that stops X047 from firing would pass.
 - **Recommendation:** Add a fixture case that triggers X047 and remove it from the silent-fixture allowlist, or record why the rule cannot fire.
+- **Fix with:** deslop
+- **Effort:** S
+
+### DSLP-25 · P3 · Decide whether format_range stays public
+
+- **Area:** Needs owner · deslop · dead code
+- **Where:** crates/shuck-formatter/src/range.rs:13 (format_range, FormattedRange; re-exported from lib.rs)
+- **Problem:** Range formatting has no consumer in the CLI, config, benchmark or fuzz crates; only formatter tests use it. Removing it changes the published formatter API, and an editor integration could be an external consumer.
+- **Recommendation:** Owner decides: keep it as supported API for editor range formatting, or remove it with its tests if there are no external consumers.
 - **Fix with:** deslop
 - **Effort:** S
 

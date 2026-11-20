@@ -3,11 +3,9 @@ use shuck_ast::{
     IfCommand, IfSyntax,  SelectCommand, Span, Stmt, StmtSeq,
     UntilCommand, WhileCommand,
 };
-use shuck_indexer::CloseDelimiterKind;
-
 use crate::command::{
     branch_open_keyword_start, command_group_commands, done_close_span,
-    normalized_close_keyword_span, stmt_span,
+    stmt_span,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -28,14 +26,6 @@ impl CompoundBodyBounds {
         Self {
             facts_end: end,
             render_end: end,
-        }
-    }
-
-    #[allow(dead_code)]
-    fn split(facts_end: usize, render_end: usize) -> Self {
-        Self {
-            facts_end,
-            render_end,
         }
     }
 
@@ -287,35 +277,6 @@ impl<'a> CompoundBodySite<'a> {
             bounds: CompoundBodyBounds::shared(enclosing_span.end.offset()),
             open: CompoundBodyOpen::Direct,
             close_span: None,
-        }
-    }
-
-    #[allow(dead_code)]
-    fn brace(
-        body: &'a StmtSeq,
-        enclosing_span: Span,
-        right_brace_span: Span,
-        source_map: &crate::comments::SourceMap<'_>,
-    ) -> Self {
-        let close_span = source_map
-            .close_delimiter_span(enclosing_span, CloseDelimiterKind::RightBrace)
-            .unwrap_or_else(|| {
-                normalized_close_keyword_span(
-                    source_map.source(),
-                    source_map,
-                    right_brace_span,
-                    "}",
-                )
-            });
-        Self {
-            body,
-            enclosing_span,
-            bounds: CompoundBodyBounds::split(
-                right_brace_span.start.offset(),
-                enclosing_span.end.offset(),
-            ),
-            open: CompoundBodyOpen::Group('{'),
-            close_span: Some(close_span),
         }
     }
 
