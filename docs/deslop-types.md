@@ -114,7 +114,6 @@ Escape-hatch counts are lexical Rust occurrences across each package, including 
 | shuck-run | 0 / 0 | 0 / 0 | 0 / 0 | 2 / 2 |
 | shuck-benchmark | 0 / 0 | 21 / 21 | 5 / 5 | 36 / 26 |
 | fuzz | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
-||||||| parent of 55bf4ac9 (fix(types): check semantic index boundaries)
 
 ## Semantic component follow-up
 
@@ -131,7 +130,6 @@ Escape-hatch counts below are lexical occurrences in tracked semantic Rust files
 | allow | unsafe | production-text unwrap/expect | numeric casts |
 | --- | --- | --- | --- |
 | 34 / 34 | 0 / 0 | 40 / 39 | 53 / 26 |
-||||||| parent of 48cd07e8 (refactor(types): tighten parser classification decisions)
 
 ## Parser component
 
