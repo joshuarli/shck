@@ -70,6 +70,8 @@ pub(crate) fn collect_parse_rule_diagnostics(
     {
         return diagnostics;
     }
+    let missing_then_lines = compute_missing_then_lines(source);
+    let pending_until_flags = compute_pending_until_flags(source);
     let missing_done_loop_kind = (enabled_rules.contains(crate::Rule::LoopWithoutEnd)
         || enabled_rules.contains(crate::Rule::MissingDoneInForLoop))
     .then(|| missing_done_loop_kind(file, source, parse_diagnostics, semantic))
@@ -90,7 +92,7 @@ pub(crate) fn collect_parse_rule_diagnostics(
         diagnostics.push(Diagnostic::new(UnterminatedIf, span));
     }
     if enabled_rules.contains(crate::Rule::IfMissingThen)
-        && let Some(span) = if_missing_then_span(locator, parse_diagnostics)
+        && let Some(span) = if_missing_then_span(locator, parse_diagnostics, &missing_then_lines)
     {
         diagnostics.push(Diagnostic::new(IfMissingThen, span));
     }
@@ -139,7 +141,12 @@ pub(crate) fn collect_parse_rule_diagnostics(
         }
     }
     if enabled_rules.contains(crate::Rule::StrayClosingKeyword) && is_c016_shell(shell) {
-        for span in stray_closing_keyword_spans(locator, parse_diagnostics) {
+        for span in stray_closing_keyword_spans(
+            locator,
+            parse_diagnostics,
+            &missing_then_lines,
+            &pending_until_flags,
+        ) {
             diagnostics.push(Diagnostic::new(StrayClosingKeyword, span));
         }
     }
@@ -1466,9 +1473,36 @@ fn is_missing_then_error(message: &str) -> bool {
     message.starts_with("expected 'then'")
 }
 
+fn compute_missing_then_lines(source: &str) -> Vec<Option<usize>> {
+    let mut result = vec![None];
+    let mut pending = None;
+    for (index, line) in source.lines().enumerate() {
+        let trimmed = line.trim_start();
+        if !trimmed.is_empty()
+            && !trimmed.starts_with('#')
+            && trimmed != "fi"
+            && trimmed != "else"
+        {
+            if line_contains_shell_word(trimmed, "then") {
+                pending = None;
+            } else if trimmed == "if" || trimmed.starts_with("if ") || trimmed.starts_with("if\t") {
+                pending = Some(index + 1);
+            } else if trimmed == "elif"
+                || trimmed.starts_with("elif ")
+                || trimmed.starts_with("elif\t")
+            {
+                pending = None;
+            }
+        }
+        result.push(pending);
+    }
+    result
+}
+
 fn if_missing_then_span(
     locator: Locator<'_>,
     parse_diagnostics: &[ParseDiagnostic],
+    missing_then_lines: &[Option<usize>],
 ) -> Option<Span> {
     parse_diagnostics.iter().find_map(|diagnostic| {
         if !is_missing_then_error(&diagnostic.message)
@@ -1476,42 +1510,13 @@ fn if_missing_then_span(
         {
             return None;
         }
-
-        let mut line = diagnostic.span.start.line();
-        let mut saw_then = false;
-        while line > 0 {
-            let text = line_text_at(locator, line)?;
-            let trimmed = text.trim_start();
-            if trimmed.is_empty() || trimmed.starts_with('#') {
-                line = line.saturating_sub(1);
-                continue;
-            }
-
-            if trimmed == "fi" || trimmed == "else" {
-                line = line.saturating_sub(1);
-                continue;
-            }
-            if line_contains_shell_word(trimmed, "then") {
-                saw_then = true;
-                line = line.saturating_sub(1);
-                continue;
-            }
-            if trimmed == "if" || trimmed.starts_with("if ") || trimmed.starts_with("if\t") {
-                if saw_then {
-                    return None;
-                }
-                let offset = line_start_offset(locator, line)?;
-                let start = locator.position_at_offset(offset)?;
-                return Some(Span::from_positions(start, start));
-            }
-            if trimmed == "elif" || trimmed.starts_with("elif ") || trimmed.starts_with("elif\t") {
-                return None;
-            }
-
-            line = line.saturating_sub(1);
-        }
-
-        None
+        let line = missing_then_lines
+            .get(diagnostic.span.start.line())
+            .copied()
+            .flatten()?;
+        let offset = line_start_offset(locator, line)?;
+        let start = locator.position_at_offset(offset)?;
+        Some(Span::from_positions(start, start))
     })
 }
 
@@ -1662,6 +1667,8 @@ fn is_expected_command_error(message: &str) -> bool {
 fn stray_closing_keyword_spans(
     locator: Locator<'_>,
     parse_diagnostics: &[ParseDiagnostic],
+    missing_then_lines: &[Option<usize>],
+    pending_until_flags: &[bool],
 ) -> Vec<Span> {
     let source = locator.source();
     parse_diagnostics
@@ -1679,7 +1686,9 @@ fn stray_closing_keyword_spans(
                 return None;
             }
 
-            if is_more_specific_parse_diagnostic(locator, diagnostic) {
+            if is_more_specific_parse_diagnostic(
+                locator, diagnostic, missing_then_lines, pending_until_flags,
+            ) {
                 return None;
             }
 
@@ -1688,12 +1697,21 @@ fn stray_closing_keyword_spans(
         .collect()
 }
 
-fn is_more_specific_parse_diagnostic(locator: Locator<'_>, diagnostic: &ParseDiagnostic) -> bool {
+fn is_more_specific_parse_diagnostic(
+    locator: Locator<'_>,
+    diagnostic: &ParseDiagnostic,
+    missing_then_lines: &[Option<usize>],
+    pending_until_flags: &[bool],
+) -> bool {
     let diagnostic = std::slice::from_ref(diagnostic);
     let keyword = diagnostic[0].span.slice(locator.source());
     (matches!(keyword, "fi" | "else" | "elif")
-        && if_missing_then_span(locator, diagnostic).is_some())
-        || until_missing_do_span(locator, diagnostic).is_some()
+        && if_missing_then_span(locator, diagnostic, missing_then_lines).is_some())
+        || (is_done_line(locator, diagnostic[0].span.start.line())
+            && pending_until_flags
+                .get(diagnostic[0].span.start.line().saturating_sub(1))
+                .copied()
+                .unwrap_or(false))
 }
 
 fn is_function_parameter_syntax_error(message: &str) -> bool {
@@ -2639,7 +2657,8 @@ mod tests {
 
     use super::{
         collect_parse_rule_diagnostics as collect_parse_rule_diagnostics_impl,
-        if_bracket_glued_span_on_line, is_expected_command_error, line_contains_shell_word,
+        compute_missing_then_lines, if_bracket_glued_span_on_line, is_expected_command_error,
+        line_contains_shell_word,
         line_has_command_leading_word, unterminated_if_position_from_source,
     };
     use crate::{
@@ -2666,6 +2685,15 @@ mod tests {
             enabled_rules,
             shell,
         )
+    }
+
+    #[test]
+    fn missing_then_state_tracks_relevant_lines() {
+        let source = "if first\n# then\nelse\nfi\n  echo 'then'\nif second\nthen\nif third\nelif other\nif fourth; then\n";
+        assert_eq!(
+            compute_missing_then_lines(source),
+            vec![None, Some(1), Some(1), Some(1), Some(1), Some(1), Some(6), None, Some(8), None, None],
+        );
     }
 
     #[test]

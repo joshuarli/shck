@@ -1,5 +1,5 @@
 Prefix: DSLP
-Next: 15
+Next: 16
 
 Deslop campaign backlog ([plan](https://github.com/laputa-systems/stuff/blob/main/docs/campaigns/deslop.md), tier D, by component). One agent works this file with the `deslop` skill: take the lowest-numbered open ticket whose area does not start with `Needs owner ·`. After DSLP-6 (Bench), work the open P1 and P2 findings; file P3 and P4 findings without fixing them. Then fill in `## Report` below.
 
@@ -14,6 +14,8 @@ Open fleet finding: `rust-toolchain` expects nightly-2026-11-09 while the worksp
 Diagnose at `cc6d37ce` (macOS aarch64, `TMPDIR=$PWD/.work/tmp`) covered the 12 workspace crates through the ultrareview lenses, weighted to what a user hits: parser robustness, formatter semantics and idempotence, `--fix`, suppressions and config, cache staleness, `shuck run`, and exit codes. Builds: `cargo build -p shuck-cli` 2m36s and `--release` 3m18s. Evidence: 1600 randomized and mutated scripts through `check` with no panic and no hang; 32 construct fixtures through `format` in default plus nine option sets with no idempotence failure and no `bash -n` regression (none has a heredoc inside a compound, which DSLP-7 covers); 44 of the 45 safe-fix rule examples removed their diagnostic under `check --fix` (C103 withholds its fix for `-exec` arguments, as its tests intend); suppression, exit-code, and tar-extraction probes behaved as documented. Filed 7 findings: P1 DSLP-7, P1 DSLP-8, P2 DSLP-9, P2 DSLP-10, P3 DSLP-11, P3 DSLP-12, P4 DSLP-13. Not covered: watch mode end to end, `shuck install` network downloads, the full ShellCheck-compat flag surface, large-corpus and Full benchmark tiers, and the Nix-dependent `cargo shear`.
 
 DSLP-7 closed: minified heredocs now end before compound separators, with regression coverage and a pre-write parse check.
+
+DSLP-9 closed: parse-diagnostic enrichment precomputes per-line state; existing fixture diagnostics match the baseline.
 
 ## Tickets
 
@@ -53,15 +55,6 @@ DSLP-7 closed: minified heredocs now end before compound separators, with regres
 - **Fix with:** bench-pyramid
 - **Effort:** M
 
-### DSLP-9 · P2 · parse-diagnostic enrichment is quadratic in diagnostics times lines
-
-- **Area:** deslop · diagnose · linter performance
-- **Where:** crates/shuck-linter/src/parse_diagnostics.rs:1469 if_missing_then_span (upward line scan per diagnostic) and :1691 is_more_specific_parse_diagnostic (repeats the scan per stray-keyword candidate)
-- **Problem:** Analysis time grows quadratically with the number of parse diagnostics because each one scans every preceding line. Repro with the release binary: python3 -c "open('then.sh','w').write('then\n'*32000)" (160 KB) then target/release/shuck check --no-cache then.sh takes 18.04 s, and 8000 lines takes 1.11 s (4x input, 16x time). A 272 KB file of 16000 nested ifs takes 27.73 s; 68 KB takes 1.78 s and 136 KB takes 7.77 s. A macOS sample of the run attributes most samples to if_missing_then_span and line_contains_shell_word. Inputs of a few hundred KB therefore hang check for tens of seconds.
-- **Recommendation:** Precompute per-line enclosing-if/then state once (the pattern compute_pending_until_flags already uses) instead of scanning upward per diagnostic, or bound the scan by the diagnostic's own statement; add a timing regression case over an error-dense fixture.
-- **Fix with:** refactor-rust
-- **Effort:** M
-
 ### DSLP-10 · P2 · nesting past the parser depth limit floods false C016 errors on valid scripts
 
 - **Area:** deslop · diagnose · parser diagnostics
@@ -70,6 +63,15 @@ DSLP-7 closed: minified heredocs now end before compound separators, with regres
 - **Recommendation:** Surface the recorded resource-limit error (for example 'AST nesting too deep') and suppress the recovery-derived parse-rule diagnostics that follow from it; do not treat 'then'/'do' as stray closing keywords when the opener was dropped by the depth cap.
 - **Fix with:** refactor-rust
 - **Effort:** M
+
+### DSLP-15 · P2 · default check output rebuilds a line index per diagnostic
+
+- **Area:** deslop · linter performance
+- **Where:** crates/shuck-cli/src/commands/check_output.rs:1098 (full renderer)
+- **Problem:** After DSLP-9 made parse-diagnostic enrichment linear, `shuck check --no-cache` with the default full output still scales quadratically because the renderer rebuilds a line index for each diagnostic. Release medians on a loaded host: 4x more `then` lines (8,000 to 32,000) took 14.0x longer and 4x more nested ifs took 12.2x longer with default output, while `--output-format concise` grew 2.5x and 2.1x. Error-dense inputs of a few hundred KB still take seconds to render.
+- **Recommendation:** Build the line index once per file and share it across that file's diagnostics in the full renderer; confirm byte-identical output on the linter fixtures and measure the 4x scaling ratio again.
+- **Fix with:** refactor-rust
+- **Effort:** S
 
 ### DSLP-11 · P3 · config files silently ignore unknown keys that --config rejects
 
