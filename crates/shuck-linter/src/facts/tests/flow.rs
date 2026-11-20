@@ -60,14 +60,18 @@ case ${1-} in
   fallthrough) printf '%s\\n' ok & ;&
   continue) printf '%s\\n' ok & ;;&
 esac
+echo control &;
 ";
 
     with_facts(source, None, |_, facts| {
-        assert!(
+        assert_eq!(
             facts
                 .command_facts()
                 .background_semicolon_spans()
-                .is_empty()
+                .iter()
+                .map(|span| (span.slice(source), span.start.line()))
+                .collect::<Vec<_>>(),
+            vec![(";", 8)]
         );
     });
 }
