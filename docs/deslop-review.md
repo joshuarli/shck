@@ -69,3 +69,7 @@ Both findings are fixed in the same change as this review:
 - P3: fuel exhaustion in the recovery loop's `tick` and `skip_newlines` exits now sets `ParseStatus::LimitExceeded`. The regression test is `fuel_exhausted_between_commands_reports_limit_exceeded`.
 
 Each test fails against the reviewed revision and passes with the fix.
+
+## Later Dead code slices
+
+#30 (linter rules) and #31 (linter facts) merged after the review above and were reviewed separately. #31 only deletes code and narrows visibility. #30 leaves `SourceSignals::loads_zsh_module` and its field compiled only under `cfg(test)`, with no production caller; this is filed as DSLP-27 (P4). #30 also deletes a `build_script.rs` test that had no `#[test]` attribute and never ran; every build exercises the generator it covered, so no coverage is lost.
