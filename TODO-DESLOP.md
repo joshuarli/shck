@@ -1,5 +1,5 @@
 Prefix: DSLP
-Next: 15
+Next: 16
 
 Deslop campaign backlog ([plan](https://github.com/laputa-systems/stuff/blob/main/docs/campaigns/deslop.md), tier D, by component). One agent works this file with the `deslop` skill: take the lowest-numbered open ticket whose area does not start with `Needs owner ·`. After DSLP-6 (Bench), work the open P1 and P2 findings; file P3 and P4 findings without fixing them. Then fill in `## Report` below.
 
@@ -63,6 +63,15 @@ DSLP-9 closed: parse-diagnostic enrichment precomputes per-line state; existing 
 - **Recommendation:** Surface the recorded resource-limit error (for example 'AST nesting too deep') and suppress the recovery-derived parse-rule diagnostics that follow from it; do not treat 'then'/'do' as stray closing keywords when the opener was dropped by the depth cap.
 - **Fix with:** refactor-rust
 - **Effort:** M
+
+### DSLP-15 · P2 · default check output rebuilds a line index per diagnostic
+
+- **Area:** deslop · linter performance
+- **Where:** crates/shuck-cli/src/commands/check_output.rs:1098 (full renderer)
+- **Problem:** After DSLP-9 made parse-diagnostic enrichment linear, `shuck check --no-cache` with the default full output still scales quadratically because the renderer rebuilds a line index for each diagnostic. Release medians on a loaded host: 4x more `then` lines (8,000 to 32,000) took 14.0x longer and 4x more nested ifs took 12.2x longer with default output, while `--output-format concise` grew 2.5x and 2.1x. Error-dense inputs of a few hundred KB still take seconds to render.
+- **Recommendation:** Build the line index once per file and share it across that file's diagnostics in the full renderer; confirm byte-identical output on the linter fixtures and measure the 4x scaling ratio again.
+- **Fix with:** refactor-rust
+- **Effort:** S
 
 ### DSLP-11 · P3 · config files silently ignore unknown keys that --config rejects
 
