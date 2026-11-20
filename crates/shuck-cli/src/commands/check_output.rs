@@ -1114,7 +1114,7 @@ fn renderable_snippet(span: DisplaySpan, source: &str, line_index: &LineIndex) -
     let relative_range =
         (absolute_range.start - snippet_start)..(absolute_range.end - snippet_start);
     let (rendered_source, rendered_range) =
-        rendered_snippet_source(raw_snippet, relative_range.clone());
+        rendered_snippet_source(raw_snippet, relative_range);
 
     Some(RenderableSnippet {
         source: rendered_source,

@@ -1,4 +1,5 @@
 #![warn(missing_docs)]
+#![warn(clippy::redundant_clone, clippy::cast_possible_truncation, clippy::cast_sign_loss, clippy::match_wildcard_for_single_variants)]
 #![cfg_attr(not(test), warn(clippy::unwrap_used))]
 
 //! Library entrypoints for the `shuck` CLI.

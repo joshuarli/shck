@@ -228,7 +228,7 @@ pub(super) fn collect_watch_targets(
             let mut target = WatchTarget::file(config_path.resolved_path);
             target.add_match_path(config_path.canonical_path);
             if let Some(parent) = canonical_config_parent {
-                target.add_watch_path(parent.to_path_buf());
+                target.add_watch_path(parent);
             }
             targets.push(target);
         }

@@ -192,3 +192,17 @@ Escape-hatch counts are lexical occurrences in tracked facts Rust files, includi
 | 14 / 14 | 0 / 0 | 12 / 12 | 17 / 8 |
 
 Adding a temporary variant to each of `ConditionalNodeFact` and `SimpleTestShape` made `cargo check -p shuck-linter --lib` fail with E0004 at both changed matches. The variants were removed after the check. Existing linter fixtures and workspace tests exercise the retained facts and diagnostics.
+
+## CLI component
+
+The CLI enables `redundant_clone`, `cast_possible_truncation`, `cast_sign_loss`, and `match_wildcard_for_single_variants` for all targets. The reported clones in analysis, watch setup, output rendering, cleanup, formatting, compatibility traversal, and test fixtures were removed. The timing helpers borrow the resolver until the worker needs an owned `Arc`. Command handlers retain owned command arguments as the endpoint of the parser's ownership handoff; the project-run request and initial watch event similarly represent one-use inputs. Diagnostic collectors take owned optional source handles that callers have finished using; their per-diagnostic clones are necessary for retained output. The compatibility entrypoint owns the argument vector handed off by the CLI, and the panic formatter consumes its one-use panic payload. None of these remaining pass-by-value reports would remove a clone by borrowing.
+
+The display offset now uses `TextSize::from_usize` at the index boundary; the source index already enforces the `u32` source-size limit. Large-corpus duration seconds use one checked `usize` conversion, and the timing fixture range uses `u64` directly. The remaining narrowing progress-bucket cast is bounded by the bucket count after clamping completed to total; other numeric casts widen values or convert addressable lengths to `u64`. The existing CLI integration and output tests cover the retained output and exit statuses; large-corpus tests cover timing and progress calculations.
+
+`CliError::exit_code` names every owned error category so a new category requires an exit-code decision. Two diagnostic fixture matches name their other current variant; a new diagnostic kind requires those fixtures to be reconsidered. The four `args.rs` fixture extractors and three `cli/mod.rs` fixture matches deliberately reject every other command or parse result. The `lexopt::Error` fallback is for an external enum and preserves its generic error conversion. The build script's two `expect` calls guard generated metadata and file output; they are outside this component's writable scope. The other `expect` reports are test assertions. Temporarily adding variants to `CliError` and `DisplayedDiagnosticKind` makes the compiler reject the changed matches with E0004.
+
+Escape-hatch counts are lexical occurrences in tracked CLI `src` and test Rust files for allows, unsafe, and integer `as` casts; unwrap/expect counts cover source text before inline test modules and exclude test files. Before is the admitted base.
+
+| allow | unsafe | production-text unwrap/expect | numeric casts |
+| --- | --- | --- | --- |
+| 7 / 7 | 9 / 9 | 7 / 7 | 16 / 11 |
