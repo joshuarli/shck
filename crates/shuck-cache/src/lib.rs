@@ -335,11 +335,9 @@ fn platform_metadata_identity(_: &fs::Metadata) -> (Option<u128>, Option<u64>, O
 
 #[cfg(unix)]
 fn unix_timestamp_ns(seconds: i64, nanoseconds: i64) -> Option<u128> {
-    if seconds < 0 || nanoseconds < 0 {
-        return None;
-    }
-
-    Some((seconds as u128) * 1_000_000_000 + nanoseconds as u128)
+    let seconds = u128::try_from(seconds).ok()?;
+    let nanoseconds = u128::try_from(nanoseconds).ok()?;
+    Some(seconds * 1_000_000_000 + nanoseconds)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -477,7 +475,7 @@ where
             return false;
         }
 
-        let max_age_ms = MAX_LAST_SEEN_AGE.as_millis() as u64;
+        let max_age_ms = MAX_LAST_SEEN_AGE.as_secs() * 1_000;
         let now = self.last_seen_ms;
 
         self.package
@@ -515,15 +513,35 @@ where
 }
 
 fn current_time_ms() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or(Duration::ZERO)
-        .as_millis() as u64
+    duration_millis(
+        SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or(Duration::ZERO),
+    )
+}
+
+fn duration_millis(duration: Duration) -> u64 {
+    match u64::try_from(duration.as_millis()) {
+        Ok(millis) => millis,
+        Err(_) => panic!("timestamp exceeds u64 milliseconds"),
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn timestamp_conversion_rejects_overflow_and_negative_parts() {
+        assert_eq!(duration_millis(Duration::from_millis(u64::MAX)), u64::MAX);
+        assert!(
+            std::panic::catch_unwind(|| duration_millis(Duration::from_secs(u64::MAX))).is_err()
+        );
+        #[cfg(unix)]
+        {
+            assert_eq!(unix_timestamp_ns(-1, 0), None);
+            assert_eq!(unix_timestamp_ns(0, -1), None);
+            assert_eq!(unix_timestamp_ns(1, 2), Some(1_000_000_002));
+        }
+    }
 
     #[derive(Debug, Clone)]
     struct TestSettings {

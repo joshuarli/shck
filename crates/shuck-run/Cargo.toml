@@ -21,3 +21,14 @@ shuck-parser = { workspace = true }
 tempfile = { workspace = true }
 deser-toml = { workspace = true }
 deser-value = { workspace = true }
+
+[lints.clippy]
+redundant_clone = "warn"
+cast_possible_truncation = "warn"
+cast_sign_loss = "warn"
+match_wildcard_for_single_variants = "warn"
+needless_pass_by_value = "warn"
+wildcard_enum_match_arm = "warn"
+
+[lints.rust]
+unsafe_code = "warn"

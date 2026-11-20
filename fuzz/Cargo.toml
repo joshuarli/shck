@@ -77,3 +77,14 @@ path = "fuzz_targets/linter_no_panic_fuzz.rs"
 test = false
 doc = false
 bench = false
+
+[lints.clippy]
+redundant_clone = "warn"
+cast_possible_truncation = "warn"
+cast_sign_loss = "warn"
+match_wildcard_for_single_variants = "warn"
+wildcard_enum_match_arm = "warn"
+needless_pass_by_value = "warn"
+
+[lints.rust]
+unsafe_code = "warn"

@@ -46,9 +46,9 @@ pub(crate) fn resolve_with_environment(
         options.version.is_none() && metadata_version.is_none() && config_version.is_none();
     let version = if let Some(version) = options.version {
         version
-    } else if let Some(version) = metadata_version.clone() {
+    } else if let Some(version) = metadata_version {
         version
-    } else if let Some(version) = config_version.clone() {
+    } else if let Some(version) = config_version {
         version
     } else {
         VersionConstraint::Latest

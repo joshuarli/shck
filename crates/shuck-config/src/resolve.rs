@@ -215,12 +215,18 @@ pub fn format_options_for_path(
 pub fn format_dialect_for_shell(shell: ShellDialect) -> Result<FormatDialect> {
     match shell {
         ShellDialect::Unknown => Err(anyhow!("unknown per-file shell dialect")),
-        shell => FormatDialect::for_shell_name(shell.as_str()).ok_or_else(|| {
-            anyhow!(
-                "per-file shell `{}` is not supported by the formatter; use `mksh` for mksh files",
-                shell.as_str()
-            )
-        }),
+        shell @ (ShellDialect::Sh
+        | ShellDialect::Bash
+        | ShellDialect::Dash
+        | ShellDialect::Ksh
+        | ShellDialect::Mksh) => {
+            FormatDialect::for_shell_name(shell.as_str()).ok_or_else(|| {
+                anyhow!(
+                    "per-file shell `{}` is not supported by the formatter; use `mksh` for mksh files",
+                    shell.as_str()
+                )
+            })
+        }
     }
 }
 
@@ -820,6 +826,20 @@ mod tests {
     use std::path::Path;
 
     use super::*;
+
+    #[test]
+    fn shell_dialects_map_or_reject_explicitly() {
+        for (shell, expected) in [
+            (ShellDialect::Sh, FormatDialect::Posix),
+            (ShellDialect::Dash, FormatDialect::Posix),
+            (ShellDialect::Bash, FormatDialect::Bash),
+            (ShellDialect::Mksh, FormatDialect::Mksh),
+        ] {
+            assert_eq!(format_dialect_for_shell(shell).unwrap(), expected);
+        }
+        assert!(format_dialect_for_shell(ShellDialect::Unknown).is_err());
+        assert!(format_dialect_for_shell(ShellDialect::Ksh).is_err());
+    }
 
     fn invalid_config() -> ShuckConfig {
         deser_toml::from_str(
