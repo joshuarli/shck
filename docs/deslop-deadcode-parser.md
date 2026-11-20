@@ -24,5 +24,3 @@ The parser's sole feature, `benchmarking`, is enabled by `crates/shuck-benchmark
 On the candidate, `TMPDIR="$PWD/.work/tmp" cargo test -p shuck-parser` exited 0 (449 unit tests, one integration test, one doctest). `TMPDIR="$PWD/.work/tmp" cpu-guard --cores 4 -- make test` exited 0 across the workspace, and `TMPDIR="$PWD/.work/tmp" cargo clippy --workspace --all-targets -- -D warnings` exited 0. `TMPDIR="$PWD/.work/tmp" RUSTFLAGS='-W unused -W unreachable_pub' cargo check -p shuck-parser --all-targets --all-features` exited 0 with no parser source warnings; Cargo reports the explicit readme metadata warning noted above.
 
 ## Needs owner
-
-`Error::parse_at`, `text_looks_like_nontrivial_arithmetic_expression`, `Parser::with_fuel`, `Parser::with_limits_and_profile`, and `ParseResult::expect_err` have no identifier matches in other workspace crates or fuzz. They are public and may have external consumers; retain them pending an owner decision. Identifier search alone cannot establish external usage.

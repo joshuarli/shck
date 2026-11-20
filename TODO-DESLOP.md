@@ -135,15 +135,6 @@ Open after the pass:
 - **Fix with:** bench-pyramid
 - **Effort:** S
 
-### DSLP-22 · P3 · Decide whether parser public APIs with no workspace consumer stay
-
-- **Area:** Needs owner · deslop · dead code
-- **Where:** crates/shuck-parser: Error::parse_at, text_looks_like_nontrivial_arithmetic_expression, Parser::with_fuel, Parser::with_limits_and_profile, ParseResult::expect_err
-- **Problem:** These public items have no consumer in another workspace crate or fuzz/; some are used only by parser tests or internally. Removing or narrowing them changes the published parser API, and external consumers are unknown.
-- **Recommendation:** Owner decides: narrow them to pub(crate) (keeping test use) if the parser has no external consumers, or keep them as supported API.
-- **Fix with:** deslop
-- **Effort:** S
-
 ### DSLP-23 · P3 · Decide whether GlobPatternBehavior::sh_glob stays public
 
 - **Area:** Needs owner · deslop · dead code

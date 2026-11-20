@@ -36,7 +36,8 @@ impl<'a> Parser<'a> {
     }
 
     /// Create a new bash parser with a custom fuel limit.
-    pub fn with_fuel(input: &'a str, max_fuel: usize) -> Self {
+    #[cfg(test)]
+    pub(crate) fn with_fuel(input: &'a str, max_fuel: usize) -> Self {
         Self::with_limits_and_profile(
             input,
             DEFAULT_MAX_AST_DEPTH,
@@ -46,7 +47,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Create a new parser with custom depth, fuel, and shell-profile settings.
-    pub fn with_limits_and_profile(
+    pub(crate) fn with_limits_and_profile(
         input: &'a str,
         max_depth: usize,
         max_fuel: usize,

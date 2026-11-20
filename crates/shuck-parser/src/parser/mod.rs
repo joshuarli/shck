@@ -115,7 +115,8 @@ fn default_parser_fuel(input: &str) -> usize {
 /// Plain numbers and plain variable names are considered trivial. The helper
 /// returns `false` for empty text and for text that cannot be parsed inside a
 /// shell arithmetic command.
-pub fn text_looks_like_nontrivial_arithmetic_expression(text: &str) -> bool {
+#[cfg(test)]
+fn text_looks_like_nontrivial_arithmetic_expression(text: &str) -> bool {
     let text = text.trim();
     if text.is_empty() {
         return false;

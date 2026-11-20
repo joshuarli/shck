@@ -34,5 +34,4 @@ pub use error::{Error, Result};
 /// Shell dialect and profile types exposed by the parser.
 pub use parser::{
     ShellDialect, ShellProfile, text_is_self_contained_arithmetic_expression,
-    text_looks_like_nontrivial_arithmetic_expression,
 };
