@@ -23,25 +23,45 @@ DSLP-10 closed: parser depth-limit errors survive recovery and are reported with
 
 DSLP-15 closed: full output shares a line index across diagnostics for each source.
 
+DSLP-6 closed: `make bench` and its tiers come from `benches/driver.py` (#14); `docs/benchmarks.md` owns the tiers. The audit filed its gaps as DSLP-16 to DSLP-20 (P3).
+
+DSLP-4 closed: the Tests step ran per component, one merged PR each:
+- parser, #17;
+- semantic, #19;
+- formatter, #22;
+- small crates, #24;
+- linter facts, #26;
+- linter rules, #27;
+- CLI, #29.
+
+The step added tests only, with no change to production behavior or snapshots. Each test closes a false pass: an absence-only assertion now has a positive control, or a boundary had no witness. Each new test failed against an injected fault before the PR was accepted. Each `docs/deslop-tests-*.md` records its slice's tiers, the baseline and candidate counts, and per-binary `finished in` durations. The host was busy, so test cost is compared from those durations, not from wall clock. No slice measurably increased cost. Mutation is not run, because `cargo-mutants` is not on the crate mirror, the same fleet gap as other tier D repositories. The slices filed DSLP-24 (P3).
+
+DSLP-5 closed: the Dead code step ran per component, one merged PR each:
+- small crates and workspace manifest, #16;
+- parser, #23;
+- semantic, #25;
+- formatter, #28;
+- linter rules, #30;
+- linter facts, #31;
+- CLI and benchmark, #33.
+
+Together they delete about 2,350 lines; most of it is `allow(dead_code)` helpers, literal-false branches and empty registration paths. They also narrow unreachable `pub` items. No CLI subcommand, flag, output format, exit code, rule code or Makefile target was removed. Each `docs/deslop-deadcode-*.md` records its consumer searches and checks.
+
+Public items that have no workspace consumer but could have external ones are not removed; they are filed as Needs owner tickets. Those, together with the stub rules from #30, are:
+- DSLP-21: indexer and discover APIs;
+- DSLP-22: parser APIs;
+- DSLP-23: `GlobPatternBehavior::sh_glob`;
+- DSLP-25: `format_range`;
+- DSLP-26: six registered stub rules that never fire.
+
+Completion review (`docs/deslop-review.md`) covered #1 to #29 and found two defects in #12's resource-limit reporting. For stdin input, `check` dropped a limit error when lint diagnostics were present (P2). Fuel exhaustion between commands reported `Fatal`, not `LimitExceeded` (P3). Both are fixed with regression tests in #32. A separate review of #30 and #31 filed DSLP-27 (P4).
+
+Open after the pass:
+- Needs owner: DSLP-21, DSLP-22, DSLP-23, DSLP-25 and DSLP-26.
+- Filed P3 and P4 findings: DSLP-11 to DSLP-14, DSLP-16 to DSLP-20, DSLP-24 and DSLP-27.
+- Not run: the Large-corpus and Full benchmark tiers, Windows builds, fuzz execution, and `cargo shear`, which needs Nix.
+
 ## Tickets
-
-### DSLP-4 · P2 · Tests: coverage, boundary gaps, mutation
-
-- **Area:** deslop · tests
-- **Where:** test suites and CI, per component
-- **Problem:** Coverage and mutation results are unmeasured; no deslop mutation lane exists.
-- **Recommendation:** Run the deslop Tests step separately for each AGENTS.md Verification component. Contracts and consumers are the component's public Rust API and downstream workspace crates, plus CLI and formats where applicable; see Verification. Accept each slice with its `cargo test -p <crate>` and `make test`, no undispositioned survivor in critical code, the test cost budget, and a green lane where tools are mirrored.
-- **Fix with:** deslop
-- **Effort:** L
-
-### DSLP-5 · P2 · Dead code: tools and debloat
-
-- **Area:** deslop · dead code
-- **Where:** whole repository, per component
-- **Problem:** No dead-code scan has run since the fork's own removals.
-- **Recommendation:** Run the deslop Dead code step separately for each AGENTS.md Verification component. Contracts and consumers are the component's public Rust API and downstream workspace crates, plus CLI and formats where applicable; see Verification. Accept each slice with its `cargo test -p <crate>` and `make test`, tools clean or allowlisted with reasons, and walk-backs filed as Needs owner tickets.
-- **Fix with:** deslop
-- **Effort:** L
 
 ### DSLP-11 · P3 · config files silently ignore unknown keys that --config rejects
 
