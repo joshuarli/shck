@@ -21,8 +21,9 @@ DSLP-7 closed: minified heredocs now end before compound separators, with regres
 
 - **Area:** deslop · types
 - **Where:** clippy and rustc lint configuration; Rust sources, per component
-- **Problem:** The strict-profile candidates in the deslop skill's tools reference have not been measured here. The parser already warns on `clippy::unwrap_used` outside tests.
+- **Problem:** The workspace census is complete, but the selected strict profile and typing findings still need component-by-component application. The parser already warns on `clippy::unwrap_used` outside tests.
 - **Recommendation:** Run the deslop Types step separately for each AGENTS.md Verification component. Contracts and affected consumers are the component's public Rust API and downstream workspace crates, plus CLI and formats where applicable; see Verification. Accept each slice with its `cargo test -p <crate>` and `make test`, clean at the adopted profile, no increase in escape hatches, and witnesses recorded.
+- **Progress:** The workspace candidate census and first slice (shuck-ast + shuck-indexer) are recorded in `docs/deslop-types.md`. Remaining: all linter, semantic, parser, formatter, and CLI components; shuck-config + shuck-discover + shuck-cache; shuck-run + shuck-benchmark + fuzz.
 - **Fix with:** deslop
 - **Effort:** L
 
