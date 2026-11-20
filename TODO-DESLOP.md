@@ -17,17 +17,6 @@ DSLP-7 closed: minified heredocs now end before compound separators, with regres
 
 ## Tickets
 
-
-### DSLP-8 · P1 · check cache keeps stale diagnostics when a transitively sourced helper changes
-
-- **Area:** deslop · diagnose · cache
-- **Where:** crates/shuck-cli/src/commands/check/analyze.rs:215 collect_source_paths (records direct source refs only) and :152 dependency_paths; crates/shuck-cli/src/commands/check/run.rs:113 dependency validation; crates/shuck-semantic source closure; documented gap docs/contracts.md:160
-- **Problem:** A file's cached diagnostics survive a change to a helper reached only through another sourced file, so check reports stale results while --no-cache reports the truth. Repro in a directory with b.sh ('b_var=1'), a.sh ('# shuck: source=b.sh lint=true' + 'source ./b.sh'), main.sh ('# shuck: source=a.sh lint=true' + 'source ./a.sh' + 'echo "$b_var"'): target/release/shuck check --cache-dir ./cache main.sh exits 0; change b.sh to 'other=1'; the cached rerun still reports no C006 for main.sh, while shuck check --no-cache main.sh reports error[C006] 'variable `b_var` is referenced before assignment'. Editing a.sh (the direct source) does invalidate main.sh, so only the transitive edge is missing.
-- **Recommendation:** Include every resolved path in the transitive source closure in the cache dependency fingerprints for the referring file (and in watch targets), invalidating on any of them; add a regression test with a three-file chain that edits the leaf.
-- **Fix with:** refactor-rust
-- **Effort:** M
-
-
 ### DSLP-3 · P2 · Types: strict profile and typing findings
 
 - **Area:** deslop · types
@@ -55,7 +44,6 @@ DSLP-7 closed: minified heredocs now end before compound separators, with regres
 - **Fix with:** deslop
 - **Effort:** L
 
-
 ### DSLP-6 · P2 · Bench: tiered benchmark entrypoint
 
 - **Area:** deslop · bench
@@ -64,7 +52,6 @@ DSLP-7 closed: minified heredocs now end before compound separators, with regres
 - **Recommendation:** Run the bench-pyramid skill as the deslop Bench step on the existing harness. Never run the Full tier. Accept: `make bench`, `bench-check` and `bench-list` work with tier and workload selectors and a preflight; gaps are filed as tickets ranked by the risk of a missed regression.
 - **Fix with:** bench-pyramid
 - **Effort:** M
-
 
 ### DSLP-9 · P2 · parse-diagnostic enrichment is quadratic in diagnostics times lines
 
@@ -75,7 +62,6 @@ DSLP-7 closed: minified heredocs now end before compound separators, with regres
 - **Fix with:** refactor-rust
 - **Effort:** M
 
-
 ### DSLP-10 · P2 · nesting past the parser depth limit floods false C016 errors on valid scripts
 
 - **Area:** deslop · diagnose · parser diagnostics
@@ -84,7 +70,6 @@ DSLP-7 closed: minified heredocs now end before compound separators, with regres
 - **Recommendation:** Surface the recorded resource-limit error (for example 'AST nesting too deep') and suppress the recovery-derived parse-rule diagnostics that follow from it; do not treat 'then'/'do' as stray closing keywords when the opener was dropped by the depth cap.
 - **Fix with:** refactor-rust
 - **Effort:** M
-
 
 ### DSLP-11 · P3 · config files silently ignore unknown keys that --config rejects
 
@@ -95,7 +80,6 @@ DSLP-7 closed: minified heredocs now end before compound separators, with regres
 - **Fix with:** refactor-rust
 - **Effort:** S
 
-
 ### DSLP-12 · P3 · zsh leftovers advertise shells and config keys the code rejects or ignores
 
 - **Area:** deslop · diagnose · config and help text
@@ -104,7 +88,6 @@ DSLP-7 closed: minified heredocs now end before compound separators, with regres
 - **Recommendation:** Remove zsh from the three help strings and from configuration_metadata, or restore it end to end; validate [run] the same way in check and run; replace the empty test with one that asserts --shell zsh is rejected.
 - **Fix with:** refactor-rust
 - **Effort:** S
-
 
 ### DSLP-13 · P4 · C098 spec rationale contradicts its safe fix
 

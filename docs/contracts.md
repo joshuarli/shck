@@ -153,8 +153,9 @@ lint-sources = true
 
 `lint-sources = false` downgrades `lint=true` to symbol import only. `source-paths` roots accept a relative path, a subpath joined onto each root, or `SCRIPTDIR`. The ShellCheck compatibility flags `--external-sources` and `--source-path` remain separate and drive the same closure machinery.
 
+Cached checks and watch mode track paths used by the resolved transitive source closure, including missing candidates that can take precedence when created.
+
 ## Not implemented
 
 - `zsh_plugin` and `zsh_theme` activations, plugin requests, and request-site contracts have schema and plumbing but no active producer.
 - Custom TOML contracts support only `when = "always"` and cannot declare ambient-only variables.
-- Helper dependency paths from nested source closure are not currently included in cache fingerprints or watch targets.

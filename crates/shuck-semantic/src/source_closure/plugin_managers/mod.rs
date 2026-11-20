@@ -76,8 +76,10 @@ pub(super) fn dedup_plugin_requests(requests: Vec<PluginRequest>) -> Vec<crate::
     out
 }
 
-pub(super) fn sorted_dependency_paths(_paths: Vec<PathBuf>) -> Vec<PathBuf> {
-    Vec::new()
+pub(super) fn sorted_dependency_paths(mut paths: Vec<PathBuf>) -> Vec<PathBuf> {
+    paths.sort();
+    paths.dedup();
+    paths
 }
 
 
