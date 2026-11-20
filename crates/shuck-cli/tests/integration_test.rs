@@ -2665,3 +2665,15 @@ fn nesting_limit_is_reported_alongside_lint_diagnostics() {
     assert!(text.contains("C006"), "{text}");
     assert!(!text.contains("C016"), "{text}");
 }
+
+#[test]
+fn operator_chain_limit_is_reported_alongside_lint_diagnostics() {
+    let dir = tempdir().unwrap();
+    let source = format!("echo $value\n{}a\n", "a | ".repeat(2_000));
+    fs::write(dir.path().join("nested.sh"), source).unwrap();
+    let output = run_check_output(dir.path(), &["check", "--no-cache", "nested.sh"]);
+    let text = stdout_string(&output);
+    assert!(!output.status.success());
+    assert!(text.contains("pipeline too long"), "{text}");
+    assert!(text.contains("C006"), "{text}");
+}

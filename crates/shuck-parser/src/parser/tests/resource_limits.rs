@@ -11,10 +11,10 @@ fn parse_bash(input: &str) -> ParseResult {
 }
 
 fn assert_limit_error(output: &ParseResult, needle: &str) {
-    assert!(
-        output.is_err(),
-        "expected a resource-limit error, got {:?}",
-        output.status
+    assert_eq!(
+        output.status,
+        ParseStatus::LimitExceeded,
+        "expected a resource-limit error"
     );
     assert!(
         output

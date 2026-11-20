@@ -63,6 +63,7 @@ impl<'a> Parser<'a> {
         let mut stmts = Vec::new();
         let mut diagnostics = Vec::new();
         let mut terminal_error = None;
+        let mut limit_exceeded = false;
         if let Some(error) = self.oversized_input.take() {
             let Error::Parse { message, .. } = error.clone();
             diagnostics.push(ParseDiagnostic {
@@ -133,6 +134,7 @@ impl<'a> Parser<'a> {
                             span: Span::from_positions(command_start_span.start, end),
                         });
                         terminal_error = Some(error);
+                        limit_exceeded = true;
                         break;
                     }
                 }
@@ -142,6 +144,7 @@ impl<'a> Parser<'a> {
                     {
                         diagnostics.push(self.parse_diagnostic_from_error(limit_error.clone()));
                         terminal_error = Some(limit_error);
+                        limit_exceeded = true;
                         break;
                     }
                     diagnostics.push(self.parse_diagnostic_from_error(error.clone()));
@@ -165,7 +168,9 @@ impl<'a> Parser<'a> {
         };
         self.attach_comments_to_file(&mut file);
 
-        let status = if terminal_error.is_some() {
+        let status = if limit_exceeded {
+            ParseStatus::LimitExceeded
+        } else if terminal_error.is_some() {
             ParseStatus::Fatal
         } else if diagnostics.is_empty() {
             ParseStatus::Clean

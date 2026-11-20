@@ -9,7 +9,7 @@ use shuck_config::resolve::{
 use shuck_linter::{Applicability, LinterSettings, RuleSet, ShellCheckCodeMap, ShellDialect};
 use shuck_parser::{
     Error as ParseError,
-    parser::{ParseResult, Parser},
+    parser::{ParseResult, ParseStatus, Parser},
 };
 
 use super::cache::CheckCacheData;
@@ -131,10 +131,7 @@ fn analyze_shell_file(
     }
 
     let parse_failed = parse_result.is_err();
-    let limit_error = matches!(
-        &parse_result.terminal_error,
-        Some(ParseError::Parse { message, .. }) if message.starts_with("AST nesting too deep")
-    );
+    let limit_error = parse_result.status == ParseStatus::LimitExceeded;
     let mut displayed = display_lint_diagnostics(&pending, &source, &diagnostics, include_source);
     if parse_failed && (displayed.is_empty() || limit_error) {
         let ParseError::Parse {
