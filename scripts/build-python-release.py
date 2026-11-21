@@ -1,18 +1,25 @@
 #!/usr/bin/env python3
 # /// script
-# requires-python = ">=3.12"
+# requires-python = ">=3.15"
 # dependencies = [
 #     "build==1.6.1",
+#     "laputa-buildlib==0.2.0",
 #     "setuptools==84.0.0",
 #     "wheel==0.48.0",
 # ]
+#
+# [[tool.uv.index]]
+# name = "stuff"
+# url = "https://pypi.17166969.xyz/current/simple/"
+#
+# [tool.uv.sources]
+# laputa-buildlib = { index = "stuff" }
 # ///
 """Build platform-specific shuck-cli wheels from staged binaries or release assets."""
 
 from __future__ import annotations
 
 import argparse
-import hashlib
 import os
 import shutil
 import subprocess
@@ -21,11 +28,16 @@ import tarfile
 import tempfile
 import zipfile
 from dataclasses import dataclass
+from importlib.metadata import version
 from pathlib import Path
+
+import buildlib
+from buildlib import hashing
 
 
 PYTHON_TAG = "py3"
 ABI_TAG = "none"
+BUILDLIB_VERSION = "0.2.0"
 
 
 @dataclass(frozen=True)
@@ -101,6 +113,18 @@ def parse_args() -> argparse.Namespace:
     build_release.add_argument("--assets-dir", required=True)
     build_release.add_argument("--out-dir", required=True)
 
+    verify = subparsers.add_parser(
+        "verify",
+        help="Verify a release archive's checksum and packaged binary without building a wheel",
+    )
+    verify.add_argument("--target", required=True, choices=sorted(TARGETS))
+    verify.add_argument("--archive", required=True)
+
+    subparsers.add_parser(
+        "provenance",
+        help="Print the imported laputa-buildlib version and location",
+    )
+
     return parser.parse_args()
 
 
@@ -124,15 +148,7 @@ def find_archive_binary(extracted_root: Path, spec: TargetSpec) -> Path:
     return matches[0]
 
 
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def verify_archive_checksum(archive_path: Path) -> None:
+def verify_archive_checksum(archive_path: Path) -> str:
     """Check `archive_path` against the `<archive>.sha256` file published beside it."""
     checksum_path = archive_path.with_name(archive_path.name + ".sha256")
     if not checksum_path.is_file():
@@ -141,15 +157,18 @@ def verify_archive_checksum(archive_path: Path) -> None:
     if not fields:
         raise SystemExit(f"empty checksum file: {checksum_path}")
     expected = fields[0].lower()
+    if not hashing.is_sha256(expected):
+        raise SystemExit(f"invalid sha256 in {checksum_path}: {expected}")
     if len(fields) > 1 and fields[1].lstrip("*") != archive_path.name:
         raise SystemExit(
             f"{checksum_path} lists {fields[1].lstrip('*')}, expected {archive_path.name}"
         )
-    actual = sha256_file(archive_path)
+    actual = hashing.sha256_file(archive_path)
     if actual != expected:
         raise SystemExit(
             f"checksum mismatch for {archive_path.name}: expected {expected}, got {actual}"
         )
+    return actual
 
 
 def extract_archive(archive_path: Path, spec: TargetSpec, tempdir: Path) -> Path:
@@ -165,6 +184,20 @@ def extract_archive(archive_path: Path, spec: TargetSpec, tempdir: Path) -> Path
             archive.extractall(extracted_root, filter="data")
 
     return find_archive_binary(extracted_root, spec)
+
+
+def verify_release_archive(spec: TargetSpec, archive: str) -> None:
+    archive_path = Path(archive).resolve()
+    if not archive_path.is_file():
+        raise SystemExit(f"release archive not found: {archive_path}")
+    digest = verify_archive_checksum(archive_path)
+    with tempfile.TemporaryDirectory(prefix="shuck-python-verify-") as tempdir:
+        source_binary = extract_archive(archive_path, spec, Path(tempdir))
+        size = source_binary.stat().st_size
+    print(
+        f"verified {archive_path.name} for {spec.target}: "
+        f"sha256 {digest}, {spec.packaged_binary_name} {size} bytes"
+    )
 
 
 def prepare_build_tree(spec: TargetSpec, source_binary: Path) -> Path:
@@ -260,8 +293,19 @@ def build_release_wheels(assets_dir: Path, out_dir: Path) -> None:
         )
 
 
+def require_pinned_buildlib() -> None:
+    found = version("laputa-buildlib")
+    if found != BUILDLIB_VERSION:
+        raise SystemExit(f"laputa-buildlib {found} imported, expected {BUILDLIB_VERSION}")
+
+
 def main() -> int:
     args = parse_args()
+    require_pinned_buildlib()
+
+    if args.command == "provenance":
+        print(f"laputa-buildlib {version('laputa-buildlib')} at {buildlib.__file__}")
+        return 0
 
     if args.command == "build-wheel":
         spec = TARGETS[args.target]
@@ -278,6 +322,10 @@ def main() -> int:
             Path(args.assets_dir).resolve(),
             Path(args.out_dir).resolve(),
         )
+        return 0
+
+    if args.command == "verify":
+        verify_release_archive(TARGETS[args.target], args.archive)
         return 0
 
     raise AssertionError(f"unhandled command: {args.command}")
