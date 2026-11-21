@@ -147,7 +147,20 @@ the repository's lint entrypoint is `make check`, and its clippy step fails ther
 Nix and `cargo-shear` are absent on this host, so `make check` cannot reach its second
 step at either revision; the clippy and script steps were run separately instead.
 
-**Cold capsules.** PENDING.
+**Cold capsules.** Each capsule mounted a bare mirror of the lane commit read-only,
+cloned it inside as an unprivileged `runner`, installed only
+`git ca-certificates curl xz-utils make` (plus `musl` on 26.04), and ran
+`make test-python-release` with `TMPDIR` at the distribution default. No buildlib cache
+was seeded. `CAPSULE_OK` is printed after the second empty-status check.
+
+| Capsule | Bootstrap branch | Tests | `git status --porcelain` | Exit | Cold wall time | Cold bytes |
+| --- | --- | --- | --- | --- | --- | --- |
+| `ubuntu:24.04`, arm64 native | `uv` 0.13.7, CPython 3.15.2 | 18 tests, OK | empty | 0 | 27.5 s | uv 15,896,996 B + uv-managed CPython 30.3 MiB + wheel 25,193 B |
+| `ubuntu:26.04` + `musl` 1.2.5, arm64 native | `python-build` CPython 3.15.1 | 18 tests, OK | empty | 0 | 21.2 s | python-build 8,425,748 B + wheel 25,193 B |
+
+The clone was at `2f732e097c8fea724ec521e227015e6bd10783bb`; the only later commit is
+this document. Nothing was published. These durations are operational cold-capsule cost,
+not benchmarks.
 
 ## 6. Benefit and cost
 
@@ -159,8 +172,14 @@ step at either revision; the clippy and script steps were run separately instead
 - **Correctness gain.** A malformed sidecar digest is rejected with an explicit error
   before hashing, and the runtime refuses a buildlib that is not 0.2.0. The no-uv path
   verifies the interpreter archives, uv archive and wheel by size and SHA-256 before use.
-- **Cold setup.** PENDING.
-- **Warm no-op.** PENDING.
+- **Cold setup.** The 24.04 capsule downloaded 15,896,996 B of uv, uv's managed CPython
+  3.15.2 (30.3 MiB as uv reports it) and the 25,193 B wheel; the 26.04 capsule downloaded
+  8,425,748 B of python-build and the 25,193 B wheel. Cold wall times were 27.5 s and
+  21.2 s including apt setup and the clone.
+- **Warm no-op.** With a warm bootstrap cache, `bootstrap/buildlib-run -- -c pass` took
+  0.35/0.49/0.35 s, the 18-test suite took 1.46/1.15/0.97 s, and the uv `provenance`
+  path took 0.21/0.14/0.10 s. The added cost is the pinned interpreter exec and import;
+  it does not appear in `make test`, which never fetches or starts Python.
 - **Not justified / not done.** The target map, archive extraction, the sidecar format
   and the wheel tags were not moved to buildlib: it models neither gnu/Windows targets
   nor wheel tags, and it has no extraction or sidecar reader. No release manifest,
