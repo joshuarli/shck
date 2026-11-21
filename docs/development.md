@@ -101,6 +101,36 @@ make verify-release TARGET=aarch64-apple-darwin
 
 The release build uses the `dist` Cargo profile (`lto = "fat"`, one codegen unit, stripped).
 
+## Python release builder
+
+`scripts/build-python-release.py` builds the optional platform wheels from staged
+binaries or downloaded release assets. It pins `laputa-buildlib==0.2.0` from the stuff
+index in its PEP 723 header, so the ordinary path is:
+
+```sh
+TMPDIR=.work/tmp uv run --script scripts/build-python-release.py build-wheel \
+  --target aarch64-apple-darwin --binary target/debug/shuck --out-dir dist/python
+TMPDIR=.work/tmp uv run --script scripts/build-python-release.py verify \
+  --target aarch64-apple-darwin --archive shuck-cli-aarch64-apple-darwin.tar.xz
+TMPDIR=.work/tmp uv run --script scripts/build-python-release.py provenance
+```
+
+When uv is unavailable, the vendored `bootstrap/` shim runs the same script on a pinned
+Python with the pinned wheel:
+
+```sh
+make test-python-release
+sh bootstrap/buildlib-run -- scripts/build-python-release.py verify \
+  --target aarch64-apple-darwin --archive shuck-cli-aarch64-apple-darwin.tar.xz
+```
+
+The bootstrap needs `curl`, CA certificates, `tar`, `xz` and `sha256sum` or `shasum`.
+On Linux it takes python-build when musl 1.2.5 or newer is installed (Debian 13,
+Ubuntu 26.04 and later, or Alpine); glibc hosts without a compatible musl loader take the
+pinned uv release and its managed CPython. Apple Silicon needs macOS 27 or newer. The
+pins and the packaging policy that stays local are recorded in
+[buildlib adoption](buildlib-adoption.md).
+
 ## Commit messages
 
 The repository uses Conventional Commits: `type(scope): subject`, with an imperative, lowercase subject of at most 72 characters. Append `!` or a `BREAKING CHANGE:` footer for breaking changes. PRs are squash-merged, so the PR title is the commit that lands on `main`.

@@ -337,6 +337,10 @@ Override the cache root with `--cache-dir` or `SHUCK_CACHE_DIR`.
 
 Disable caching with `--no-cache` or remove a project's cache entries with `shuck clean [PATH]`.
 
+## Development
+
+Build, test, lint and release commands are documented in [Development](docs/development.md). The same document lists the Python release builder's buildlib pin and bootstrap prerequisites.
+
 ## Rust API
 
 Shuck's parser and analysis crates are published for embedders. Their supported pre-1.0 integration path and selective compatibility guarantees are documented in [Rust API compatibility](docs/rust-api-compatibility.md).
