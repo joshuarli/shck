@@ -73,10 +73,12 @@ $ BUILDLIB_CACHE=$PWD/.work/tmp/buildlib-cache bootstrap/buildlib-run -- \
 .../.work/tmp/buildlib-cache/aaee620f0478544b1d32075b44de48e69bbcbd8b974d5f599d037494d59f4b4a/buildlib.whl/buildlib/__init__.py
 ```
 
-Package pin, uv lock and bootstrap lock all name the same wheel digest. The source
-revision is recorded separately from the package version. There are no local differences
-in either vendored file. Reverting this slice restores the base script and leaves every
-pin untouched; no release archive, sidecar or lock format changed.
+Package pin, uv lock and bootstrap lock all name the same wheel digest. The nine
+installed `buildlib` modules were compared with the pinned wheel and matched
+byte-for-byte. The source revision is recorded separately from the package version.
+There are no local differences in either vendored file. Reverting this slice restores
+the base script and leaves every pin untouched; no release archive, sidecar or lock
+format changed.
 
 ## 3. Boundary tests
 
@@ -158,9 +160,9 @@ was seeded. `CAPSULE_OK` is printed after the second empty-status check.
 | `ubuntu:24.04`, arm64 native | `uv` 0.13.7, CPython 3.15.2 | 18 tests, OK | empty | 0 | 27.5 s | uv 15,896,996 B + uv-managed CPython 30.3 MiB + wheel 25,193 B |
 | `ubuntu:26.04` + `musl` 1.2.5, arm64 native | `python-build` CPython 3.15.1 | 18 tests, OK | empty | 0 | 21.2 s | python-build 8,425,748 B + wheel 25,193 B |
 
-The clone was at `2f732e097c8fea724ec521e227015e6bd10783bb`; the only later commit is
-this document. Nothing was published. These durations are operational cold-capsule cost,
-not benchmarks.
+The clone was at `2f732e097c8fea724ec521e227015e6bd10783bb`; later commits are
+documentation only and the gates do not execute them. Nothing was published. These
+durations are operational cold-capsule cost, not benchmarks.
 
 ## 6. Benefit and cost
 
