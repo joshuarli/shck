@@ -2,7 +2,8 @@
 
 This is the BLD-3 record for `shck`. It covers the verified release-archive handling in
 `scripts/build-python-release.py`; it does not change the release workflow, the published
-asset names, the wheel layout or any public Make target.
+asset names, the wheel layout or any existing public Make target. It adds the opt-in
+`test-python-release` target.
 
 ## 1. Bound change
 
@@ -140,7 +141,7 @@ before and after.
 | `TMPDIR=.work/tmp make lint` | exit 2, `No rule to make target 'lint'` | exit 2, same |
 | `cargo clippy --workspace --all-targets --all-features -- -D warnings` | exit 101, `wildcard_enum_match_arm` at `crates/shuck-benchmark/examples/large_corpus_profile.rs:590` | exit 101, same error |
 | `TMPDIR=.work/tmp make check-scripts` | exit 0 | exit 0 |
-| `TMPDIR=.work/tmp make test-python-release` | not applicable (no script) | exit 0, 18 tests |
+| `TMPDIR=.work/tmp make test-python-release` | not applicable (no target or tests) | exit 0, 18 tests |
 | `uv run --script scripts/build-python-release.py provenance` | not applicable | exit 0, buildlib 0.2.0 |
 | `uv run --script scripts/build-python-release.py verify ...` | not applicable | exit 0 |
 
