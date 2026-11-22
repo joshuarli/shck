@@ -18,6 +18,8 @@ The workspace pins `nightly-2026-09-15` in `rust-toolchain.toml`. Fuzz targets u
 
 ## Verification
 
+`make clean` removes `./target` and refuses symlinked outputs.
+
 - `make test`: warm 14.88 s (macOS, 2026-11-19); workspace unit, integration and doc tests. `make check`: warm 0.45 s to failure (macOS, 2026-11-19); clippy passed, Nix unavailable before cargo shear and script checks. It protects lint, dependency usage and script checks; `make check-scripts` passed independently. No `make lint` target.
 - CLI flags, exit codes, JSON and config formats: `crates/shuck-cli/tests/integration_test.rs`; managed shell commands: `crates/shuck-cli/tests/run_cli.rs`.
 - Parser and linter Rust APIs: crate unit tests; supported API and consumers: [Rust API](docs/rust-api-compatibility.md). Formatter output: `crates/shuck-formatter/tests/format_cases.rs`. No network endpoint contract.
