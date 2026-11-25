@@ -35,14 +35,7 @@ trap 'exit 143' TERM
 verify_sha256() {
   file=$1
   expected=$2
-  if command -v sha256sum >/dev/null 2>&1; then
-    echo "$expected  $file" | sha256sum -c -
-  elif command -v shasum >/dev/null 2>&1; then
-    echo "$expected  $file" | shasum -a 256 -c -
-  else
-    echo "error: neither sha256sum nor shasum is available; refusing to extract an unverified archive" >&2
-    exit 1
-  fi
+  echo "$expected  $file" | sha256sum -c -
 }
 
 download_archive() {
@@ -234,7 +227,8 @@ sanitize_path() {
 if [ "$dry_run" = false ]; then
   mkdir -p "$scripts_dir" "$clones_dir"
   if [ ! -f "$manifest" ]; then
-    printf 'download_date: %s\nrepos:\n' "$(date +%Y-%m-%d)" > "$manifest"
+    download_date=$(date +%Y-%m-%d) || :
+    printf 'download_date: %s\nrepos:\n' "$download_date" > "$manifest"
   fi
 fi
 
@@ -288,10 +282,11 @@ for repo in $REPOS; do
   extracted=$(find "$scripts_dir" -name "${repo_key}__*" -type f | wc -l | tr -d ' ')
   echo "  Extracted $extracted scripts from $repo"
 
+  repo_date=$(date +%Y-%m-%d) || :
   cat >> "$manifest" <<EOF
   - repo: $repo
     commit: $commit_sha
-    date: $(date +%Y-%m-%d)
+    date: $repo_date
     scripts_extracted: $extracted
 EOF
 
