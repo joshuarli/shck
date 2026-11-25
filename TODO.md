@@ -1,5 +1,5 @@
 Prefix: SHCK
-Next: 11
+Next: 13
 
 # Open work
 ### SHCK-1 · P3 · config files silently ignore unknown keys that --config rejects
@@ -26,7 +26,7 @@ Next: 11
 - **Where:** crates/shuck-ast/src/span.rs (TextSize::from_usize, Position::advance); CLI input reading
 - **Problem:** Source positions are packed in u32. The first Types slice made the conversion checked, so an input whose offsets, lines or columns exceed u32::MAX now panics where it previously wrapped and reported wrong spans. Not reproduced: it needs an input over 4 GiB.
 - **Recommendation:** Reject inputs longer than u32::MAX bytes at the CLI and library entry points with an ordinary error before parsing, so the checked conversion is never reached by user input.
-- **Fix with:** deslop
+- **Fix with:** none
 - **Effort:** S
 
 ### SHCK-4 · P3 · Bench driver has no regression verdict
@@ -80,7 +80,25 @@ Next: 11
 - **Where:** crates/shuck-linter rule X047 fixture; parity silent-fixture allowlist
 - **Problem:** The X047 rule-specific fixture produces no diagnostic, so the rule has no positive witness and the parity test allowlists it as silent. A regression that stops X047 from firing would pass.
 - **Recommendation:** Add a fixture case that triggers X047 and remove it from the silent-fixture allowlist, or record why the rule cannot fire.
-- **Fix with:** deslop
+- **Fix with:** none
+- **Effort:** S
+
+### SHCK-11 · P3 · Review remaining zsh semantic surfaces and dormant paths
+
+- **Area:** semantic · zsh
+- **Where:** crates/shuck-semantic/src/lib.rs; crates/shuck-semantic/src/source_closure/plugin_managers/
+- **Problem:** Public zsh resolver and option surfaces and dormant zsh paths remain after zsh support was removed; their consumers and behavior have not been established, so removing them could break supported callers or analysis.
+- **Recommendation:** Trace consumers and reachable behavior, decide which surfaces remain supported, and remove only paths proven unused with appropriate API and behavior coverage.
+- **Fix with:** dead-code-archaeology
+- **Effort:** M
+
+### SHCK-12 · P3 · Cover extended selector specificity against ignored rules
+
+- **Area:** tests · rule selection
+- **Where:** crates/shuck-linter/src/rule_selector.rs:80; crates/shuck-linter/tests/public_api.rs:93
+- **Problem:** The selection test does not detect omission of extend-select selectors from the specificity levels when select already supplies those levels, leaving precedence behavior unguarded.
+- **Recommendation:** Add a selection case where an extended selector supplies a distinct specificity and competes with an ignore selector, asserting the resulting rules.
+- **Fix with:** none
 - **Effort:** S
 
 ### SHCK-10 · P4 · C098 spec rationale contradicts its safe fix
