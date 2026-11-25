@@ -302,6 +302,17 @@ fn check_stdin_filename_is_optional_and_controls_per_file_settings() {
 }
 
 #[test]
+fn check_case_statement_writes_nothing_to_stderr() {
+    let tempdir = tempdir().unwrap();
+    let mut cmd = Command::cargo_bin("shuck").unwrap();
+    configure_env_cache(&mut cmd, tempdir.path());
+    cmd.current_dir(tempdir.path())
+        .args(["check", "--stdin-filename", "case.sh", "--output-format", "concise"])
+        .write_stdin("#!/bin/sh\ncase \"$1\" in\n  a) echo a ;;\n  *) echo other ;;\nesac\n");
+    cmd.assert().stderr("");
+}
+
+#[test]
 fn check_stdin_loads_project_configuration() {
     let tempdir = tempdir().unwrap();
     fs::write(
