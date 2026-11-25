@@ -144,9 +144,9 @@ large-corpus-report:
 	$(MAKE) --no-print-directory test-large-corpus >"$(LARGE_CORPUS_REPORT_LOG)" 2>&1 || status=$$?; \
 	$(UV_PYTHON) ./scripts/compact_large_corpus_log.py <"$(LARGE_CORPUS_REPORT_LOG)"; \
 	$(UV_PYTHON) ./scripts/large_corpus_report.py --log "$(LARGE_CORPUS_REPORT_LOG)" --output "$(LARGE_CORPUS_REPORT_HTML)"; \
-	echo "large corpus HTML report: $$(cd . && pwd)/$(LARGE_CORPUS_REPORT_HTML)"; \
+	printf '%s\n' "large corpus HTML report: $$(cd . && pwd)/$(LARGE_CORPUS_REPORT_HTML)"; \
 	if [ $$status -ne 0 ]; then \
-		echo "large corpus run exited with $$status; the HTML report was still generated from the captured log"; \
+		printf '%s\n' "large corpus run exited with $$status; the HTML report was still generated from the captured log"; \
 	fi
 
 large-corpus-report-open: large-corpus-report
