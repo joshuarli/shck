@@ -487,7 +487,7 @@ fn for_each_case_pattern_group(
     }
     fn visit_compound(cc: &CompoundCommand, f: &mut impl FnMut(usize, Span, &str), source: &str) {
         match cc {
-            CompoundCommand::Case(c) => { eprintln!("DBG case items={}", c.cases.len());
+            CompoundCommand::Case(c) => {
                 for item in &c.cases {
                     for pattern in &item.patterns {
                         visit_pattern(pattern, f, source);
